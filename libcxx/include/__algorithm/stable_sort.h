@@ -13,6 +13,7 @@
 #include <__algorithm/comp_ref_type.h>
 #include <__algorithm/inplace_merge.h>
 #include <__algorithm/iterator_operations.h>
+#include <__algorithm/radix_sort.h>
 #include <__algorithm/sort.h>
 #include <__config>
 #include <__cstddef/ptrdiff_t.h>
@@ -21,6 +22,9 @@
 #include <__memory/destruct_n.h>
 #include <__memory/unique_ptr.h>
 #include <__memory/unique_temporary_buffer.h>
+#include <__type_traits/integral_constant.h>
+#include <__type_traits/is_integral.h>
+#include <__type_traits/is_same.h>
 #include <__type_traits/is_trivially_assignable.h>
 #include <__utility/move.h>
 #include <__utility/pair.h>
@@ -134,20 +138,24 @@ _LIBCPP_HIDE_FROM_ABI void __merge_move_assign(
     *__result = _Ops::__iter_move(__first2);
 }
 
-template <class _AlgPolicy, class _Compare, class _RandomAccessIterator>
-void __stable_sort(_RandomAccessIterator __first,
-                   _RandomAccessIterator __last,
-                   _Compare __comp,
-                   typename iterator_traits<_RandomAccessIterator>::difference_type __len,
-                   typename iterator_traits<_RandomAccessIterator>::value_type* __buff,
-                   ptrdiff_t __buff_size);
+template <class _AlgPolicy, class _Compare, class _RandomAccessIterator, bool _EnableRadixSort>
+void __stable_sort(
+    _RandomAccessIterator __first,
+    _RandomAccessIterator __last,
+    _Compare __comp,
+    typename iterator_traits<_RandomAccessIterator>::difference_type __len,
+    typename iterator_traits<_RandomAccessIterator>::value_type* __buff,
+    ptrdiff_t __buff_size,
+    _BoolConstant<_EnableRadixSort>);
 
-template <class _AlgPolicy, class _Compare, class _RandomAccessIterator>
-void __stable_sort_move(_RandomAccessIterator __first1,
-                        _RandomAccessIterator __last1,
-                        _Compare __comp,
-                        typename iterator_traits<_RandomAccessIterator>::difference_type __len,
-                        typename iterator_traits<_RandomAccessIterator>::value_type* __first2) {
+template <class _AlgPolicy, class _Compare, class _RandomAccessIterator, bool _EnableRadixSort>
+void __stable_sort_move(
+    _RandomAccessIterator __first1,
+    _RandomAccessIterator __last1,
+    _Compare __comp,
+    typename iterator_traits<_RandomAccessIterator>::difference_type __len,
+    typename iterator_traits<_RandomAccessIterator>::value_type* __first2,
+    _BoolConstant<_EnableRadixSort> __rs) {
   using _Ops = _IterOps<_AlgPolicy>;
 
   typedef typename iterator_traits<_RandomAccessIterator>::value_type value_type;
@@ -180,8 +188,8 @@ void __stable_sort_move(_RandomAccessIterator __first1,
   }
   typename iterator_traits<_RandomAccessIterator>::difference_type __l2 = __len / 2;
   _RandomAccessIterator __m                                             = __first1 + __l2;
-  std::__stable_sort<_AlgPolicy, _Compare>(__first1, __m, __comp, __l2, __first2, __l2);
-  std::__stable_sort<_AlgPolicy, _Compare>(__m, __last1, __comp, __len - __l2, __first2 + __l2, __len - __l2);
+  std::__stable_sort<_AlgPolicy, _Compare>(__first1, __m, __comp, __l2, __first2, __l2, __rs);
+  std::__stable_sort<_AlgPolicy, _Compare>(__m, __last1, __comp, __len - __l2, __first2 + __l2, __len - __l2, __rs);
   std::__merge_move_construct<_AlgPolicy, _Compare>(__first1, __m, __m, __last1, __first2, __comp);
 }
 
@@ -190,13 +198,35 @@ struct __stable_sort_switch {
   static const unsigned value = 128 * is_trivially_copy_assignable<_Tp>::value;
 };
 
-template <class _AlgPolicy, class _Compare, class _RandomAccessIterator>
-void __stable_sort(_RandomAccessIterator __first,
-                   _RandomAccessIterator __last,
-                   _Compare __comp,
-                   typename iterator_traits<_RandomAccessIterator>::difference_type __len,
-                   typename iterator_traits<_RandomAccessIterator>::value_type* __buff,
-                   ptrdiff_t __buff_size) {
+template <class _Tp, class = void>
+struct __radix_sort_min_switch {
+  static const unsigned value = (1 << 10);
+};
+
+template <class _Int8>
+struct __radix_sort_min_switch<_Int8, enable_if_t<is_integral_v<_Int8> && sizeof(_Int8) == 1>> {
+  static const unsigned value = (1 << 8);
+};
+
+template <class _Tp, class = void>
+struct __radix_sort_max_switch {
+  static const unsigned value = (1 << 16);
+};
+
+template <class _Int64>
+struct __radix_sort_max_switch<_Int64, enable_if_t<is_integral_v<_Int64> && sizeof(_Int64) == 8>> {
+  static const unsigned value = (1 << 15);
+};
+
+template <class _AlgPolicy, class _Compare, class _RandomAccessIterator, bool _EnableRadixSort>
+void __stable_sort(
+    _RandomAccessIterator __first,
+    _RandomAccessIterator __last,
+    _Compare __comp,
+    typename iterator_traits<_RandomAccessIterator>::difference_type __len,
+    typename iterator_traits<_RandomAccessIterator>::value_type* __buff,
+    ptrdiff_t __buff_size,
+    _BoolConstant<_EnableRadixSort> __rs) {
   typedef typename iterator_traits<_RandomAccessIterator>::value_type value_type;
   typedef typename iterator_traits<_RandomAccessIterator>::difference_type difference_type;
   switch (__len) {
@@ -212,14 +242,20 @@ void __stable_sort(_RandomAccessIterator __first,
     std::__insertion_sort<_AlgPolicy, _Compare>(__first, __last, __comp);
     return;
   }
+  if (__len <= __buff_size && __len >= static_cast<difference_type>(__radix_sort_min_switch<value_type>::value) &&
+      __len <= static_cast<difference_type>(__radix_sort_max_switch<value_type>::value)) {
+    if (std::__radix_sort(__first, __last, __buff, __rs)) {
+      return;
+    }
+  }
   typename iterator_traits<_RandomAccessIterator>::difference_type __l2 = __len / 2;
   _RandomAccessIterator __m                                             = __first + __l2;
   if (__len <= __buff_size) {
     __destruct_n __d(0);
     unique_ptr<value_type, __destruct_n&> __h2(__buff, __d);
-    std::__stable_sort_move<_AlgPolicy, _Compare>(__first, __m, __comp, __l2, __buff);
+    std::__stable_sort_move<_AlgPolicy, _Compare>(__first, __m, __comp, __l2, __buff, __rs);
     __d.__set(__l2, (value_type*)nullptr);
-    std::__stable_sort_move<_AlgPolicy, _Compare>(__m, __last, __comp, __len - __l2, __buff + __l2);
+    std::__stable_sort_move<_AlgPolicy, _Compare>(__m, __last, __comp, __len - __l2, __buff + __l2, __rs);
     __d.__set(__len, (value_type*)nullptr);
     std::__merge_move_assign<_AlgPolicy, _Compare>(
         __buff, __buff + __l2, __buff + __l2, __buff + __len, __first, __comp);
@@ -230,14 +266,17 @@ void __stable_sort(_RandomAccessIterator __first,
     //                                  __first, __comp);
     return;
   }
-  std::__stable_sort<_AlgPolicy, _Compare>(__first, __m, __comp, __l2, __buff, __buff_size);
-  std::__stable_sort<_AlgPolicy, _Compare>(__m, __last, __comp, __len - __l2, __buff, __buff_size);
+  std::__stable_sort<_AlgPolicy, _Compare>(__first, __m, __comp, __l2, __buff, __buff_size, __rs);
+  std::__stable_sort<_AlgPolicy, _Compare>(__m, __last, __comp, __len - __l2, __buff, __buff_size, __rs);
   std::__inplace_merge<_AlgPolicy>(__first, __m, __last, __comp, __l2, __len - __l2, __buff, __buff_size);
 }
 
-template <class _AlgPolicy, class _RandomAccessIterator, class _Compare>
-inline _LIBCPP_HIDE_FROM_ABI void
-__stable_sort_impl(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare& __comp) {
+template <class _AlgPolicy, class _RandomAccessIterator, class _Compare, bool _EnableRadixSort = false>
+inline _LIBCPP_HIDE_FROM_ABI void __stable_sort_impl(
+    _RandomAccessIterator __first,
+    _RandomAccessIterator __last,
+    _Compare& __comp,
+    _BoolConstant<_EnableRadixSort> __rs = _BoolConstant<false>{}) {
   using value_type      = typename iterator_traits<_RandomAccessIterator>::value_type;
   using difference_type = typename iterator_traits<_RandomAccessIterator>::difference_type;
 
@@ -250,19 +289,27 @@ __stable_sort_impl(_RandomAccessIterator __first, _RandomAccessIterator __last, 
     __buf.second = __unique_buf.get_deleter().__count_;
   }
 
-  std::__stable_sort<_AlgPolicy, __comp_ref_type<_Compare> >(__first, __last, __comp, __len, __buf.first, __buf.second);
+  std::__stable_sort<_AlgPolicy, __comp_ref_type<_Compare> >(
+      __first, __last, __comp, __len, __buf.first, __buf.second, __rs);
   std::__check_strict_weak_ordering_sorted(__first, __last, __comp);
 }
 
 template <class _RandomAccessIterator, class _Compare>
 inline _LIBCPP_HIDE_FROM_ABI void
 stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __comp) {
-  std::__stable_sort_impl<_ClassicAlgPolicy>(std::move(__first), std::move(__last), __comp);
+  std::__stable_sort_impl<_ClassicAlgPolicy>(std::move(__first), std::move(__last), __comp, _BoolConstant<false>());
 }
 
 template <class _RandomAccessIterator>
 inline _LIBCPP_HIDE_FROM_ABI void stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last) {
-  std::stable_sort(__first, __last, __less<>());
+  using value_type     = typename iterator_traits<_RandomAccessIterator>::value_type;
+  using reference_type = typename iterator_traits<_RandomAccessIterator>::reference;
+  auto __comp          = __less<>();
+  std::__stable_sort_impl<_ClassicAlgPolicy>(
+      std::move(__first),
+      std::move(__last),
+      __comp,
+      _BoolConstant < is_integral<value_type>::value && is_same<value_type&, reference_type>::value > ());
 }
 
 _LIBCPP_END_NAMESPACE_STD
