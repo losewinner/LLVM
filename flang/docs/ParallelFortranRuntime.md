@@ -5,18 +5,18 @@
    SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 -->
-# Parallel Runtime Interface for Fortran (PRIF) Design Document, Revision 0.2
+# Parallel Runtime Interface for Fortran (PRIF) Specification, Revision 0.3
 
-Damian Rouson  
-Brad Richardson  
 Dan Bonachea  
 Katherine Rasmussen  
+Brad Richardson  
+Damian Rouson  
 Lawrence Berkeley National Laboratory, USA  
-lbl-flang@lbl.gov  
+<fortran@lbl.gov>  
 
 # Abstract
 
-This design document proposes an interface to support the parallel features of
+This document specifies an interface to support the parallel features of
 Fortran, named the Parallel Runtime Interface for Fortran (PRIF). PRIF is a
 proposed solution in which the runtime library is responsible for coarray
 allocation, deallocation and accesses, image synchronization, atomic operations,
@@ -33,55 +33,100 @@ to define a parallel runtime interface in standard Fortran syntax, which enables
 us to leverage Fortran to succinctly express various properties of the procedure
 interfaces, including argument attributes.
 
-> **WORK IN PROGRESS** This is still a draft a may continue to evolve.
-> Feedback and questions should be directed to lbl-flang@lbl.gov.
+> **WORK IN PROGRESS** This document is still a draft and may continue to evolve.    
+> Feedback and questions should be directed to: <fortran@lbl.gov>
 
-# Changelog
+\newpage
+# Change Log
 
-## Rev. 0.1
+## Revision 0.1
 
 * Identify parallel features
 * Sketch out high-level design
 * Decide on compiler vs PRIF responsibilities
 
-## Rev. 0.2 (Dec. 2023)
+## Revision 0.2 (Dec. 2023)
 
 * Change name to PRIF
 * Fill out interfaces to all PRIF provided procedures
 * Write descriptions, discussions and overviews of various features, arguments, etc.
 
-# Problem description
+## Revision 0.3 (May 2024)
+
+* `prif_(de)allocate` are renamed to `prif_(de)allocate_coarray`
+* `prif_(de)allocate_non_symmetric` are renamed to `prif_(de)allocate`
+* `prif_local_data_size` renamed to `prif_size_bytes` and
+  add a client note about the procedure
+* Update interface to `prif_base_pointer` by replacing three arguments, `coindices`,
+  `team`, and `team_number`, with one argument `image_num`. Update the semantics
+  of `prif_base_pointer`, as it is no longer responsible for resolving the coindices and
+  team information into a number that represents the image on the initial team before
+  returning the address. That is now expected to occur before the `prif_base_pointer`
+  call and passed into the `image_num` argument.
+* Add target attribute on `coarray_handles` argument to `prif_deallocate_coarray`
+* Add pointer attribute on `handle` argument to `coarray_cleanup` callback for `prif_allocate_coarray`
+* Add target attribute on `value` argument to `prif_put` and `prif_get`
+* Add new PRIF-specific constant `PRIF_STAT_OUT_OF_MEMORY`
+* Clarify that remote pointers passed to various procedures must reference storage
+  allocated using `prif_allocate_coarray` or `prif_allocate`
+* Clarify description of the `allocated_memory` argument for
+  the procedures `prif_allocate_coarray` and `prif_allocate`
+* Clarify descriptions of `event_var_ptr`, `lock_var_ptr`, and `notify_ptr`
+* Clarify descriptions for `prif_stop`, `prif_put`, `prif_get`,
+  intrinsic derived types, sections about `MOVE_ALLOC` and coarray accesses
+* Replace the phrase "local completion" with the phrase "source completion",
+  and add the new phrase to the glossary
+* Clarify that `prif_stop` should be used to initiate normal termination
+* Describe the `operation` argument to `prif_co_reduce`
+* Rename and clarify the cobounds arguments to `prif_alias_create`
+* Clarify the descriptions of `source_image`/`result_image` arguments to collective calls
+* Clarify completion semantics for atomic operations
+* Rename `coindices` argument names to `cosubscripts` to more closely correspond with
+  the terms used in the Fortran standard
+* Rename `local_buffer` and `local_buffer_stride` arg names
+  to `current_image_buffer` and `current_image_buffer_stride`
+* Update `coindexed-object` references to _coindexed-named-object_ to match
+  the term change in the most recent Fortran 2023 standard
+* Convert several explanatory sections to "Notes"
+* Add implementation note about the PRIF API being defined in Fortran
+* Add section "How to read the PRIF specification"
+* Add section "Glossary"
+* Improve description of the `final_func` arg to `prif_allocate_coarray`
+  and move some of previous description to a client note.
+
+\newpage
+# Problem Description
 
 In order to be fully Fortran 2023 compliant, a Fortran compiler needs support for
-what is commonly referred to as coarray fortran, which includes features
+what is commonly referred to as Coarray Fortran, which includes features
 related to parallelism. These features include the following statements,
 subroutines, functions, types, and kind type parameters:
 
 * **Statements:**
-  - _Synchronization:_ `sync all`, `sync images`, `sync memory`, `sync team`
-  - _Events:_ `event post`, `event wait`
-  - _Notify:_ `notify wait`
-  - _Error termination:_ `error stop`
-  - _Locks:_ `lock`, `unlock`
-  - _Failed images:_ `fail image`
-  - _Teams:_ `form team`, `change team`
-  - _Critical sections:_ `critical`, `end critical`
-* **Intrinsic functions:** `num_images`, `this_image`, `lcobound`, `ucobound`,
-  `team_number`, `get_team`, `failed_images`, `stopped_images`, `image_status`,
-  `coshape`, `image_index`
+  - _Synchronization:_ `SYNC ALL`, `SYNC IMAGES`, `SYNC MEMORY`, `SYNC TEAM`
+  - _Events:_ `EVENT POST`, `EVENT WAIT`
+  - _Notify:_ `NOTIFY WAIT`
+  - _Error termination:_ `ERROR STOP`
+  - _Locks:_ `LOCK`, `UNLOCK`
+  - _Failed images:_ `FAIL IMAGE`
+  - _Teams:_ `FORM TEAM`, `CHANGE TEAM`
+  - _Critical sections:_ `CRITICAL`, `END CRITICAL`
+* **Intrinsic functions:** `NUM_IMAGES`, `THIS_IMAGE`, `LCOBOUND`, `UCOBOUND`,
+  `TEAM_NUMBER`, `GET_TEAM`, `FAILED_IMAGES`, `STOPPED_IMAGES`, `IMAGE_STATUS`,
+  `COSHAPE`, `IMAGE_INDEX`
 * **Intrinsic subroutines:**
-  - _Collective subroutines:_ `co_sum`, `co_max`, `co_min`, `co_reduce`, `co_broadcast`
-  - _Atomic subroutines:_ `atomic_add`, `atomic_and`, `atomic_cas`,
-    `atomic_define`, `atomic_fetch_add`, `atomic_fetch_and`, `atomic_fetch_or`,
-    `atomic_fetch_xor`, `atomic_or`, `atomic_ref`, `atomic_xor`
-  - _Other subroutines:_ `event_query`
+  - _Collective subroutines:_ `CO_SUM`, `CO_MAX`, `CO_MIN`, `CO_REDUCE`, `CO_BROADCAST`
+  - _Atomic subroutines:_ `ATOMIC_ADD`, `ATOMIC_AND`, `ATOMIC_CAS`,
+    `ATOMIC_DEFINE`, `ATOMIC_FETCH_ADD`, `ATOMIC_FETCH_AND`, `ATOMIC_FETCH_OR`,
+    `ATOMIC_FETCH_XOR`, `ATOMIC_OR`, `ATOMIC_REF`, `ATOMIC_XOR`
+  - _Other subroutines:_ `EVENT_QUERY`
 * **Types, kind type parameters, and values:**
-  - _Intrinsic derived types:_ `event_type`, `team_type`, `lock_type`, `notify_type`
-  - _Atomic kind type parameters:_ `atomic_int_kind` and `atomic_logical_kind`
-  - _Values:_ `stat_failed_image`, `stat_locked`, `stat_locked_other_image`,
-    `stat_stopped_image`, `stat_unlocked`, `stat_unlocked_failed_image`
+  - _Intrinsic derived types:_ `EVENT_TYPE`, `TEAM_TYPE`, `LOCK_TYPE`, `NOTIFY_TYPE`
+  - _Atomic kind type parameters:_ `ATOMIC_INT_KIND` AND `ATOMIC_LOGICAL_KIND`
+  - _Values:_ `STAT_FAILED_IMAGE`, `STAT_LOCKED`, `STAT_LOCKED_OTHER_IMAGE`,
+    `STAT_STOPPED_IMAGE`, `STAT_UNLOCKED`, `STAT_UNLOCKED_FAILED_IMAGE`
 
-In addition to being able to support syntax related to the above features,
+In addition to supporting syntax related to the above features,
 compilers will also need to be able to handle new execution concepts such as
 image control. The image control concept affects the behaviors of some
 statements that were introduced in Fortran expressly for supporting parallel
@@ -89,23 +134,23 @@ programming, but image control also affects the behavior of some statements
 that pre-existed parallelism in standard Fortran:
 
 * **Image control statements:**
-  - _Pre-existing statements_: `allocate`, `deallocate`, `stop`, `end`,
-    a `call` referencing `move_alloc` with coarray arguments
-  - _New statements:_ `sync all`, `sync images`, `sync memory`, `sync team`,
-    `change team`, `end team`, `critical`, `end critical`, `event post`,
-    `event wait`, `form team`, `lock`, `unlock`, `notify wait`
+  - _Pre-existing statements_: `ALLOCATE`, `DEALLOCATE`, `STOP`, `END`,
+    a `CALL` to `MOVE_ALLOC` with coarray arguments
+  - _New statements:_ `SYNC ALL`, `SYNC IMAGES`, `SYNC MEMORY`, `SYNC TEAM`,
+    `CHANGE TEAM`, `END TEAM`, `CRITICAL`, `END CRITICAL`, `EVENT POST`,
+    `EVENT WAIT`, `FORM TEAM`, `LOCK`, `UNLOCK`, `NOTIFY WAIT`
 
 One consequence of the statements being categorized as image control statements
 will be the need to restrict code movement by optimizing compilers.
 
-# Proposed solution
+# Proposed Solution
 
-This design document proposes an interface to support the above features,
+This specification proposes an interface to support the above features,
 named Parallel Runtime Interface for Fortran (PRIF). By defining an
 implementation-agnostic interface, we envision facilitating the development of
 alternative parallel runtime libraries that support the same interface. One
 benefit of this approach is the ability to vary the communication substrate.
-A central aim of this document is to use a parallel runtime interface in
+A central aim of this document is to specify a parallel runtime interface in
 standard Fortran syntax, which enables us to leverage Fortran to succinctly
 express various properties of the procedure interfaces, including argument
 attributes. See [Rouson and Bonachea (2022)] for additional details.
@@ -119,12 +164,10 @@ interface, the compiler is responsible for transforming the invocation of
 Fortran-level parallel features to add procedure calls to the necessary PRIF
 procedures. Below you can find a table showing the delegation of tasks
 between the compiler and the PRIF implementation. The interface is designed for
-portability across shared and distributed memory machines, different operating
-systems, and multiple architectures. The Caffeine implementation,
-[see below](#caffeine---lbl's-implementation-of-the-parallel-runtime-interface-for-fortran),
-of the Parallel Runtime Interface for Fortran plans to support the following
-architectures: x86_64, PowerPC64, AArch64, with the possibility of supporting
-more as requested. Implementations of this interface are intended as an
+portability across shared- and distributed-memory machines, different operating
+systems, and multiple architectures. 
+
+Implementations of PRIF are intended as an
 augmentation for the compiler's own runtime library. While the interface can
 support multiple implementations, we envision needing to build the PRIF implementation
 as part of installing the compiler. The procedures and types provided
@@ -139,7 +182,7 @@ implementation. A 'X' in the "Fortran compiler" column indicates that the compil
 the primary responsibility for that task, while a 'X' in the "PRIF implementation"
 column indicates that the compiler will invoke the PRIF implementation to perform
 the task and the PRIF implementation has primary responsibility for the task's
-implementation. See the [Procedure descriptions](#procedure-descriptions)
+implementation. See the [Procedure descriptions](#prif-procedures)
 for the list of PRIF implementation procedures that the compiler will invoke.
 
 |                                                      Tasks                                                                       |  Fortran compiler  | PRIF implementation |
@@ -147,192 +190,208 @@ for the list of PRIF implementation procedures that the compiler will invoke.
 | Establish and initialize static coarrays prior to `main`                                                                         |         X          |                     |
 | Track corank of coarrays                                                                                                         |         X          |                     |
 | Track local coarrays for implicit deallocation when exiting a scope                                                              |         X          |                     |
-| Initialize a coarray with `SOURCE=` as part of allocate-stmt                                                                     |         X          |                     |
-| Provide `lock_type` coarrays for `critical-construct`s                                                                           |         X          |                     |
+| Initialize a coarray with `SOURCE=` as part of `ALLOCATE`                                                                        |         X          |                     |
+| Provide `prif_critical_type` coarrays for `CRITICAL`                                                                             |         X          |                     |
 | Provide final subroutine for all derived types that are finalizable or that have allocatable components that appear in a coarray |         X          |                     |
-| Track variable allocation status, including resulting from use of `move_alloc`                                                   |         X          |                     |
-| Track coarrays for implicit deallocation at `end-team-stmt`                                                                      |                    |          X          |
+| Track variable allocation status, including resulting from use of `MOVE_ALLOC`                                                   |         X          |                     |
+|                                                                                                                                  |                    |                     |
+| Intrinsics related to parallelism, eg. `NUM_IMAGES`, `COSHAPE`, `IMAGE_INDEX`                                                    |                    |          X          |
 | Allocate and deallocate a coarray                                                                                                |                    |          X          |
-| Reference a coindexed-object                                                                                                     |                    |          X          |
+| Reference a _coindexed-named-object_                                                                                             |                    |          X          |
+| Team statements/constructs: `FORM TEAM`, `CHANGE TEAM`, `END TEAM`                                                                |                    |          X          |
 | Team stack abstraction                                                                                                           |                    |          X          |
-| `form-team-stmt`, `change-team-stmt`, `end-team-stmt`                                                                            |                    |          X          |
-| Intrinsic functions related to Coarray Fortran, like `num_images`, etc.                                                          |                    |          X          |
-| Atomic subroutines                                                                                                               |                    |          X          |
-| Collective subroutines                                                                                                           |                    |          X          |
-| Synchronization statements                                                                                                       |                    |          X          |
-| Events                                                                                                                           |                    |          X          |
-| Locks                                                                                                                            |                    |          X          |
-| `critical-construct`                                                                                                             |                    |          X          |
+| Track coarrays for implicit deallocation at `END TEAM`                                                                           |                    |          X          |
+| Atomic subroutines, e.g. `ATOMIC_FETCH_ADD`                                                                                      |                    |          X          |
+| Collective subroutines, e.g. `CO_BROADCAST`, `CO_SUM`                                                                            |                    |          X          |
+| Synchronization statements, e.g. `SYNC ALL`, `SYNC TEAM`                                                                         |                    |          X          |
+| Events: `EVENT POST`, `EVENT WAIT`                                                                                               |                    |          X          |
+| Locks: `LOCK`, `UNLOCK`                                                                                                          |                    |          X          |
+| `CRITICAL` construct                                                                                                             |                    |          X          |
+| `NOTIFY WAIT` statement                                                                                                          |                    |          X          |
 
-### Caffeine - LBL's Implementation of the Parallel Runtime Interface for Fortran
+| **NOTE**: Caffeine - LBNL's Implementation of the Parallel Runtime Interface for Fortran |
+| ---------------- |
+| Implementations for much of the Parallel Runtime Interface for Fortran exist in [Caffeine], a parallel runtime library supporting coarray Fortran compilers. Caffeine will continue to be developed in order to fully implement PRIF. Caffeine targets the [GASNet-EX] exascale networking middleware, however PRIF is deliberately agnostic to details of the communication substrate. As such it should be possible to develop PRIF implementations targeting other substrates including the Message Passing Interface ([MPI]). |
 
-Implementations of some parts of the Parallel Runtime Interface for Fortran
-exist in [Caffeine], a parallel runtime library targeting coarray Fortran
-compilers. Caffeine will continue to be developed in order to fully implement
-the proposed Parallel Runtime Interface for Fortran. Caffeine uses the
-[GASNet-EX] exascale networking middleware but with the implementation-agnostic
-interface and the ability to vary the communication substrate, it might also be
-possible to develop wrappers that would support the proposed interface with
-[OpenCoarrays], which uses the Message Passing Interface ([MPI]).
+## How to read the PRIF specification
 
-## Types Descriptions
+The following types and procedures align with corresponding types and procedures
+from the Fortran standard. In many cases, the correspondence is clear from the identifiers.
+For example, the PRIF procedure `prif_num_images` corresponds to the intrinsic function
+`NUM_IMAGES` that is defined in the Fortran standard. In other cases, the correspondence
+may be less clear and is stated explicitly.
 
-### Fortran Intrinsic Derived types
+In order to avoid redundancy, some details are not included below as the corresponding
+descriptions in the Fortran standard contain the detailed descriptions of what is
+required by the language. For example, this document references the term _coindexed-named-object_
+multiple times, but does not define it since it is part of the language and the Fortran
+standard defines it. As such, in order to fully understand the PRIF specification, it is
+critical to read and reference the Fortran standard alongside it. Additionally, the
+descriptions in the PRIF specification use similar language to the language used in the
+Fortran standard, such as terms like ‘shall’.” Where PRIF uses terms not defined in
+the standard, their definitions may be found in the [`Glossary`](#glossary).
 
-These types will be defined in the PRIF implementation and it is proposed that the
-compiler will use a rename to use the PRIF implementation definitions for these
-types in the compiler's implementation of the `ISO_Fortran_Env` module. This
+# PRIF Types and Constants
+
+## Fortran Intrinsic Derived Types
+
+These types will be defined by the PRIF implementation. The
+compiler will use these PRIF-provided implementation definitions for the corresponding
+types in the compiler's implementation of the `ISO_FORTRAN_ENV` module. This
 enables the internal structure of each given type to be tailored as needed for
-a given implementation.
+a given PRIF implementation.
 
-#### `prif_team_type`
+### `prif_team_type`
 
-* implementation for `team_type` from `ISO_Fortran_Env`
+* implementation for `TEAM_TYPE` from `ISO_FORTRAN_ENV`
 
-#### `prif_event_type`
+### `prif_event_type`
 
-* implementation for `event_type` from `ISO_Fortran_Env`
+* implementation for `EVENT_TYPE` from `ISO_FORTRAN_ENV`
 
-#### `prif_lock_type`
+### `prif_lock_type`
 
-* implementation for `lock_type` from `ISO_Fortran_Env`
+* implementation for `LOCK_TYPE` from `ISO_FORTRAN_ENV`
 
-#### `prif_notify_type`
+### `prif_notify_type`
 
-* implementation for `notify_type` from `ISO_Fortran_Env`
+* implementation for `NOTIFY_TYPE` from `ISO_FORTRAN_ENV`
 
-### Constants in `ISO_FORTRAN_ENV`
+## Constants in `ISO_FORTRAN_ENV`
 
 These values will be defined in the PRIF implementation and it is proposed that the
 compiler will use a rename to use the PRIF implementation definitions for these
-values in the compiler's implementation of the `ISO_Fortran_Env` module.
+values in the compiler's implementation of the `ISO_FORTRAN_ENV` module.
 
-#### `PRIF_ATOMIC_INT_KIND`
+### `PRIF_ATOMIC_INT_KIND`
 
-This shall be set to an implementation defined value from the `INTEGER_KINDS`
+This shall be set to an implementation-defined value from the compiler-provided `INTEGER_KINDS`
 array.
 
-#### `PRIF_ATOMIC_LOGICAL_KIND`
+### `PRIF_ATOMIC_LOGICAL_KIND`
 
-This shall be set to an implementation defined value from the `LOGICAL_KINDS`
+This shall be set to an implementation-defined value from the compiler-provided `LOGICAL_KINDS`
 array.
 
-#### `PRIF_CURRENT_TEAM`
+### `PRIF_CURRENT_TEAM`
 
 This shall be a value of type `integer(c_int)` that is defined by the
-implementation and shall be distinct from the values `PRIF_INITIAL_TEAM` and
+implementation. It shall be distinct from the values `PRIF_INITIAL_TEAM` and
 `PRIF_PARENT_TEAM`
 
-#### `PRIF_INITIAL_TEAM`
+### `PRIF_INITIAL_TEAM`
 
 This shall be a value of type `integer(c_int)` that is defined by the
-implementation and shall be distinct from the values `PRIF_CURRENT_TEAM` and
+implementation. It shall be distinct from the values `PRIF_CURRENT_TEAM` and
 `PRIF_PARENT_TEAM`
 
-#### `PRIF_PARENT_TEAM`
+### `PRIF_PARENT_TEAM`
 
 This shall be a value of type `integer(c_int)` that is defined by the
-implementation and shall be distinct from the values `PRIF_CURRENT_TEAM` and
+implementation. It shall be distinct from the values `PRIF_CURRENT_TEAM` and
 `PRIF_INITIAL_TEAM`
 
-#### `PRIF_STAT_FAILED_IMAGE`
+### `PRIF_STAT_FAILED_IMAGE`
 
 This shall be a value of type `integer(c_int)` that is defined by the
 implementation to be negative if the implementation cannot detect failed images
-and positive otherwise and shall be distinct from `PRIF_STAT_LOCKED`,
-`PRIF_STAT_LOCKED_OTHER_IMAGE`, `PRIF_STAT_STOPPED_IMAGE`, `PRIF_STAT_UNLOCKED` and
-`PRIF_STAT_UNLOCKED_FAILED_IMAGE`.
+and positive otherwise. It shall be distinct from all other stat constants
+defined by this specification.
 
-#### `PRIF_STAT_LOCKED`
-
-This shall be a value of type `integer(c_int)` that is defined by the
-implementation and shall be distinct from `PRIF_STAT_FAILED_IMAGE`,
-`PRIF_STAT_LOCKED_OTHER_IMAGE`, `PRIF_STAT_STOPPED_IMAGE`, `PRIF_STAT_UNLOCKED` and
-`PRIF_STAT_UNLOCKED_FAILED_IMAGE`.
-
-#### `PRIF_STAT_LOCKED_OTHER_IMAGE`
+### `PRIF_STAT_LOCKED`
 
 This shall be a value of type `integer(c_int)` that is defined by the
-implementation and shall be distinct from `PRIF_STAT_FAILED_IMAGE`,
-`PRIF_STAT_LOCKED`, `PRIF_STAT_STOPPED_IMAGE`, `PRIF_STAT_UNLOCKED` and
-`PRIF_STAT_UNLOCKED_FAILED_IMAGE`.
+implementation. It shall be distinct from all other stat constants
+defined by this specification.
 
-#### `PRIF_STAT_STOPPED_IMAGE`
+### `PRIF_STAT_LOCKED_OTHER_IMAGE`
+
+This shall be a value of type `integer(c_int)` that is defined by the
+implementation. It shall be distinct from all other stat constants
+defined by this specification.
+
+### `PRIF_STAT_STOPPED_IMAGE`
 
 This shall be a positive value of type `integer(c_int)` that is defined by the
-implementation and shall be distinct from `PRIF_STAT_FAILED_IMAGE`,
-`PRIF_STAT_LOCKED`, `PRIF_STAT_LOCKED_OTHER_IMAGE`, `PRIF_STAT_UNLOCKED` and
-`PRIF_STAT_UNLOCKED_FAILED_IMAGE`.
+implementation. It shall be distinct from all other stat constants
+defined by this specification.
 
-#### `PRIF_STAT_UNLOCKED`
-
-This shall be a value of type `integer(c_int)` that is defined by the
-implementation and shall be distinct from `PRIF_STAT_FAILED_IMAGE`,
-`PRIF_STAT_LOCKED`, `PRIF_STAT_LOCKED_OTHER_IMAGE`, `PRIF_STAT_STOPPED_IMAGE` and
-`PRIF_STAT_UNLOCKED_FAILED_IMAGE`.
-
-
-#### `PRIF_STAT_UNLOCKED_FAILED_IMAGE`
+### `PRIF_STAT_UNLOCKED`
 
 This shall be a value of type `integer(c_int)` that is defined by the
-implementation and shall be distinct from `PRIF_STAT_FAILED_IMAGE`,
-`PRIF_STAT_LOCKED`, `PRIF_STAT_LOCKED_OTHER_IMAGE`, `PRIF_STAT_STOPPED_IMAGE` and
-`PRIF_STAT_UNLOCKED`.
+implementation. It shall be distinct from all other stat constants
+defined by this specification.
 
-### PRIF specific types
+### `PRIF_STAT_UNLOCKED_FAILED_IMAGE`
 
-These types are used to represent opaque "descriptors" that can be passed to and
-from the PRIF implementation between operations.
+This shall be a value of type `integer(c_int)` that is defined by the
+implementation. It shall be distinct from all other stat constants
+defined by this specification.
 
-#### `prif_coarray_handle`
+## PRIF-Specific Constants
 
-* a derived type provided by the PRIF implementation and that will be opaque to the
-  compiler that represents a reference to a coarray variable is used for coarray
-  operations.
-* It maintains some "context data" on a per-image basis, which the compiler may
+This constant is not defined by the Fortran standard.
+
+### `PRIF_STAT_OUT_OF_MEMORY`
+
+This shall be a value of type `integer(c_int)` that is defined by the
+implementation. It shall be distinct from  all other stat constants
+defined by this specification. It shall indicate a low-memory condition
+and may be returned by `prif_allocate_coarray` or `prif_allocate`.
+
+## PRIF-Specific Types
+
+These derived types are defined by the PRIF implementation and the contents are
+opaque to the compiler. They don't correspond directly to types mandated
+by the Fortran specification, but rather are helper types used in PRIF to 
+provide the parallel Fortran features.
+
+### `prif_coarray_handle`
+
+* a derived type provided by the PRIF implementation whose contents are opaque to the
+  compiler. It represents a reference to a coarray descriptor and is passed 
+  back and forth across PRIF for coarray operations. 
+* Each coarray descriptor maintains some "context data" on a per-image basis, which the compiler may
   use to support proper implementation of coarray arguments, especially with
-  respect to automatic deallocation of coarrays at an `end team` statement. This
-  is accessed/set with the provided procedures `prif_get_context_handle` and
+  respect to `MOVE_ALLOC` operations on allocatable coarrays.
+  This is accessed/set with the procedures `prif_get_context_handle` and
   `prif_set_context_handle`. PRIF does not interpret the contents of this context data in
   any way, and it is only accessible on the current image. The context data is
   a property of the allocated coarray object, and is thus shared between all
   handles and aliases that refer to the same coarray allocation (i.e. those
   created from a call to `prif_alias_create`).
 
-#### `prif_critical_type`
+### `prif_critical_type`
 
-* a derived type provided by the PRIF implementation that will be opaque to the
-  compiler that will be used for implementing `critical` blocks
+* a derived type provided by the PRIF implementation that is opaque to the
+  compiler and is used for implementing `critical` blocks
 
-## Procedure descriptions
+# PRIF Procedures
 
-The PRIF API provides implementations of parallel Fortran features, as specified
+**The PRIF API provides implementations of parallel Fortran features, as specified
 in Fortran 2023. For any given `prif_*` procedure that corresponds to a Fortran
 procedure or statement of similar name, the constraints and semantics associated
-with each argument to the `prif_` procedure match those of the analogous
+with each argument to the `prif_*` procedure match those of the analogous
 argument to the parallel Fortran feature, except where this document explicitly
 specifies otherwise. For any given `prif_*` procedure that corresponds to a Fortran
 procedure or statement of similar name, the constraints and semantics match those
-of the analogous parallel Fortran feature. Specifically, any required synchronization
-is performed by the PRIF implementation unless otherwise specified.
+of the analogous parallel Fortran feature. In particular, any required synchronization
+is performed by the PRIF implementation unless otherwise specified.**
+
+| **IMPLEMENTATION NOTE**: |
+| ---------------- |
+| The PRIF API is defined as a set of Fortran language procedures and supporting types, and as such an implementation of PRIF cannot be expressed solely in C/C++. However C/C++ can be used to implement portions of the PRIF procedures via calls to BIND(C) procedures. |
 
 Where possible, optional arguments are used for optional parts or different
 forms of statements or procedures. In some cases the different forms or presence
 of certain options change the return type or rank, and in those cases a generic
 interface with different specific procedures is used.
 
-### Common arguments
+## Common Arguments
 
-* **`team`**
-  * a value of type `prif_team_type` that identifies a team that the
-    current image is a member of
-  * shall not be present with `team_number` except in a call to `prif_form_team`
-* **`team_number`**
-  * a value of type `integer(c_intmax_t)` that identifies a sibling team or
-    in a call to `prif_form_team`, which team to become a member of
-  * shall not be present with `team` except in a call to `prif_form_team`
-* **`image_num`, any argument identifying an image**
-  * May identify the current image
+There are multiple Common Arguments sections throughout the specification that
+outline details of the arguments that are common for the following sections
+of procedure interfaces.
 
 ### Integer and Pointer Arguments
 
@@ -349,11 +408,11 @@ pointers and/or integers. These fall broadly into the following categories.
 4. `integer(c_ptrdiff_t)`: strides between elements for non-contiguous coarray
    accesses
 5. `integer(c_int)`: Integer arguments corresponding to image index and
-  stat arguments. It is expected that the most common arguments
-  appearing in Fortran code will be of default integer, it is expected that
+  stat arguments. It is expected that the most common integer arguments
+  appearing in Fortran code will be of default integer kind, it is expected that
   this will correspond with that kind, and there is no reason to expect these
   arguments to have values that would not be representable in this kind.
-6. `integer(c_intmax_t)`: Bounds, cobounds, indices, coindices, and any other
+6. `integer(c_intmax_t)`: Bounds, cobounds, indices, cosubscripts, and any other
   argument to an intrinsic procedure that accepts or returns an arbitrary
   integer.
 
@@ -361,46 +420,67 @@ The compiler is responsible for generating values and temporary variables as
 necessary to pass arguments of the correct type/size, and perform conversions
 when needed.
 
-#### sync-stat-list
+### Common Arguments
 
-* **`stat`** : This argument is `intent(out)` representing the presence and
-  type of any error that occurs. A value of zero, indicates no error occurred.
+* **`team`**
+  * a value of type `prif_team_type` that identifies a team that the
+    current image is a member of
+  * shall not be present with `team_number` except in a call to `prif_form_team`
+* **`team_number`**
+  * a value of type `integer(c_intmax_t)` that identifies a sibling team or,
+    in a call to `prif_form_team`, which team to join
+  * shall not be present with `team` except in a call to `prif_form_team`
+* **`image_num`**
+  * an argument identifying the image to be communicated with
+  * is permitted to identify the current image
+  * the image index is always relative to the initial team, unless otherwise specified
+
+### `stat` and `errmsg` Arguments
+
+* **`stat`** : This argument is `intent(out)` and represents the presence and
+  type of any error that occurs. A value of zero indicates no error occurred.
   It is of type `integer(c_int)`, to minimize the frequency that integer
   conversions will be needed. If a different kind of integer is used as the
   argument, it is the compiler's responsibility to use an intermediate variable
   as the argument to the PRIF implementation procedure and provide conversion to the
   actual argument.
-* **`errmsg` or `errmsg_alloc`** : There are two optional arguments for this,
+* **`errmsg` or `errmsg_alloc`** : There are two optional `intent(out)` arguments for this,
   one which is allocatable and one which is not. It is the compiler's
-  responsibility to ensure the appropriate optional argument is passed.
+  responsibility to ensure the appropriate optional argument is passed,
+  and at most one shall be provided in any given call.
   If no error occurs, the definition status of the actual argument is unchanged.
 
-### Program startup and shutdown
+## Program Startup and Shutdown
 
 For a program that uses parallel Fortran features, the compiler shall insert
 calls to `prif_init` and `prif_stop`. These procedures will initialize and
 terminate the parallel runtime. `prif_init` shall be called prior
-to any other calls to the PRIF implementation.
+to any other calls to the PRIF implementation. `prif_stop` shall be called
+to initiate normal termination if the program reaches normal termination
+at the end of the main program.
 
-#### `prif_init`
+### `prif_init`
 
-* **Description**: This procedure will initialize the parallel environment.
-* **Procedure Interface**:
+**Description**: This procedure will initialize the parallel environment.
+    
 ```
-subroutine prif_init(exit_code)
-  integer(c_int), intent(out) :: exit_code
+subroutine prif_init(stat)
+  integer(c_int), intent(out) :: stat
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`exit_code`**: a non-zero value indicates an error occurred during
-    initialization.
+**Further argument descriptions**:
 
-#### `prif_stop`
+* **`stat`**: a non-zero value indicates an error occurred during
+  initialization.
 
-* **Description**: This procedure synchronizes all executing images, cleans up
+### `prif_stop`
+
+**Description**: This procedure synchronizes all executing images, cleans up
   the parallel runtime environment, and terminates the program.
-  Calls to this procedure do not return.
-* **Procedure Interface**:
+  Calls to this procedure do not return. This procedure supports both normal
+  termination at the end of a program, as well as any `STOP` statements from
+  the user source code.
+    
 ```
 subroutine prif_stop(quiet, stop_code_int, stop_code_char)
   logical(c_bool), intent(in) :: quiet
@@ -408,23 +488,24 @@ subroutine prif_stop(quiet, stop_code_int, stop_code_char)
   character(len=*), intent(in), optional :: stop_code_char
 end subroutine
 ```
-* **Further argument descriptions**: At most one of the arguments
+**Further argument descriptions**: At most one of the arguments
   `stop_code_int` or `stop_code_char` shall be supplied.
-  * **`quiet`**: if this argument has the value `.true.`, no output of
-    signaling exceptions or stop code will be produced. Note that in the case
-    the statement does not contain this optional part, the compiler should
-    provide the value `.false.`.
-  * **`stop_code_int`**: is used as the process exit code if it is provided.
-    Otherwise, the process exit code is `0`.
-  * **`stop_code_char`**: is written to the unit identified by the named
-    constant `OUTPUT_UNIT` from the intrinsic module `ISO_FORTRAN_ENV` if
-    provided.
 
-#### `prif_error_stop`
+* **`quiet`**: if this argument has the value `.true.`, no output of
+  signaling exceptions or stop code will be produced. If a `STOP` statement
+  does not contain this optional part, the compiler should
+  provide the value `.false.`.
+* **`stop_code_int`**: is used as the process exit code if it is provided.
+  Otherwise, the process exit code is `0`.
+* **`stop_code_char`**: is written to the unit identified by the named
+  constant `OUTPUT_UNIT` from the intrinsic module `ISO_FORTRAN_ENV` if
+  provided.
 
-* **Description**: This procedure terminates all executing images
+### `prif_error_stop`
+
+**Description**: This procedure terminates all executing images.
   Calls to this procedure do not return.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_error_stop(quiet, stop_code_int, stop_code_char)
   logical(c_bool), intent(in) :: quiet
@@ -432,35 +513,36 @@ subroutine prif_error_stop(quiet, stop_code_int, stop_code_char)
   character(len=*), intent(in), optional :: stop_code_char
 end subroutine
 ```
-* **Further argument descriptions**: At most one of the arguments
+**Further argument descriptions**: At most one of the arguments
   `stop_code_int` or `stop_code_char` shall be supplied.
-  * **`quiet`**: if this argument has the value `.true.`, no output of
-    signaling exceptions or stop code will be produced. Note that in the case
-    the statement does not contain this optional part, the compiler should
-    provide the value `.false.`.
-  * **`stop_code_int`**: is used as the process exit code if it is provided.
-    Otherwise, the process exit code is a non-zero value.
-  * **`stop_code_char`**: is written to the unit identified by the named
-    constant `ERROR_UNIT` from the intrinsic module `ISO_FORTRAN_ENV` if
-    provided.
 
-#### `prif_fail_image`
+* **`quiet`**: if this argument has the value `.true.`, no output of
+  signaling exceptions or stop code will be produced. If an `ERROR STOP`
+  statement does not contain this optional part, the compiler should
+  provide the value `.false.`.
+* **`stop_code_int`**: is used as the process exit code if it is provided.
+  Otherwise, the process exit code is a non-zero value.
+* **`stop_code_char`**: is written to the unit identified by the named
+  constant `ERROR_UNIT` from the intrinsic module `ISO_FORTRAN_ENV` if
+  provided.
 
-* **Description**: causes the executing image to cease participating in
+### `prif_fail_image`
+
+**Description**: causes the executing image to cease participating in
   program execution without initiating termination.
   Calls to this procedure do not return.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_fail_image()
 end subroutine
 ```
 
-### Image Queries
+## Image Queries
 
-#### `prif_num_images`
+### `prif_num_images`
 
-* **Description**: Query the number of images in the specified or current team.
-* **Procedure Interface**:
+**Description**: Query the number of images in the specified or current team.
+    
 ```
 subroutine prif_num_images(team, team_number, image_count)
   type(prif_team_type), intent(in), optional :: team
@@ -468,16 +550,16 @@ subroutine prif_num_images(team, team_number, image_count)
   integer(c_int), intent(out) :: image_count
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`team` and `team_number`**: optional arguments that specify a team. They
-    shall not both be present in the same call.
+**Further argument descriptions**:
 
-#### `prif_this_image`
+* **`team` and `team_number`**: optional arguments that specify a team. They
+  shall not both be present in the same call.
 
-* **Description**: Determine the image index or cosubscripts with respect to a
+### `prif_this_image`
+
+**Description**: Determine the image index or cosubscripts with respect to a
   given coarray of the current image in a given team or the current team.
-  team, or the cosubscripts
-* **Procedure Interface**:
+    
 ```
 interface prif_this_image
   subroutine prif_this_image_no_coarray(team, image_index)
@@ -501,19 +583,21 @@ interface prif_this_image
   end subroutine
 end interface
 ```
-* **Further argument descriptions**:
-  * **`cosubscripts`**: the cosubcripts that would identify the current image
-    in the specified team when used as coindices for the specified coarray
-  * **`dim`**: identify which of the elements from `cosubscripts` should be
-    returned as the `cosubscript` value
-  * **`cosubscript`**: the element identified by `dim` or the array
-    `cosubscripts` that would have been returned without the `dim` argument
-    present
+**Further argument descriptions**:
 
-#### `prif_failed_images`
+* **`coarray_handle`**: is described in the Common Arguments section under [`Storage Management`](#storage-management)
+* **`cosubscripts`**: the cosubscripts that would identify the current image
+  in the specified team when used as cosubscripts for the specified coarray
+* **`dim`**: identify which of the elements from `cosubscripts` should be
+  returned as the `cosubscript` value
+* **`cosubscript`**: the element identified by `dim` of the array
+  `cosubscripts` that would have been returned without the `dim` argument
+  present
 
-* **Description**: Determine the image indices of known failed images, if any.
-* **Procedure Interface**:
+### `prif_failed_images`
+
+**Description**: Determine the image indices of any images known to have failed.
+    
 ```
 subroutine prif_failed_images(team, failed_images)
   type(prif_team_type), intent(in), optional :: team
@@ -521,11 +605,11 @@ subroutine prif_failed_images(team, failed_images)
 end subroutine
 ```
 
-#### `prif_stopped_images`
+### `prif_stopped_images`
 
-* **Description**: Determine the image indices of images known to have initiated
-  normal termination, if any.
-* **Procedure Interface**:
+**Description**: Determine the image indices of any images known to have initiated
+  normal termination.
+    
 ```
 subroutine prif_stopped_images(team, stopped_images)
   type(prif_team_type), intent(in), optional :: team
@@ -533,10 +617,10 @@ subroutine prif_stopped_images(team, stopped_images)
 end subroutine
 ```
 
-#### `prif_image_status`
+### `prif_image_status`
 
-* **Description**: Determine the image execution state of an image
-* **Procedure Interface**:
+**Description**: Determine the image execution state of an image
+    
 ```
 impure elemental subroutine prif_image_status(image, team, image_status)
   integer(c_int), intent(in) :: image
@@ -544,62 +628,49 @@ impure elemental subroutine prif_image_status(image, team, image_status)
   integer(c_int), intent(out) :: image_status
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`image`**: the image index of the image in the given or current team for
-    which to return the execution status
-  * **`team`**: if provided, the team from which to identify the image
-  * **`image_status`**: has the value `PRIF_STAT_FAILED_IMAGE` if the identified
+**Further argument descriptions**:
+
+* **`image`**: the image index of the image in the given or current team for
+  which to return the execution status
+* **`team`**: if provided, the team from which to identify the image
+* **`image_status`**: defined to the value `PRIF_STAT_FAILED_IMAGE` if the identified
     image has failed, `PRIF_STAT_STOPPED_IMAGE` if the identified image has initiated
-    normal termination, or zero.
+    normal termination, otherwise zero.
 
-### Coarrays
+## Storage Management
 
-#### Common arguments
+### Common Arguments
 
 * **`coarray_handle`**
   * Argument for many of the coarray access procedures
   * scalar of type [`prif_coarray_handle`](#prif_coarray_handle)
-  * is a handle for the established coarray
-  * represents the distributed object of the coarray in the team in which it
-    was established
-* **`coindices`**
+  * is a handle for the descriptor of an established coarray
+* **`cosubscripts`**
   * Argument for many of the coarray access procedures
-  * 1d assumed-shape array of type `integer`
-  * correspond to the coindices appearing in a coindexed object
-* **`value`** or `local_buffer`
+  * 1d assumed-shape array of type `integer(c_intmax_t)`
+  * correspond to the cosubscripts appearing in a _coindexed-named-object_ reference
+* **`value`** or `current_image_buffer`
   * Argument for `put` and `get` operations
   * assumed-rank array of `type(*)` or `type(c_ptr)`
   * It is the value to be sent in a `put` operation, and is assigned the value
     retrieved in the case of a `get` operation
 * **`image_num`**
-  * identifies the image to be communicated with
-  * is the image index in the initial team
-  * may be the current image
+  * an argument identifying the image to be communicated with
+  * is permitted to identify the current image
+  * the image index is always relative to the initial team, unless otherwise specified
 
-#### Allocation and deallocation
+### `prif_allocate_coarray`
 
-Calls to `prif_allocate` and `prif_deallocate` are collective operations, while
-other allocation/deallocation operations are not. Note that a call to
-`move_alloc` with coarray arguments is also a collective operation, as described
-in the section below.
-
-##### Static coarray allocation
-
-The compiler is responsible to generate code that collectively runs
-`prif_allocate` once for each static coarray and initializes them where applicable.
-
-##### `prif_allocate`
-
-* **Description**: This procedure allocates memory for a coarray. 
+**Description**: This procedure allocates memory for a coarray. 
   This call is collective over the current team.  Calls to
-  `prif_allocate` will be inserted by the compiler when there is an explicit
+  `prif_allocate_coarray` will be inserted by the compiler when there is an explicit
   coarray allocation or at the beginning of a program to allocate space for
   statically declared coarrays in the source code. The PRIF implementation will
   store the coshape information in order to internally track it during the
   lifetime of the coarray.
-* **Procedure Interface**:
+    
 ```
-subroutine prif_allocate( &
+subroutine prif_allocate_coarray( &
     lcobounds, ucobounds, lbounds, ubounds, element_length, &
     final_func, coarray_handle, allocated_memory, &
     stat, errmsg, errmsg_alloc)
@@ -614,56 +685,56 @@ subroutine prif_allocate( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`lcobounds` and `ucobounds`**: Shall be the lower and upper bounds of the
-    codimensions of the coarray being allocated. Shall be 1d arrays with the
-    same dimensions as each other. The cobounds shall be sufficient to have a
-    unique index for every image in the current team.
-    I.e. `product(coshape(coarray)) >= num_images`.
-  * **`lbounds` and `ubounds`**: Shall be the the lower and upper bounds of the
-    local portion of the array. Shall be 1d arrays with the same dimensions as
-    each other.
-  * **`element_length`**: size of a single element of the array in bytes
-  * **`final_func`**: Shall be a function pointer to the final subroutine, if any,
-    for derived types. It is the responsibility of the compiler to generate
-    such a subroutine if necessary to clean up allocatable components, typically
-    with calls to `prif_deallocate_non_symmetric`. It may also be necessary to
-    modify the allocation status of the coarray variable, especially in the case
-    that it was allocated through a dummy argument. Its interface should be
-    equivalent to the following Fortran interface
-    ```
-    subroutine coarray_cleanup(handle, stat, errmsg) bind(C)
-      type(prif_coarray_handle), intent(in) :: handle
-      integer(c_int), intent(out) :: stat
-      character(len=:), intent(out), allocatable :: errmsg
-    end subroutine
-    ```
-    or to the following equivalent C prototype
-    ```
-    void coarray_cleanup( 
-        prif_handle_t* handle, int* stat, CFI_cdesc_t* errmsg)
-    ```
-    The coarray handle can then be interrogated to determine the memory address
-    and size of the data in order to orchestrate calling any necessary final
-    subroutines or deallocation of any allocatable components, or the context
-    data to orchestrate modifying the allocation status of a local variable
-    portion of the coarray. It will be invoked once on each image, upon
-    deallocation of the coarray.
-  * **`coarray_handle`**: Represents the distributed object of the coarray on
-    the corresponding team. The handle is created by the PRIF implementation and the
-    compiler uses it for subsequent coindexed-object references of the
-    associated coarray and for deallocation of the associated coarray.
-  * **`allocated_memory`**: A pointer to the local block of allocated memory for
-    the Fortran object. The compiler is responsible for associating the local
-    Fortran object with this memory, and initializing it if necessary.
+**Further argument descriptions**:
 
-##### `prif_allocate_non_symmetric`
+* **`lcobounds` and `ucobounds`**: Shall be the lower and upper bounds of the
+  codimensions of the coarray being allocated. Shall be 1d arrays with the
+  same dimensions as each other. The cobounds shall be sufficient to have a
+  unique index for every image in the current team.
+  I.e. `product(ucobounds - lcobounds + 1) >= num_images()`.
+* **`lbounds` and `ubounds`**: Shall be the the lower and upper bounds of the
+  current image's portion of the array. Shall be 1d arrays with the same dimensions as
+  each other.
+* **`element_length`**: size of a single element of the array in bytes
+* **`final_func`**: Shall be the C address of a procedure that is interoperable, or
+  `C_NULL_FUNPTR`. If not null, this procedure will be invoked by the PRIF implementation
+  once by each image at deallocation of this coarray, before the storage is released.
+  The procedure's interface shall be equivalent to the following Fortran interface
+  ```
+  subroutine coarray_cleanup(handle, stat, errmsg) bind(C)
+    type(prif_coarray_handle), pointer, intent(in) :: handle
+    integer(c_int), intent(out) :: stat
+    character(len=:), intent(out), allocatable :: errmsg
+  end subroutine
+  ```
+  or to the following equivalent C prototype
+  ```
+  void coarray_cleanup( 
+      CFI_cdesc_t* handle, int* stat, CFI_cdesc_t* errmsg)
+  ```
+* **`coarray_handle`**: Represents the distributed object of the coarray on
+  the corresponding team. The handle is created by the PRIF implementation and the
+  compiler uses it for subsequent _coindexed-named-object_ references of the
+  associated coarray and for deallocation of the associated coarray.
+* **`allocated_memory`**: A pointer to the block of allocated but uninitialized memory
+  that provides the storage for the current image's coarray. The compiler is responsible
+  for associating the Fortran-level coarray object with this storage, and initializing
+  the storage if necessary. The returned pointer value may differ across images in the team.
+  `prif_base_pointer` should be used to locate corresponding coarrays on
+  other images.
 
-* **Description**: This procedure is used to allocate components of coarray
-  objects.
-* **Procedure Interface**:
+| **CLIENT NOTE**: |
+| ---------------- |
+| `final_func` is used by the compiler to support various clean-up operations at coarray deallocation, whether it happens explicitly (i.e. via `prif_deallocate_coarray`) or implicitly (e.g. via `prif_end_team`). First, `final_func` may be used to support the user-defined final subroutine for derived types. Second, it may be necessary for the compiler to generate such a subroutine to clean up allocatable components, typically with calls to `prif_deallocate`. Third, it may also be necessary to modify the allocation status of an allocatable coarray variable, especially in the case that it was allocated through a dummy argument.
+The coarray handle can be interrogated by the procedure callback using PRIF queries to determine the memory address and size of the data in order to orchestrate calling any necessary final subroutines or deallocation of any allocatable components, or the context data to orchestrate modifying the allocation status of a local variable portion of the coarray. The `pointer` attribute for the `handle` argument is to permit `prif_coarray_handle` definitions which are not C interoperable. |
+
+### `prif_allocate`
+
+**Description**: This procedure is used to non-collectively allocate remotely accessible storage, 
+  such as needed for an allocatable component of a coarray.
+    
 ```
-subroutine prif_allocate_non_symmetric( &
+subroutine prif_allocate( &
     size_in_bytes, allocated_memory, stat, errmsg, errmsg_alloc)
   integer(kind=c_size_t) :: size_in_bytes
   type(c_ptr), intent(out) :: allocated_memory
@@ -672,49 +743,52 @@ subroutine prif_allocate_non_symmetric( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`size_in_bytes`**: The size, in bytes, of the object to be allocated.
-  * **`allocated_memory`**: A pointer to the block of allocated memory for the
-    Fortran object. The compiler is responsible for associating the Fortran
-    object with this memory, and initializing it if necessary.
+**Further argument descriptions**:
 
-##### `prif_deallocate`
+* **`size_in_bytes`**: The size, in bytes, of the object to be allocated.
+* **`allocated_memory`**: A pointer to the block of allocated but uninitialized memory 
+  that provides the requested storage. The compiler is responsible for associating the Fortran
+  object with this storage, and initializing the storage if necessary.
 
-* **Description**: This procedure releases memory previously allocated for all
+### `prif_deallocate_coarray`
+
+**Description**: This procedure releases memory previously allocated for all
   of the coarrays associated with the handles in `coarray_handles`. This means
   that any local objects associated with this memory become invalid. The
   compiler will insert calls to this procedure when exiting a local scope where
   implicit deallocation of a coarray is mandated by the standard and when a
-  coarray is explicitly deallocated through a `deallocate-stmt` in the source
-  code.
+  coarray is explicitly deallocated through a `DEALLOCATE` statement.
   This call is collective over the current team, and the provided list of handles
   must denote corresponding coarrays (in the same order on every image) that
-  were allocated by the current team using `prif_allocate` and not yet deallocated.
-  It will start with a synchronization over the current team, and then the final subroutine
+  were allocated by the current team using `prif_allocate_coarray` and not yet deallocated.
+  The implementation starts with a synchronization over the current team, and then the final subroutine
   for each coarray (if any) will be called. A synchronization will also occur
   before control is returned from this procedure, after all deallocation has been
   completed.
-* **Procedure Interface**:
+    
 ```
-subroutine prif_deallocate( &
+subroutine prif_deallocate_coarray( &
     coarray_handles, stat, errmsg, errmsg_alloc)
-  type(prif_coarray_handle), intent(in) :: coarray_handles(:)
+  type(prif_coarray_handle), target, intent(in) :: coarray_handles(:)
   integer(c_int), intent(out), optional :: stat
   character(len=*), intent(inout), optional :: errmsg
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Argument descriptions**:
-  * **`coarray_handles`**: Is an array of all of the handles for the coarrays
-    that shall be deallocated.
+**Further argument descriptions**:
 
-##### `prif_deallocate_non_symmetric`
+* **`coarray_handles`**: Is an array of all of the handles for the coarrays
+  that shall be deallocated. Note that the target attribute is not required
+  for the actual argument to this procedure. It is only to allow the
+  implementation to call the `final_func` procedures with each handle.
 
-* **Description**: This procedure releases memory previously allocated by a call
-  to `prif_allocate_non_symmetric`.
-* **Procedure Interface**:
+### `prif_deallocate`
+
+**Description**: This non-collective procedure releases memory previously allocated by a call
+  to `prif_allocate`.
+    
 ```
-subroutine prif_deallocate_non_symmetric( &
+subroutine prif_deallocate( &
     mem, stat, errmsg, errmsg_alloc)
   type(c_ptr), intent(in) :: mem
   integer(c_int), intent(out), optional :: stat
@@ -722,61 +796,77 @@ subroutine prif_deallocate_non_symmetric( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`mem`**: Pointer to the block of memory to be released.
+**Further argument descriptions**:
 
-##### `prif_alias_create`
+* **`mem`**: Pointer to the block of memory to be released.
 
-* **Description**: Create a new coarray handle for an existing coarray, such as
-  in a [`prif_change_team`](#prif_change_team) or to pass to a coarray dummy
+| **CLIENT NOTE**: |
+| ---------------- |
+| Calls to `prif_allocate_coarray` and `prif_deallocate_coarray` are collective operations, while calls to `prif_allocate` and `prif_deallocate` are not. Note that a call to `MOVE_ALLOC` with coarray arguments is also a collective operation, as described in the section below. |
+
+| **CLIENT NOTE**: |
+| ---------------- |
+| The compiler is responsible to generate code that collectively runs `prif_allocate_coarray` once for each static coarray and initializes them where applicable.|
+
+### `prif_alias_create`
+
+**Description**: Create a new coarray handle for an existing coarray, such as part of `CHANGE TEAM`
+  after [`prif_change_team`](#prif_change_team), or to pass to a coarray dummy
   argument (especially in the case that the cobounds are different)
-* **Procedure Interface**:
+    
 ```
 subroutine prif_alias_create( &
-    source_handle, alias_co_lbounds, alias_co_ubounds, alias_handle)
+    source_handle, alias_lcobounds, alias_ucobounds, alias_handle)
   type(prif_coarray_handle), intent(in) :: source_handle
-  integer(c_intmax_t), intent(in) :: alias_co_lbounds(:)
-  integer(c_intmax_t), intent(in) :: alias_co_ubounds(:)
+  integer(c_intmax_t), intent(in) :: alias_lcobounds(:)
+  integer(c_intmax_t), intent(in) :: alias_ucobounds(:)
   type(prif_coarray_handle), intent(out) :: alias_handle
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`source_handle`**: a handle (which may itself be an alias) to the existing
-    coarray for which an alias is to be created
-  * **`alias_co_lbounds` and `alias_co_ubounds`**: the cobounds to be used for
-    the new alias
-  * **`alias_handle`**: a new alias to the existing coarray
+**Further argument descriptions**:
 
-##### `prif_alias_destroy`
+* **`source_handle`**: a handle (which may itself be an alias) to the existing
+  coarray for which an alias is to be created
+* **`alias_lcobounds` and `alias_ucobounds`**: the cobounds to be used for
+  the new alias. Both arguments must have the same size, but it need not
+  match the corank associated with `source_handle`
+* **`alias_handle`**: a new alias to the existing coarray
 
-* **Description**: Delete an alias to a coarray
-* **Procedure Interface**:
+### `prif_alias_destroy`
+
+**Description**: Delete an alias to a coarray. Does not deallocate the original coarray.
+    
 ```
 subroutine prif_alias_destroy(alias_handle)
   type(prif_coarray_handle), intent(in) :: alias_handle
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`alias_handle`**: the alias to be destroyed
+**Further argument descriptions**:
 
-##### `move_alloc`
+* **`alias_handle`**: the alias to be destroyed
 
-This is not provided by PRIF, but should be easily implemented through
-manipulation of `prif_coarray_handle`s. Note that calls to
-`prif_set_context_data` will likely be required as part of the operation. Note
-that `move_alloc` with coarray arguments is an image control statement that
+### `MOVE_ALLOC`
+
+This is not provided by PRIF because it depends on unspecified details
+of the compiler's `allocatable` attribute. It is the compiler's responsibility
+to implement `MOVE_ALLOC` using PRIF-provided operations. For example, according
+to the Fortran standard, `MOVE_ALLOC` with coarray arguments is an image control statement that
 requires synchronization, so the compiler should likely insert call(s) to
 `prif_sync_all` as part of the implementation.
 
-#### Queries
+| **CLIENT NOTE**: |
+| ---------------- |
+| It is envisioned that the use of `prif_set_context_data` and `prif_get_context_data` will allow for an efficient implementation of `MOVE_ALLOC` that maintains tracking of allocation status |
 
-##### `prif_set_context_data`
+## Coarray Queries
 
-* **Description**: This procedure stores a `c_ptr` associated with a coarray
-  handle for future retrieval. A typical usage would be to store a reference
+### `prif_set_context_data`
+
+**Description**: This procedure stores a `c_ptr` associated with a coarray
+  for future retrieval. A typical usage would be to store a reference
   to the actual variable whose allocation status must be changed in the case
   that the coarray is deallocated.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_set_context_data(coarray_handle, context_data)
   type(prif_coarray_handle), intent(in) :: coarray_handle
@@ -784,12 +874,12 @@ subroutine prif_set_context_data(coarray_handle, context_data)
 end subroutine
 ```
 
-##### `prif_get_context_data`
+### `prif_get_context_data`
 
-* **Description**: This procedure returns the `c_ptr` provided in the most
+**Description**: This procedure returns the `c_ptr` provided in the most
   recent call to [`prif_set_context_data`](#prif_set_context_data) with the
-  same coarray handle
-* **Procedure Interface**:
+  same coarray (possibly via an alias coarray handle).
+    
 ```
 subroutine prif_get_context_data(coarray_handle, context_data)
   type(prif_coarray_handle), intent(in) :: coarray_handle
@@ -797,49 +887,59 @@ subroutine prif_get_context_data(coarray_handle, context_data)
 end subroutine
 ```
 
-##### `prif_base_pointer`
+### `prif_base_pointer`
 
-* **Description**: This procedure returns a C pointer value referencing the base of the
-  coarray elements on a given image and may be used in conjunction with
+**Description**: This procedure returns a C pointer value referencing the base of the
+  corresponding coarray elements on a given image and may be used in conjunction with
   various communication operations. Pointer arithmetic operations may be
   performed with the value and the results provided as input to the
   `get/put_*raw` or atomic procedures (none of which are guaranteed to perform
   validity checks, e.g., to detect out-of-bounds access violations).
   It is not valid to dereference the produced pointer value
   or the result of any operations performed with it on any image except for
-  the identified image.
-* **Procedure Interface**:
+  the identified image. If the `image_num` argument is zero, then `coarray_handle` is ignored
+  and `ptr` becomes defined with the value zero. It is an error to pass
+  a number less than `0` or greater than the number of images to the `image_num` argument,
+  in which case `ptr` becomes undefined.
+    
 ```
-subroutine prif_base_pointer( &
-    coarray_handle, coindices, team, team_number, ptr)
+subroutine prif_base_pointer(coarray_handle, image_num, ptr)
   type(prif_coarray_handle), intent(in) :: coarray_handle
-  integer(c_intmax_t), intent(in) :: coindices(:)
-  type(prif_team_type), optional, intent(in) :: team
-  integer(c_intmax_t), optional, intent(in) :: team_number
+  integer(c_int), intent(in) :: image_num
   integer(c_intptr_t), intent(out) :: ptr
 end subroutine
 ```
+**Further argument descriptions**:
 
-##### `prif_local_data_size`
+* **`image_num`**: identifies the image number in the initial team on which
+  the address is being requested
+* **`ptr`**: returns a pointer to the beginning of the data elements
+  for the corresponding coarray on the identified image 
 
-* **Description**: This procedure returns the size of the coarray data associated
+### `prif_size_bytes`
+
+**Description**: This procedure returns the size of the coarray element data associated
   with the current image. This will be equal to the following expression of the
-  arguments provided to [`prif_allocate`](#prif_allocate) at the time that the
+  arguments provided to [`prif_allocate_coarray`](#prif_allocate_coarray) at the time that the
   coarray was allocated; `element_length * product(ubounds-lbounds+1)`
-* **Procedure Interface**:
+    
 ```
-subroutine prif_local_data_size(coarray_handle, data_size)
+subroutine prif_size_bytes(coarray_handle, data_size)
   type(prif_coarray_handle), intent(in) :: coarray_handle
   integer(c_size_t), intent(out) :: data_size
 end subroutine
 ```
 
-##### `prif_lcobound`
+| **CLIENT NOTE**: |
+| ---------------- |
+| `prif_size_bytes` can be used to calculate the number of elements in an array coarray given only the handle and element size |
 
-* **Description**: returns the lower cobound(s) of the coarray referred to by
-  the coarray_handle. It is the compiler's responsibility to convert to a
-  different kind if the `kind` argument appears.
-* **Procedure Interface**:
+### `prif_lcobound`
+
+**Description**: returns the lower cobound(s) associated with a coarray handle.
+  It is the compiler's responsibility to convert to a
+  different kind if the `kind` argument to `LCOBOUND` appears.
+    
 ```
 interface prif_lcobound
   subroutine prif_lcobound_with_dim(coarray_handle, dim, lcobound)
@@ -853,18 +953,19 @@ interface prif_lcobound
   end subroutine
 end interface
 ```
-* **Further argument descriptions**:
-  * **`dim`**: which codimension of the coarray to report the lower cobound of
-  * **`lcobound`**: the lower cobound of the given dimension
-  * **`lcobounds`**: an array of the size of the corank of the coarray, returns
-    the lower cobounds of the given coarray
+**Further argument descriptions**:
 
-##### `prif_ucobound`
+* **`dim`**: which codimension of the coarray to report the lower cobound of
+* **`lcobound`**: the lower cobound of the given dimension
+* **`lcobounds`**: an array of the size of the corank of the coarray handle, returns
+  the lower cobounds of the given coarray handle
 
-* **Description**: returns the upper cobound(s) of the coarray referred to by
-  the coarray_handle. It is the compiler's responsibility to convert to a
-  different kind if the `kind` argument appears.
-* **Procedure Interface**:
+### `prif_ucobound`
+
+**Description**: returns the upper cobound(s) associated with a coarray handle.
+  It is the compiler's responsibility to convert to a
+  different kind if the `kind` argument to `UCOBOUND` appears.
+    
 ```
 interface prif_ucobound
   subroutine prif_ucobound_with_dim(coarray_handle, dim, ucobound)
@@ -878,32 +979,34 @@ interface prif_ucobound
   end subroutine
 end interface
 ```
-* **Further argument descriptions**:
-  * **`dim`**: which codimension of the coarray to report the upper cobound of
-  * **`ucobound`**: the upper cobound of the given dimension
-  * **`ucobounds`**: an array of the size of the corank of the coarray, returns
-    the upper cobounds of the given coarray
+**Further argument descriptions**:
 
-##### `prif_coshape`
+* **`dim`**: which codimension of the coarray to report the upper cobound of
+* **`ucobound`**: the upper cobound of the given dimension
+* **`ucobounds`**: an array of the size of the corank of the coarray handle, returns
+    the upper cobounds of the given coarray handle
 
-* **Description**:
-* **Procedure Interface**:
+### `prif_coshape`
+
+**Description**: returns the sizes of codimensions of a coarray
+    
 ```
 subroutine prif_coshape(coarray_handle, sizes)
   type(prif_coarray_handle), intent(in) :: coarray_handle
   integer(c_size_t), intent(out) :: sizes(:)
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`sizes`**: an array of the size of the corank of the coarray, returns the
+**Further argument descriptions**:
+
+* **`sizes`**: an array of the size of the corank of the coarray handle, returns the
     difference between the upper and lower cobounds + 1
 
-##### `prif_image_index`
+### `prif_image_index`
 
-* **Description**: returns the index of the image identified by the coindices
-  provided in the `sub` argument with the given coarray on the identified team
-  or the current team if no team is identified
-* **Procedure Interface**:
+**Description**: returns the index of the image, on the identified team or the
+  current team if no team is provided, identified by the cosubscripts provided
+  in the `sub` argument with the given coarray handle
+    
 ```
 subroutine prif_image_index( &
     coarray_handle, sub, team, team_number, image_index)
@@ -914,43 +1017,51 @@ subroutine prif_image_index( &
   integer(c_int), intent(out) :: image_index
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`team` and `team_number`**: optional arguments that specify a team. They
-    shall not both be present in the same call.
-  * **`sub`**: A list of integers that identify a specific image in the
-    identified or current team when interpreted as coindices for the provided
-    coarray.
+**Further argument descriptions**:
 
-#### Access
+* **`team` and `team_number`**: optional arguments that specify a team. They
+  shall not both be present in the same call.
+* **`sub`**: A list of integers that identify a specific image in the
+  identified or current team when interpreted as cosubscripts for the provided
+  coarray handle.
 
-Coarray accesses will maintain serial dependencies for the issuing image. Any
+## Coarray Access
+
+The memory consistency semantics of coarray accesses follow those defined
+by the Image Execution Control section of the Fortran standard. In particular,
+coarray accesses will maintain serial dependencies for the issuing image. Any
 data access ordering between images is defined only with respect to ordered
-segments. Note that for put operations, "local completion" means that the provided
-arguments are no longer needed (e.g. their memory can be freed once the procedure
-has returned).
+segments. Note that for put operations, "source completion" means that the provided
+source locations are no longer needed (e.g. their memory can be freed once the procedure
+has returned). 
 
-##### Common Arguments
+### Common Arguments
 
-* **`notify_ptr`**: optional pointer on the identified image to the notify
+* **`notify_ptr`**: pointer on the identified image to the notify
   variable that should be updated on completion of the put operation. The
-  referenced variable shall be of type `prif_notify_type`. If this
-  argument is not present, no notification is performed.
+  referenced variable shall be of type `prif_notify_type`, and the storage
+  must have been allocated using `prif_allocate_coarray` or `prif_allocate`.
+  If this optional argument is omitted, then no notification is performed.
 
-##### `prif_put`
+* **`remote_ptr`**: pointer to where on the identified image the data begins.
+  The referenced storage must have been allocated using `prif_allocate_coarray` or `prif_allocate`.
 
-* **Description**: This procedure assigns to the elements of a coarray, when the elements to be
-  assigned to are contiguous in linear memory on both sides. 
-  The compiler can use this to implement assignment to a `coindexed-object`. 
-  It need not call this procedure when the coarray reference is not a `coindexed-object`. 
-  This procedure blocks on local completion.
-* **Procedure Interface**:
+### `prif_put`
+
+**Description**: This procedure assigns to the elements of a coarray, when the elements to be
+  assigned are contiguous in linear memory on both sides. 
+  The compiler can use this to implement assignment to a _coindexed-named-object_. 
+  It need not call this procedure when the coarray reference is not a _coindexed-named-object_. 
+  This procedure blocks on source completion. This procedure corresponds to a contiguous coarray
+  reference on the left hand side of an _assignment-stmt_.
+    
 ```
 subroutine prif_put( &
-    coarray_handle, coindices, value, first_element_addr, &
+    coarray_handle, cosubscripts, value, first_element_addr, &
     team, team_number, notify_ptr, stat, errmsg, errmsg_alloc)
   type(prif_coarray_handle), intent(in) :: coarray_handle
-  integer(c_intmax_t), intent(in) :: coindices(:)
-  type(*), dimension(..), intent(in), contiguous :: value
+  integer(c_intmax_t), intent(in) :: cosubscripts(:)
+  type(*), intent(in), contiguous, target :: value(..)
   type(c_ptr), intent(in) :: first_element_addr
   type(prif_team_type), optional, intent(in) :: team
   integer(c_intmax_t), optional, intent(in) :: team_number
@@ -960,21 +1071,22 @@ subroutine prif_put( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`first_element_addr`**: The address of the local data in the coarray
-    corresponding to the first element to be assigned to on the identified image
+**Further argument descriptions**:
 
-##### `prif_put_raw`
+* **`first_element_addr`**: The address of the current image's data in the coarray
+  corresponding to the first element to be assigned to on the identified image
 
-* **Description**: Assign to `size` number of bytes on given image, starting at
-  remote pointer, copying from local_buffer.
-* **Procedure Interface**:
+### `prif_put_raw`
+
+**Description**: Assign to `size` number of contiguous bytes on given image, starting at
+  `remote_ptr`, copying from `current_image_buffer`.
+    
 ```
 subroutine prif_put_raw( &
-    image_num, local_buffer, remote_ptr, notify_ptr, size, &
+    image_num, current_image_buffer, remote_ptr, notify_ptr, size, &
     stat, errmsg, errmsg_alloc)
   integer(c_int), intent(in) :: image_num
-  type(c_ptr), intent(in) :: local_buffer
+  type(c_ptr), intent(in) :: current_image_buffer
   integer(c_intptr_t), intent(in) :: remote_ptr
   integer(c_intptr_t), optional, intent(in) :: notify_ptr
   integer(c_size_t), intent(in) :: size
@@ -983,74 +1095,75 @@ subroutine prif_put_raw( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`image_num`**: identifies the image to be written to in the initial team
-  * **`local_buffer`**: pointer to the contiguous local data which should be copied to the
-    identified image. 
-  * **`remote_ptr`**: pointer to where on the identified image the data should be written
-  * **`size`**: how much data is to be transferred in bytes
+**Further argument descriptions**:
 
-##### `prif_put_raw_strided`
+* **`image_num`**: identifies the image to be written to in the initial team
+* **`current_image_buffer`**: pointer to the contiguous data which should be copied to the
+  identified image. 
+* **`size`**: how much data is to be transferred in bytes
 
-* **Description**: Assign to memory on given image, starting at
-  remote pointer, copying from local_buffer, progressing through local_buffer
-  in local_buffer_stride increments and through remote memory in remote_ptr_stride
-  increments, transferring extent number of elements in each dimension.
-* **Procedure Interface**:
+### `prif_put_raw_strided`
+
+**Description**: Assign to memory on given image, starting at
+  `remote_ptr`, copying from `current_image_buffer`, progressing through `current_image_buffer`
+  in `current_image_buffer_stride` increments and through remote memory in `remote_ptr_stride`
+  increments, transferring `extent` number of elements in each dimension.
+    
 ```
 subroutine prif_put_raw_strided( &
-    image_num, local_buffer, remote_ptr, element_size, extent, &
-    remote_ptr_stride, local_buffer_stride, notify_ptr, &
+    image_num, current_image_buffer, remote_ptr, element_size, extent, &
+    remote_ptr_stride, current_image_buffer_stride, notify_ptr, &
     stat, errmsg, errmsg_alloc)
   integer(c_int), intent(in) :: image_num
-  type(c_ptr), intent(in) :: local_buffer
+  type(c_ptr), intent(in) :: current_image_buffer
   integer(c_intptr_t), intent(in) :: remote_ptr
   integer(c_size_t), intent(in) :: element_size
   integer(c_size_t), intent(in) :: extent(:)
   integer(c_ptrdiff_t), intent(in) :: remote_ptr_stride(:)
-  integer(c_ptrdiff_t), intent(in) :: local_buffer_stride(:)
+  integer(c_ptrdiff_t), intent(in) :: current_image_buffer_stride(:)
   integer(c_intptr_t), optional, intent(in) :: notify_ptr
   integer(c_int), intent(out), optional :: stat
   character(len=*), intent(inout), optional :: errmsg
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * `remote_ptr_stride`, `local_buffer_stride` and `extent` must each have size
-    equal to the rank of the referenced coarray.
-  * **`image_num`**: identifies the image to be written to in the initial team
-  * **`local_buffer`**: pointer to the local data which should be copied to the
-    identified image.
-  * **`remote_ptr`**: pointer to where on the identified image the data should be written
-  * **`element_size`**: The size of each element in bytes
-  * **`extent`**: How many elements in each dimension should be transferred
-  * **`remote_ptr_stride`**: The stride (in units of bytes) between elements in
-    each dimension on the specified image. Each component of stride may
-    independently be positive or negative, but (together with `extent`) must
-    specify a region of distinct (non-overlapping) elements. The striding starts
-    at the `remote_ptr`.
-  * **`local_buffer_stride`**: The stride between elements in each dimension in
-    the local buffer. Each component of stride may independently be positive or
-    negative, but (together with `extent`) must specify a region of distinct
-    (non-overlapping) elements. The striding starts at the `local_buffer`.
+**Further argument descriptions**:
 
-##### `prif_get`
+* `remote_ptr_stride`, `current_image_buffer_stride` and `extent` must each have size
+  equal to the rank of the referenced coarray.
+* **`image_num`**: identifies the image to be written to in the initial team
+* **`current_image_buffer`**: pointer to the data which should be copied to the
+  identified image.
+* **`element_size`**: The size of each element in bytes
+* **`extent`**: How many elements in each dimension should be transferred
+* **`remote_ptr_stride`**: The stride (in units of bytes) between elements in
+  each dimension on the specified image. Each component of stride may
+  independently be positive or negative, but (together with `extent`) must
+  specify a region of distinct (non-overlapping) elements. The striding starts
+  at the `remote_ptr`.
+* **`current_image_buffer_stride`**: The stride (in units of bytes) between elements in each dimension in
+  the current image buffer. Each component of stride may independently be positive or
+  negative, but (together with `extent`) must specify a region of distinct
+  (non-overlapping) elements. The striding starts at the `current_image_buffer`.
 
-* **Description**: This procedure fetches data in a coarray from a specified image,
+### `prif_get`
+
+**Description**: This procedure fetches data in a coarray from a specified image,
   when the elements are contiguous in linear memory on both sides.
-  The compiler can use this to implement reads from a `coindexed-object`. 
-  It need not call this procedure when the coarray reference is not a `coindexed-object`. 
+  The compiler can use this to implement reads from a _coindexed-named-object_. 
+  It need not call this procedure when the coarray reference is not a _coindexed-named-object_. 
   This procedure blocks until the requested data has been successfully assigned
-  to the `value` argument.
-* **Procedure Interface**:
+  to the `value` argument. This procedure corresponds to any _coindexed-named-object_
+  reference that reads contiguous coarray data.
+    
 ```
 subroutine prif_get( &
-    coarray_handle, coindices, first_element_addr, value, team, team_number, &
-    stat, errmsg, errmsg_alloc)
+    coarray_handle, cosubscripts, first_element_addr, value, &
+    team, team_number, stat, errmsg, errmsg_alloc)
   type(prif_coarray_handle), intent(in) :: coarray_handle
-  integer(c_intmax_t), intent(in) :: coindices(:)
+  integer(c_intmax_t), intent(in) :: cosubscripts(:)
   type(c_ptr), intent(in) :: first_element_addr
-  type(*), dimension(..), intent(out), contiguous :: value
+  type(*), intent(inout), contiguous, target :: value(..)
   type(prif_team_type), optional, intent(in) :: team
   integer(c_intmax_t), optional, intent(in) :: team_number
   integer(c_int), intent(out), optional :: stat
@@ -1058,21 +1171,22 @@ subroutine prif_get( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`first_element_addr`**: The address of the local data in the coarray
-    corresponding to the first element to be fetched from the identified image
+**Further argument descriptions**:
 
-##### `prif_get_raw`
+* **`first_element_addr`**: The address of the data in the coarray
+  corresponding to the first element to be fetched from the identified image
 
-* **Description**: Fetch `size` number of contiguous bytes from given image, starting at
-  remote pointer, copying into local_buffer.
-* **Procedure Interface**:
+### `prif_get_raw`
+
+**Description**: Fetch `size` number of contiguous bytes from given image, starting at
+  `remote_ptr`, copying into `current_image_buffer`.
+    
 ```
 subroutine prif_get_raw( &
-    image_num, local_buffer, remote_ptr, size, &
+    image_num, current_image_buffer, remote_ptr, size, &
     stat, errmsg, errmsg_alloc)
   integer(c_int), intent(in) :: image_num
-  type(c_ptr), intent(in) :: local_buffer
+  type(c_ptr), intent(in) :: current_image_buffer
   integer(c_intptr_t), intent(in) :: remote_ptr
   integer(c_size_t), intent(in) :: size
   integer(c_int), intent(out), optional :: stat
@@ -1080,65 +1194,65 @@ subroutine prif_get_raw( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`image_num`**: identifies the image from which the data should be fetched
-    in the initial team
-  * **`local_buffer`**: pointer to the contiguous local memory into which the retrieved
-    data should be written
-  * **`remote_ptr`**: pointer to where on the identified image the data begins
-  * **`size`**: how much data is to be transferred in bytes
+**Further argument descriptions**:
 
-##### `prif_get_raw_strided`
+* **`image_num`**: identifies the image from which the data should be fetched
+  in the initial team
+* **`current_image_buffer`**: pointer to the contiguous memory into which the retrieved
+  data should be written
+* **`size`**: how much data is to be transferred in bytes
 
-* **Description**: Copy from given image, starting at remote pointer, writing
-  into local_buffer, progressing through local_buffer in local_buffer_stride
-  increments and through remote memory in remote_ptr_stride
-  increments, transferring extent number of elements in each dimension.
-* **Procedure Interface**:
+### `prif_get_raw_strided`
+
+**Description**: Copy from given image, starting at  `remote_ptr`, writing
+  into `current_image_buffer`, progressing through `current_image_buffer` in `current_image_buffer_stride`
+  increments and through remote memory in `remote_ptr_stride`
+  increments, transferring `extent` number of elements in each dimension.
+    
 ```
 subroutine prif_get_raw_strided( &
-    image_num, local_buffer, remote_ptr, element_size, extent, &
-    remote_ptr_stride, local_buffer_stride, &
+    image_num, current_image_buffer, remote_ptr, element_size, extent, &
+    remote_ptr_stride, current_image_buffer_stride, &
     stat, errmsg, errmsg_alloc)
   integer(c_int), intent(in) :: image_num
-  type(c_ptr), intent(in) :: local_buffer
+  type(c_ptr), intent(in) :: current_image_buffer
   integer(c_intptr_t), intent(in) :: remote_ptr
   integer(c_size_t), intent(in) :: element_size
   integer(c_size_t), intent(in) :: extent(:)
   integer(c_ptrdiff_t), intent(in) :: remote_ptr_stride(:)
-  integer(c_ptrdiff_t), intent(in) :: local_buffer_stride(:)
+  integer(c_ptrdiff_t), intent(in) :: current_image_buffer_stride(:)
   integer(c_int), intent(out), optional :: stat
   character(len=*), intent(inout), optional :: errmsg
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * `remote_ptr_stride`, `local_buffer_stride` and `extent` must each have size
-    equal to the rank of the referenced coarray.
-  * **`image_num`**: identifies the image from which the data should be fetched
-    in the initial team
-  * **`local_buffer`**: pointer to the local memory into which the retrieved
-    data should be written
-  * **`remote_ptr`**: pointer to where on the identified image the data begins
-  * **`element_size`**: The size of each element in bytes
-  * **`extent`**: How many elements in each dimension should be transferred
-  * **`remote_ptr_stride`**: The stride (in units of bytes) between elements in
-    each dimension on the specified image. Each component of stride may
-    independently be positive or negative, but (together with `extent`) must
-    specify a region of distinct (non-overlapping) elements. The striding starts
-    at the `remote_ptr`.
-  * **`local_buffer_stride`**: The stride between elements in each dimension in
-    the local buffer. Each component of stride may independently be positive or
-    negative, but (together with `extent`) must specify a region of distinct
-    (non-overlapping) elements. The striding starts at the `local_buffer`.
+**Further argument descriptions**:
 
-### Synchronization
+* `remote_ptr_stride`, `current_image_buffer_stride` and `extent` must each have size
+  equal to the rank of the referenced coarray.
+* **`image_num`**: identifies the image from which the data should be fetched
+  in the initial team
+* **`current_image_buffer`**: pointer to the memory into which the retrieved
+  data should be written
+* **`element_size`**: The size of each element in bytes
+* **`extent`**: How many elements in each dimension should be transferred
+* **`remote_ptr_stride`**: The stride (in units of bytes) between elements in
+  each dimension on the specified image. Each component of stride may
+  independently be positive or negative, but (together with `extent`) must
+  specify a region of distinct (non-overlapping) elements. The striding starts
+  at the `remote_ptr`.
+* **`current_image_buffer_stride`**: The stride (in units of bytes) between elements in each dimension in
+  the current image buffer. Each component of stride may independently be positive or
+  negative, but (together with `extent`) must specify a region of distinct
+  (non-overlapping) elements. The striding starts at the `current_image_buffer`.
 
-#### `prif_sync_memory`
+## Synchronization
 
-* **Description**: Ends one segment and begins another, waiting on pending
+### `prif_sync_memory`
+
+**Description**: Ends one segment and begins another, waiting on any pending
   communication operations with other images.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_sync_memory(stat, errmsg, errmsg_alloc)
   integer(c_int), intent(out), optional :: stat
@@ -1147,10 +1261,10 @@ subroutine prif_sync_memory(stat, errmsg, errmsg_alloc)
 end subroutine
 ```
 
-#### `prif_sync_all`
+### `prif_sync_all`
 
-* **Description**: Performs a synchronization of all images in the current team.
-* **Procedure Interface**:
+**Description**: Performs a synchronization of all images in the current team.
+    
 ```
 subroutine prif_sync_all(stat, errmsg, errmsg_alloc)
   integer(c_int), intent(out), optional :: stat
@@ -1159,10 +1273,10 @@ subroutine prif_sync_all(stat, errmsg, errmsg_alloc)
 end subroutine
 ```
 
-#### `prif_sync_images`
+### `prif_sync_images`
 
-* **Description**: Performs a synchronization with the listed images.
-* **Procedure Interface**:
+**Description**: Performs a synchronization with the listed images.
+    
 ```
 subroutine prif_sync_images(image_set, stat, errmsg, errmsg_alloc)
   integer(c_int), intent(in), optional :: image_set(:)
@@ -1171,17 +1285,18 @@ subroutine prif_sync_images(image_set, stat, errmsg, errmsg_alloc)
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`image_set`**: The image inidices of the images in the current team with
-    which to synchronize. Note, if a scalar appears, the compiler should pass
-    its value as a size 1 array, and if an asterisk (`*`) appears, the compiler
-    should not pass `image_set`.
+**Further argument descriptions**:
 
-#### `prif_sync_team`
+* **`image_set`**: The image inidices of the images in the current team with
+  which to synchronize. Given a scalar argument to SYNC IMAGES, the compiler should pass
+  its value in an array of size 1. Given an asterisk (`*`) argument to SYNC IMAGES, the compiler
+  should omit the `image_set` argument.
 
-* **Description**: Performs a synchronization with the images of the identified
+### `prif_sync_team`
+
+**Description**: Performs a synchronization with the images of the identified
   team.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_sync_team(team, stat, errmsg, errmsg_alloc)
   type(prif_team_type), intent(in) :: team
@@ -1190,18 +1305,19 @@ subroutine prif_sync_team(team, stat, errmsg, errmsg_alloc)
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`team`**: Identifies the team to synchronize.
+**Further argument descriptions**:
 
-#### `prif_lock`
+* **`team`**: Identifies the team to synchronize.
 
-* **Description**: Waits until the identified lock variable is unlocked
+### `prif_lock`
+
+**Description**: Waits until the identified lock variable is unlocked
   and then locks it if the `acquired_lock` argument is not present. Otherwise it
   sets the `acquired_lock` argument to `.false.` if the identified lock variable
   was locked, or locks the identified lock variable and sets the `acquired_lock`
-  argument to `.true.`. Note that if the identified lock variable was already
-  locked by the current image an error condition occurs.
-* **Procedure Interface**:
+  argument to `.true.`. If the identified lock variable was already
+  locked by the current image, then an error condition occurs.
+    
 ```
 subroutine prif_lock( &
     image_num, lock_var_ptr, acquired_lock, &
@@ -1214,21 +1330,23 @@ subroutine prif_lock( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`image_num`**: the image index in the initial team for the lock variable
-    to be locked
-  * **`lock_var_ptr`**: a pointer to the base address of the lock variable to
-    be locked on the identified image, typically obtained from a call to
-    `prif_base_pointer`
-  * **`acquired_lock`**: if present is set to `.true.` if the lock was locked
-    by the current image, or set to `.false.` otherwise
+**Further argument descriptions**:
 
-#### `prif_unlock`
+* **`image_num`**: the image index in the initial team for the lock variable
+  to be locked
+* **`lock_var_ptr`**: a pointer to the base address of the lock variable to
+  be locked on the identified image, typically obtained from a call to
+  `prif_base_pointer`. The referenced variable shall be of type `prif_lock_type`,
+  and the referenced storage must have been allocated using `prif_allocate_coarray` or `prif_allocate`.
+* **`acquired_lock`**: if present is set to `.true.` if the lock was locked
+  by the current image, or set to `.false.` otherwise
 
-* **Description**: Unlocks the identified lock variable. Note that if the
-  identified lock variable was not locked by the current image an error
+### `prif_unlock`
+
+**Description**: Unlocks the identified lock variable. If the
+  identified lock variable was not locked by the current image, then an error
   condition occurs.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_unlock( &
     image_num, lock_var_ptr, stat, errmsg, errmsg_alloc)
@@ -1239,16 +1357,18 @@ subroutine prif_unlock( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`image_num`**: the image index in the initial team for the lock variable
-    to be unlocked
-  * **`lock_var_ptr`**: a pointer to the base address of the lock variable to
-    be unlocked on the identified image, typically obtained from a call to
-    `prif_base_pointer`
+**Further argument descriptions**:
 
-#### `prif_critical`
+* **`image_num`**: the image index in the initial team for the lock variable
+  to be unlocked
+* **`lock_var_ptr`**: a pointer to the base address of the lock variable to
+  be unlocked on the identified image, typically obtained from a call to
+  `prif_base_pointer`. The referenced variable shall be of type `prif_lock_type`,
+  and the referenced storage must have been allocated using `prif_allocate_coarray` or `prif_allocate`.
 
-* **Description**: The compiler shall define a coarray, and establish (allocate)
+### `prif_critical`
+
+**Description**: The compiler shall define a coarray, and establish (allocate)
   it in the initial team, that shall only be used to begin and end the critical
   block. An efficient implementation will likely define one for each critical
   block. The coarray shall be a scalar coarray of type `prif_critical_type` and
@@ -1256,7 +1376,7 @@ end subroutine
   procedure waits until any other image which has executed this procedure with
   a corresponding coarray handle has subsequently executed `prif_end_critical`
   with the same coarray handle an identical number of times.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_critical( &
     critical_coarray, stat, errmsg, errmsg_alloc)
@@ -1266,30 +1386,32 @@ subroutine prif_critical( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`critical_coarray`**: the handle for the `prif_critical_type` coarray
-    associated with a given critical construct
+**Further argument descriptions**:
 
-#### `prif_end_critical`
+* **`critical_coarray`**: the handle for the `prif_critical_type` coarray
+  associated with a given critical construct
 
-* **Description**: Completes execution of the critical construct associated with
+### `prif_end_critical`
+
+**Description**: Completes execution of the critical construct associated with
   the provided coarray handle.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_end_critical(critical_coarray)
   type(prif_coarray_handle), intent(in) :: critical_coarray
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`critical_coarray`**: the handle for the `prif_critical_type` coarray
-    associated with a given critical construct
+**Further argument descriptions**:
 
-### Events and Notifications
+* **`critical_coarray`**: the handle for the `prif_critical_type` coarray
+  associated with a given critical construct
 
-#### `prif_event_post`
+## Events and Notifications
 
-* **Description**: Atomically increment the count of the event variable by one.
-* **Procedure Interface**:
+### `prif_event_post`
+
+**Description**: Atomically increment the count of the event variable by one.
+    
 ```
 subroutine prif_event_post( &
     image_num, event_var_ptr, stat, errmsg, errmsg_alloc)
@@ -1300,83 +1422,93 @@ subroutine prif_event_post( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`image_num`**: the image index in the initial team for the event variable
-    to be incremented
-  * **`event_var_ptr`**: a pointer to the base address of the event variable to
-    be incremented on the identified image, typically obtained from a call to
-    `prif_base_pointer`
+**Further argument descriptions**:
 
-#### `prif_event_wait`
+* **`image_num`**: the image index in the initial team for the event variable
+  to be incremented
+* **`event_var_ptr`**: a pointer to the base address of the event variable to
+  be incremented on the identified image, typically obtained from a call to
+  `prif_base_pointer`. The referenced variable shall be of type `prif_event_type`,
+  and the referenced storage must have been allocated using `prif_allocate_coarray` or `prif_allocate`.
 
-* **Description**: Wait until the count of the provided event variable is greater
+### `prif_event_wait`
+
+**Description**: Wait until the count of the provided event variable on the calling image is greater
   than or equal to `until_count`, and then atomically decrement the count by that
   value. If `until_count` is not present it has the value 1.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_event_wait( &
     event_var_ptr, until_count, stat, errmsg, errmsg_alloc)
-  integer(c_ptr), intent(in) :: event_var_ptr
+  type(c_ptr), intent(in) :: event_var_ptr
   integer(c_intmax_t), intent(in), optional :: until_count
   integer(c_int), intent(out), optional :: stat
   character(len=*), intent(inout), optional :: errmsg
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`event_var_ptr`**: a pointer to the event variable to be waited on
-  * **`until_count`**: the count of the given event variable to be waited for.
-    Has the value 1 if not provided.
+**Further argument descriptions**:
 
-#### `prif_event_query`
+* **`event_var_ptr`**: a pointer to the event variable to be waited on. The
+  referenced variable shall be of type `prif_event_type`,
+  and the referenced storage must have been allocated using `prif_allocate_coarray` or `prif_allocate`.
+* **`until_count`**: the count of the given event variable to be waited for.
+  Has the value 1 if not provided.
 
-* **Description**: Query the count of an event.
-* **Procedure Interface**:
+### `prif_event_query`
+
+**Description**: Query the count of an event variable on the calling image.
+    
 ```
 subroutine prif_event_query(event_var_ptr, count, stat)
-  integer(c_ptr), intent(in) :: event_var_ptr
+  type(c_ptr), intent(in) :: event_var_ptr
   integer(c_intmax_t), intent(out) :: count
   integer(c_int), intent(out), optional :: stat
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`event_var_ptr`**: a pointer to the event variable to be queried
-  * **`count`**: the current count of the given event variable.
+**Further argument descriptions**:
 
-#### `prif_notify_wait`
+* **`event_var_ptr`**: a pointer to the event variable to be queried. The
+    referenced variable shall be of type `prif_event_type`,
+    and the referenced storage must have been allocated using `prif_allocate_coarray` or `prif_allocate`.
+* **`count`**: the current count of the given event variable.
 
-* **Description**: Wait on notification of a put operation
-* **Procedure Interface**:
+### `prif_notify_wait`
+
+**Description**: Wait on notification of an incoming put operation
+    
   ```
     subroutine prif_notify_wait( &
         notify_var_ptr, until_count, stat, errmsg, errmsg_alloc)
-      integer(c_ptr), intent(in) :: notify_var_ptr
+      type(c_ptr), intent(in) :: notify_var_ptr
       integer(c_intmax_t), intent(in), optional :: until_count
       integer(c_int), intent(out), optional :: stat
       character(len=*), intent(inout), optional :: errmsg
       character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
     end subroutine
   ```
-* **Further argument descriptions**:
-  * **`notify_var_ptr`**: a pointer to the notify variable to be waited on. The
-  referenced variable shall be of type `prif_notify_type`.
-  * **`until_count`**: the count of the given notify variable to be waited for.
-    Has the value 1 if not provided.
+**Further argument descriptions**:
 
-### Teams
+* **`notify_var_ptr`**: a pointer to the notify variable on the calling image to be waited on. The
+  referenced variable shall be of type `prif_notify_type`,
+  and the referenced storage must have been allocated using `prif_allocate_coarray` or `prif_allocate`.
+* **`until_count`**: the count of the given notify variable to be waited for.
+  Has the value 1 if not provided.
+
+## Teams
 
 Team creation forms a tree structure, where a given team may create multiple
 child teams. The initial team is created by the `prif_init` procedure. Each
-subsequently created team's parent team is then the current team. Team
+subsequently created team's parent is the then-current team. Team
 membership is thus strictly hierarchical, following a single path along the
 tree formed by team creation.
 
-#### `prif_form_team`
+### `prif_form_team`
 
-* **Description**: Create teams. Each image receives a team value denoting the
+**Description**: Create teams. Each image receives a team value denoting the
   newly created team containing all images in the current team which specify the
   same value for `team_number`.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_form_team( &
     team_number, team, new_index, stat, errmsg, errmsg_alloc)
@@ -1388,32 +1520,34 @@ subroutine prif_form_team( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`new_index`**: the index that the current image will have in its new team
+**Further argument descriptions**:
 
-#### `prif_get_team`
+* **`new_index`**: the index that the current image will have in its new team
 
-* **Description**: Get the team value for the current or an ancestor team. It
+### `prif_get_team`
+
+**Description**: Get the team value for the current or an ancestor team. It
   returns the current team if `level` is not present or has the value
   `PRIF_CURRENT_TEAM`, the parent team if `level` is present with the
   value `PRIF_PARENT_TEAM`, or the initial team if `level` is present with the value
   `PRIF_INITIAL_TEAM`
-* **Procedure Interface**:
+    
 ```
 subroutine prif_get_team(level, team)
   integer(c_int), intent(in), optional :: level
   type(prif_team_type), intent(out) :: team
 end subroutine
 ```
-* **Further argument descriptions**:
-  * **`level`**: identify which team value to be returned
+**Further argument descriptions**:
 
-#### `prif_team_number`
+* **`level`**: identify which team value to be returned
 
-* **Description**: Return the `team_number` that was specified in the call to
+### `prif_team_number`
+
+**Description**: Return the `team_number` that was specified in the call to
   `prif_form_team` for the specified team, or -1 if the team is the initial
   team. If `team` is not present, the current team is used.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_team_number(team, team_number)
   type(prif_team_type), intent(in), optional :: team
@@ -1421,14 +1555,14 @@ subroutine prif_team_number(team, team_number)
 end subroutine
 ```
 
-#### `prif_change_team`
+### `prif_change_team`
 
-* **Description**: changes the current team to the specified team. For any
+**Description**: changes the current team to the specified team. For any
   associate names specified in the `CHANGE TEAM` statement the compiler should
   follow a call to this procedure with calls to `prif_alias_create` to create
   the alias coarray handle, and associate any non-coindexed references to the
   associate name within the `CHANGE TEAM` construct with the selector.
-* **Procedure Interface**:
+    
 ```
 subroutine prif_change_team(team, stat, errmsg, errmsg_alloc)
   type(prif_team_type), intent(in) :: team
@@ -1438,14 +1572,14 @@ subroutine prif_change_team(team, stat, errmsg, errmsg_alloc)
 end subroutine
 ```
 
-#### `prif_end_team`
+### `prif_end_team`
 
-* **Description**: Changes the current team to the parent team. During the
-  execution of `prif_end_team`, the PRIF implementation will deallocate any coarrays allocated during the
+**Description**: Changes the current team to the parent team. During the
+  execution of `prif_end_team`, the PRIF implementation will deallocate any coarrays that became allocated during the
   change team construct. Prior to invoking `prif_end_team`, the compiler is
-  responsible for invoking `prif_alias_destroy` for any `prif_coarray_handle`
-  handles created as part of the `change team` statement.
-* **Procedure Interface**:
+  responsible for invoking `prif_alias_destroy` to delete any `prif_coarray_handle`
+  aliases created as part of the `CHANGE TEAM` construct.
+    
 ```
 subroutine prif_end_team(stat, errmsg, errmsg_alloc)
   integer(c_int), intent(out), optional :: stat
@@ -1454,32 +1588,32 @@ subroutine prif_end_team(stat, errmsg, errmsg_alloc)
 end subroutine
 ```
 
-### Collectives
+## Collectives
 
-#### Common arguments
+### Common Arguments
 
 * **`a`**
   * Argument for all the collective subroutines: [`prif_co_broadcast`](#prif_co_broadcast),
     [`prif_co_max`](#prif_co_max), [`prif_co_min`](#prif_co_min),
     [`prif_co_reduce`](#prif_co_reduce), [`prif_co_sum`](#prif_co_sum),
-  * may be any type for `co_broadcast` or `co_reduce`, any numeric for `co_sum`,
-    and integer, real, or character for `co_min` or `co_max`
+  * may be any type for `prif_co_broadcast` or `prif_co_reduce`, any numeric for `prif_co_sum`,
+    and integer, real, or character for `prif_co_min` or `prif_co_max`
   * is always `intent(inout)`
-  * for `co_max`, `co_min`, `co_reduce`, `co_sum` it is assigned the value
+  * for `prif_co_max`, `prif_co_min`, `prif_co_reduce`, `prif_co_sum` it is assigned the value
     computed by the collective operation, if no error conditions occurs and if
     `result_image` is absent, or the executing image is the one identified by
     `result_image`, otherwise `a` becomes undefined
-  * for `co_broadcast`, the value of the argument on the `source_image` is
+  * for `prif_co_broadcast`, the value of the argument on the `source_image` is
     assigned to the `a` argument on all other images
 
 * **`source_image` or `result_image`**
-  * These arguments are of type `integer(c_int)`, to minimize the frequency
-    that integer conversions will be needed.
+  * Identifies the image in the current team that is the root of the collective operation.
+  * If `result_image` is omitted, then all participating images receive the resulting value.
 
-#### `prif_co_broadcast`
+### `prif_co_broadcast`
 
-* **Description**: Broadcast value to images
-* **Procedure Interface**:
+**Description**: Broadcast value to images
+    
 ```
 subroutine prif_co_broadcast( &
     a, source_image, stat, errmsg, errmsg_alloc)
@@ -1491,10 +1625,10 @@ subroutine prif_co_broadcast( &
 end subroutine
 ```
 
-#### `prif_co_max`
+### `prif_co_max`
 
-* **Description**: Compute maximum value across images
-* **Procedure Interface**:
+**Description**: Compute maximum value across images
+    
 ```
 subroutine prif_co_max( &
     a, result_image, stat, errmsg, errmsg_alloc)
@@ -1506,10 +1640,10 @@ subroutine prif_co_max( &
 end subroutine
 ```
 
-#### `prif_co_min`
+### `prif_co_min`
 
-* **Description**: Compute minimum value across images
-* **Procedure Interface**:
+**Description**: Compute minimum value across images
+    
 ```
 subroutine prif_co_min( &
     a, result_image, stat, errmsg, errmsg_alloc)
@@ -1521,10 +1655,10 @@ subroutine prif_co_min( &
 end subroutine
 ```
 
-#### `prif_co_reduce`
+### `prif_co_reduce`
 
-* **Description**: Generalized reduction across images
-* **Procedure Interface**:
+**Description**: Generalized reduction across images
+    
 ```
 subroutine prif_co_reduce( &
     a, operation, result_image, stat, errmsg, errmsg_alloc)
@@ -1536,11 +1670,17 @@ subroutine prif_co_reduce( &
   character(len=:), intent(inout), allocatable, optional :: errmsg_alloc
 end subroutine
 ```
+**Further argument descriptions**:
 
-#### `prif_co_sum`
+* **`operation`**: the result of `C_FUNLOC` on a reduction operation procedure that meets the 
+  requirements outlined in the Fortran standard for the corresponding argument to CO_REDUCE.
+  Note the procedure itself need NOT be interoperable (i.e. `BIND(C)`) nor are the
+  arguments required to have interoperable types.
 
-* **Description**: Compute sum across images
-* **Procedure Interface**:
+### `prif_co_sum`
+
+**Description**: Compute sum across images
+    
 ```
 subroutine prif_co_sum( &
     a, result_image, stat, errmsg, errmsg_alloc)
@@ -1552,11 +1692,12 @@ subroutine prif_co_sum( &
 end subroutine
 ```
 
-### Atomic Memory Operation
+## Atomic Memory Operations
 
-All atomic operations are blocking operations.
+All atomic operations are fully blocking operations, meaning they do not return to the caller
+until after all semantics involving the atomic variable are fully committed with respect to all images.
 
-#### Common arguments
+### Common Arguments
 
 * **`atom_remote_ptr`**
   * Argument for all of the atomic subroutines
@@ -1564,20 +1705,24 @@ All atomic operations are blocking operations.
   * is the location of the atomic variable on the identified image to be
     operated on
   * it is the responsibility of the compiler to perform the necessary operations
-    on the coarray or coindexed actual argument to get the relevant remote pointer
+    on the coarray or coindexed actual argument to compute the relevant remote pointer
+  * The referenced storage must have been allocated using `prif_allocate_coarray` or `prif_allocate`.
+
 * **`image_num`**
-  * identifies the image on which the atomic operation is to be performed
-  * is the image index in the initial team
+  * an argument identifying the image to be communicated with
+  * is permitted to identify the current image
+  * the image index is always relative to the initial team, unless otherwise specified
 
-#### Non-fetching Atomic Operations
+### Non-Fetching Atomic Operations
 
-Perform specified operation on a variable in a coarray atomically.
+**Description**: Each of the following procedures atomically performs the 
+specified operation on a variable in a coarray.
 
-##### Common argument
+#### Common Argument
 
 * **`value`**: value to perform the operation with
 
-##### `prif_atomic_add`, Addition
+#### `prif_atomic_add`, Addition
 
 ```
 subroutine prif_atomic_add(atom_remote_ptr, image_num, value, stat)
@@ -1588,7 +1733,7 @@ subroutine prif_atomic_add(atom_remote_ptr, image_num, value, stat)
 end subroutine
 ```
 
-##### `prif_atomic_and`, Bitwise And
+#### `prif_atomic_and`, Bitwise And
 
 ```
 subroutine prif_atomic_and(atom_remote_ptr, image_num, value, stat)
@@ -1599,7 +1744,7 @@ subroutine prif_atomic_and(atom_remote_ptr, image_num, value, stat)
 end subroutine
 ```
 
-##### `prif_atomic_or`, Bitwise Or
+#### `prif_atomic_or`, Bitwise Or
 
 ```
 subroutine prif_atomic_or(atom_remote_ptr, image_num, value, stat)
@@ -1610,7 +1755,7 @@ subroutine prif_atomic_or(atom_remote_ptr, image_num, value, stat)
 end subroutine
 ```
 
-##### `prif_atomic_xor`, Bitwise Xor
+#### `prif_atomic_xor`, Bitwise Xor
 
 ```
 subroutine prif_atomic_xor(atom_remote_ptr, image_num, value, stat)
@@ -1621,17 +1766,18 @@ subroutine prif_atomic_xor(atom_remote_ptr, image_num, value, stat)
 end subroutine
 ```
 
-#### Atomic Fetch Operations
+### Fetching Atomic Operations
 
-Perform specified operation on a variable in a coarray atomically and save its
+**Description**: Each of the following procedures atomically performs the 
+specified operation on a variable in a coarray, and retrieves the
 original value.
 
-##### Common arguments
+#### Common Arguments
 
 * **`value`**: value to perform the operation with
 * **`old`**: is set to the initial value of the atomic variable
 
-##### `prif_atomic_fetch_add`, Addition
+#### `prif_atomic_fetch_add`, Addition
 
 ```
 subroutine prif_atomic_fetch_add( &
@@ -1644,7 +1790,7 @@ subroutine prif_atomic_fetch_add( &
 end subroutine
 ```
 
-##### `prif_atomic_fetch_and`, Bitwise And
+#### `prif_atomic_fetch_and`, Bitwise And
 
 ```
 subroutine prif_atomic_fetch_and( &
@@ -1657,7 +1803,7 @@ subroutine prif_atomic_fetch_and( &
 end subroutine
 ```
 
-##### `prif_atomic_fetch_or`, Bitwise Or
+#### `prif_atomic_fetch_or`, Bitwise Or
 
 ```
 subroutine prif_atomic_fetch_or( &
@@ -1670,7 +1816,7 @@ subroutine prif_atomic_fetch_or( &
 end subroutine
 ```
 
-##### `prif_atomic_fetch_xor`, Bitwise Xor
+#### `prif_atomic_fetch_xor`, Bitwise Xor
 
 ```
 subroutine prif_atomic_fetch_xor( &
@@ -1683,16 +1829,17 @@ subroutine prif_atomic_fetch_xor( &
 end subroutine
 ```
 
-#### Atomic Access
+### Atomic Access
 
-Atomically set or retrieve the value of an atomic variable in a coarray.
+**Description**: The following procedures atomically 
+set or retrieve the value of a variable in a coarray.
 
-##### Common argument
+#### Common Argument
 
 * **`value`**: value to which the variable shall be set, or retrieved from the
   variable
 
-##### `prif_atomic_define`, set variable's value
+#### `prif_atomic_define`, set variable's value
 
 ```
 interface prif_atomic_define
@@ -1714,7 +1861,7 @@ interface prif_atomic_define
 end interface
 ```
 
-##### `prif_atomic_ref`, retrieve variable's value
+#### `prif_atomic_ref`, retrieve variable's value
 
 ```
 interface prif_atomic_ref
@@ -1736,11 +1883,13 @@ interface prif_atomic_ref
 end interface
 ```
 
-##### `prif_atomic_cas`, Compare and Swap
+### `prif_atomic_cas`
 
+**Description**: Performs an atomic compare-and-swap operation.
 If the value of the atomic variable is equal to the value of the `compare`
 argument, set it to the value of the `new` argument. The `old` argument is set
 to the initial value of the atomic variable.
+    
 
 ```
 interface prif_atomic_cas
@@ -1765,17 +1914,29 @@ interface prif_atomic_cas
   end subroutine
 end interface
 ```
-* **Further argument descriptions**:
-  * **`old`**: is set to the initial value of the atomic variable
-  * **`compare`**: the value with which to compare the atomic variable
-  * **`new`**: the value to set the atomic variable too if it is initially equal
-    to the `compare` argument
+**Further argument descriptions**:
 
+* **`old`**: is set to the initial value of the atomic variable
+* **`compare`**: the value with which to compare the atomic variable
+* **`new`**: the value to assign into the atomic variable, if it is initially equal
+  to the `compare` argument
+
+# Glossary
+
+* **Client Note**: a note that is relevant information for compiler developers who are clients of the PRIF interface
+
+* **Implementation Note**: a note that is relevant information for runtime
+  library developers who are implementing the PRIF interface
+
+* **Source Completion**: The source-side resources provided to a
+  communication operation by this image are no longer in use by
+  the PRIF implementation, and the client is now permitted to modify
+  or reclaim them.
 
 # Future Work
 
 At present all communication operations are semantically blocking on at least
-local completion. We acknowledge that this prohibits certain types of static
+source completion. We acknowledge that this prohibits certain types of static
 optimization, namely the explicit overlap of communication with computation. In
 the future we intend to develop split-phased/asynchronous versions of various
 communication operations to enable more opportunities for static optimization of
@@ -1791,6 +1952,10 @@ This research used resources of the National Energy Research Scientific
 Computing Center (NERSC), a U.S. Department of Energy Office of Science User
 Facility located at Lawrence Berkeley National Laboratory, operated under
 Contract No. DE-AC02-05CH11231
+
+The authors would like to thank Etienne Renault and Jean-Didier Pailleux of
+SiPearl for providing helpful comments and suggestions regarding an earlier
+revision of this specification.
 
 # Copyright
 
