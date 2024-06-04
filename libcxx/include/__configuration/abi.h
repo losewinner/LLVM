@@ -124,6 +124,8 @@
 // This setting disables the addition of such artificial padding, leading to a more optimal
 // representation for several types.
 #  define _LIBCPP_ABI_NO_COMPRESSED_PAIR_PADDING
+// Enable clang::trivial_abi for std::move_only_function
+#  define _LIBCPP_ABI_SMALL_BUFFER_TRIVIAL_ABI
 #elif _LIBCPP_ABI_VERSION == 1
 #  if !(defined(_LIBCPP_OBJECT_FORMAT_COFF) || defined(_LIBCPP_OBJECT_FORMAT_XCOFF))
 // Enable compiling copies of now inline methods into the dylib to support
