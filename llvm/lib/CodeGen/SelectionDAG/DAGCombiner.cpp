@@ -15645,6 +15645,17 @@ SDValue DAGCombiner::visitTRUNCATE(SDNode *N) {
     break;
   }
 
+  switch (N0.getOpcode()) {
+  case ISD::ADD:
+  case ISD::SUB:
+  case ISD::MUL:
+  case ISD::AND:
+  case ISD::OR:
+  case ISD::XOR:
+    // if ()
+    break; 
+  }
+
   return SDValue();
 }
 
