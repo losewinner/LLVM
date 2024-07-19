@@ -583,6 +583,14 @@ SBError SBProcess::Continue() {
   return sb_error;
 }
 
+SBError SBProcess::ContinueInDirection(RunDirection direction) {
+  ProcessSP process_sp(GetSP());
+  if (process_sp) {
+    process_sp->SetRunDirection(direction);
+  }
+  return Continue();
+}
+
 SBError SBProcess::Destroy() {
   LLDB_INSTRUMENT_VA(this);
 

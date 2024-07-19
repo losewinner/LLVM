@@ -497,6 +497,10 @@ public:
 
   virtual lldb::StateType GetPlanRunState() = 0;
 
+  virtual lldb::RunDirection GetDirection() const {
+    return lldb::RunDirection::eRunForward;
+  }
+
 protected:
   // Constructors and Destructors
   ThreadPlan(ThreadPlanKind kind, const char *name, Thread &thread,
