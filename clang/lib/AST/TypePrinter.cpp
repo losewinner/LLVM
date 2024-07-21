@@ -1135,6 +1135,9 @@ void TypePrinter::printFunctionAfter(const FunctionType::ExtInfo &Info,
     case CC_RISCVVectorCall:
       OS << "__attribute__((riscv_vector_cc))";
       break;
+    case CC_RISCVVLSCall:
+      OS << "__attribute__((riscv_vls_cc))";
+      break;
     }
   }
 
@@ -2052,6 +2055,9 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
     break;
   case attr::RISCVVectorCC:
     OS << "riscv_vector_cc";
+    break;
+  case attr::RISCVVLSCC:
+    OS << "riscv_vls_cc";
     break;
   case attr::NoDeref:
     OS << "noderef";
