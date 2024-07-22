@@ -2979,7 +2979,7 @@ public:
     return isTruncateFree(Val.getValueType(), VT2);
   }
 
-  // Return true if the target will accepts tradeoffs (e.g. increase the number 
+  // Return true if the target will accepts tradeoffs (e.g. increase the number
   // of instructions) to reduce register pressure.
   virtual bool shouldReduceRegisterPressure() const { return false; }
 
