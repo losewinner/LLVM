@@ -160,7 +160,16 @@ def Linux : StandardSpec<"Linux"> {
       ],
       [StructTimevalType], // Types
       [], // Enumerations
-      []  // Functions
+      [
+        FunctionSpec<
+          "utimes",
+          RetValSpec<IntType>,
+          [
+            ArgSpec<ConstCharPtr>,
+            ArgSpec<ConstStructTimevalPtr>,
+          ]
+        >,
+      ]  // Functions
   >;
 
 
