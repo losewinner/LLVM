@@ -8,8 +8,8 @@ from typing import (
     Any,
     Dict,
     List,  # Needed for python 3.8 compatibility.
+    NewType,
     Optional,
-    TypeAlias,
 )
 import functools
 import json
@@ -1924,10 +1924,9 @@ Status
         f.write(doc_str)
 
 
-Std: TypeAlias = str  # Standard version number
-Ftm: TypeAlias = str  # The name of a feature test macro
-Value: TypeAlias = str  # The value of a feature test macro including the L suffix
-
+Std = NewType("Std", str)  # Standard version number
+Ftm = NewType("Ftm", str)  # The name of a feature test macro
+Value = NewType("Value", str)  # The value of a feature test macro including the L suffix
 
 @dataclass
 class Metadata:
