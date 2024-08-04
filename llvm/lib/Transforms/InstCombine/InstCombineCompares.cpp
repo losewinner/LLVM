@@ -32,6 +32,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/KnownBits.h"
@@ -7895,47 +7896,73 @@ static Instruction *foldFCmpReciprocalAndZero(FCmpInst &I, Instruction *LHSI,
 static Instruction *foldFCmpFpTrunc(FCmpInst &I, Instruction *LHSI,
                                     Constant *RHSC) {
   FCmpInst::Predicate Pred = I.getPredicate();
+  bool RoundDown = false;
 
-  // Check that predicates are valid.
-  if ((Pred != FCmpInst::FCMP_OGT) && (Pred != FCmpInst::FCMP_OLT) &&
-      (Pred != FCmpInst::FCMP_OGE) && (Pred != FCmpInst::FCMP_OLE))
+  if ((Pred == FCmpInst::FCMP_OGE) || (Pred == FCmpInst::FCMP_UGE) ||
+      (Pred == FCmpInst::FCMP_OLT) || (Pred == FCmpInst::FCMP_ULT))
+    RoundDown = true;
+  else if ((Pred == FCmpInst::FCMP_OGT) || (Pred == FCmpInst::FCMP_UGT) ||
+           (Pred == FCmpInst::FCMP_OLE) || (Pred == FCmpInst::FCMP_ULE))
+    RoundDown = false;
+  else
     return nullptr;
 
-  if (ConstantFP *ConstRFp = dyn_cast<ConstantFP>(RHSC)) {
-    Type *LType = LHSI->getOperand(0)->getType();
-    bool lossInfo;
-    APFloat RValue = ConstRFp->getValue();
-    RValue.convert(LType->getFltSemantics(), APFloat::rmNearestTiesToEven,
-                   &lossInfo);
+  const APFloat *RValue;
+  if (!match(RHSC, m_APFloat(RValue)))
+    return nullptr;
 
-    return new FCmpInst(Pred, LHSI->getOperand(0),
-                        ConstantFP::get(LType, RValue), "", &I);
-  }
+  Type *LType = LHSI->getOperand(0)->getType();
+  Type *RType = RHSC->getType();
+  Type *LEleType = LType->getScalarType();
+  Type *REleType = RType->getScalarType();
 
-  if (RHSC->getType()->isVectorTy()) {
-    Type *LVecType = LHSI->getOperand(0)->getType();
-    Type *LEleType = dyn_cast<VectorType>(LVecType)->getElementType();
+  APFloat NextRValue = *RValue;
+  NextRValue.next(RoundDown);
 
-    FixedVectorType *VecType = dyn_cast<FixedVectorType>(RHSC->getType());
-    uint64_t EleNum = VecType->getNumElements();
+  // Round RValue to suitable value
+  APFloat ExtRValue = *RValue;
+  APFloat ExtNextRValue = NextRValue;
+  bool lossInfo;
+  ExtRValue.convert(LEleType->getFltSemantics(), APFloat::rmNearestTiesToEven,
+                    &lossInfo);
+  ExtNextRValue.convert(LEleType->getFltSemantics(),
+                        APFloat::rmNearestTiesToEven, &lossInfo);
 
-    std::vector<Constant *> EleVec(EleNum);
-    for (uint64_t Idx = 0; Idx < EleNum; ++Idx) {
-      bool lossInfo;
-      APFloat EleValue =
-          dyn_cast<ConstantFP>(RHSC->getAggregateElement(Idx))->getValueAPF();
-      EleValue.convert(LEleType->getFltSemantics(),
+  APFloat RoundValue{LEleType->getFltSemantics()};
+  {
+    APFloat Two{LEleType->getFltSemantics(), 2};
+    APFloat LowBound = RoundDown ? ExtNextRValue : ExtRValue;
+    APFloat UpBound = RoundDown ? ExtRValue : ExtNextRValue;
+
+    while (true) {
+      APFloat DupUpBound = UpBound;
+      DupUpBound.next(true);
+      if (DupUpBound == LowBound) {
+        RoundValue = RoundDown ? UpBound : LowBound;
+        break;
+      }
+
+      APFloat Mid = (LowBound + UpBound) / Two;
+      APFloat TruncMid = Mid;
+      TruncMid.convert(REleType->getFltSemantics(),
                        APFloat::rmNearestTiesToEven, &lossInfo);
-      EleVec[Idx] = ConstantFP::get(LEleType, EleValue);
+
+      if (TruncMid == *RValue) {
+        if (RoundDown)
+          UpBound = Mid;
+        else
+          LowBound = Mid;
+      } else {
+        if (RoundDown)
+          LowBound = Mid;
+        else
+          UpBound = Mid;
+      }
     }
-
-    ArrayRef<Constant *> EleArr(EleVec);
-
-    return new FCmpInst(Pred, LHSI->getOperand(0), ConstantVector::get(EleArr),
-                        "", &I);
   }
 
-  return nullptr;
+  return new FCmpInst(Pred, LHSI->getOperand(0),
+                      ConstantFP::get(LType, RoundValue), "", &I);
 }
 
 /// Optimize fabs(X) compared with zero.
