@@ -79,7 +79,7 @@ define i128 @test_atomicrmw_max_i128_global(ptr addrspace(1) %ptr, i128 %value) 
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i128, ptr addrspace(1) [[PTR:%.*]], align 16
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi i128 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[LOADED:%.*]] = phi i128 [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp sgt i128 [[LOADED]], [[VALUE:%.*]]
 ; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i128 [[LOADED]], i128 [[VALUE]]
 ; CHECK-NEXT:    store i128 [[LOADED]], ptr addrspace(5) [[CMPXCHG_EXPECTED_PTR]], align 8
@@ -89,6 +89,7 @@ define i128 @test_atomicrmw_max_i128_global(ptr addrspace(1) %ptr, i128 %value) 
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertvalue { i128, i1 } [[TMP3]], i1 false, 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i128, i1 } [[TMP4]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i128, i1 } [[TMP4]], 0
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i128, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret i128 [[NEWLOADED]]
@@ -105,7 +106,7 @@ define i128 @test_atomicrmw_min_i128_global(ptr addrspace(1) %ptr, i128 %value) 
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i128, ptr addrspace(1) [[PTR:%.*]], align 16
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi i128 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[LOADED:%.*]] = phi i128 [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp sle i128 [[LOADED]], [[VALUE:%.*]]
 ; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i128 [[LOADED]], i128 [[VALUE]]
 ; CHECK-NEXT:    store i128 [[LOADED]], ptr addrspace(5) [[CMPXCHG_EXPECTED_PTR]], align 8
@@ -115,6 +116,7 @@ define i128 @test_atomicrmw_min_i128_global(ptr addrspace(1) %ptr, i128 %value) 
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertvalue { i128, i1 } [[TMP3]], i1 false, 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i128, i1 } [[TMP4]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i128, i1 } [[TMP4]], 0
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i128, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret i128 [[NEWLOADED]]
@@ -131,7 +133,7 @@ define i128 @test_atomicrmw_umax_i128_global(ptr addrspace(1) %ptr, i128 %value)
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i128, ptr addrspace(1) [[PTR:%.*]], align 16
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi i128 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[LOADED:%.*]] = phi i128 [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ugt i128 [[LOADED]], [[VALUE:%.*]]
 ; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i128 [[LOADED]], i128 [[VALUE]]
 ; CHECK-NEXT:    store i128 [[LOADED]], ptr addrspace(5) [[CMPXCHG_EXPECTED_PTR]], align 8
@@ -141,6 +143,7 @@ define i128 @test_atomicrmw_umax_i128_global(ptr addrspace(1) %ptr, i128 %value)
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertvalue { i128, i1 } [[TMP3]], i1 false, 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i128, i1 } [[TMP4]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i128, i1 } [[TMP4]], 0
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i128, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret i128 [[NEWLOADED]]
@@ -157,7 +160,7 @@ define i128 @test_atomicrmw_umin_i128_global(ptr addrspace(1) %ptr, i128 %value)
 ; CHECK-NEXT:    [[TMP1:%.*]] = load i128, ptr addrspace(1) [[PTR:%.*]], align 16
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi i128 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[LOADED:%.*]] = phi i128 [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ule i128 [[LOADED]], [[VALUE:%.*]]
 ; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i128 [[LOADED]], i128 [[VALUE]]
 ; CHECK-NEXT:    store i128 [[LOADED]], ptr addrspace(5) [[CMPXCHG_EXPECTED_PTR]], align 8
@@ -167,6 +170,7 @@ define i128 @test_atomicrmw_umin_i128_global(ptr addrspace(1) %ptr, i128 %value)
 ; CHECK-NEXT:    [[TMP4:%.*]] = insertvalue { i128, i1 } [[TMP3]], i1 false, 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i128, i1 } [[TMP4]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i128, i1 } [[TMP4]], 0
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i128, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret i128 [[NEWLOADED]]
@@ -184,9 +188,12 @@ define i128 @test_cmpxchg_i128_global(ptr addrspace(1) %out, i128 %in, i128 %old
 ; CHECK-NEXT:    store i128 [[OLD:%.*]], ptr addrspace(5) [[CMPXCHG_EXPECTED_PTR]], align 8
 ; CHECK-NEXT:    store i128 [[IN:%.*]], ptr addrspace(5) [[CMPXCHG_DESIRED_PTR]], align 8
 ; CHECK-NEXT:    [[CMPXCHG_PREV_LOAD:%.*]] = load i128, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
-; CHECK-NEXT:    [[TMP1:%.*]] = insertvalue { i128, i1 } poison, i128 [[CMPXCHG_PREV_LOAD]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = call zeroext i1 @__atomic_compare_exchange_16(ptr [[TMP2]], ptr addrspace(5) [[TMP1]], i128 [[IN:%.*]], i32 5, i32 5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = insertvalue { i128, i1 } [[TMP1]], i1 false, 1
 ; CHECK-NEXT:    [[EXTRACT:%.*]] = extractvalue { i128, i1 } [[TMP2]], 0
+; CHECK-NEXT:    [[TMP5:%.*]] = insertvalue { i128, i1 } poison, i128 [[TMP4]], 0
+; CHECK-NEXT:    [[TMP6:%.*]] = insertvalue { i128, i1 } [[TMP5]], i1 [[TMP3]], 1
+; CHECK-NEXT:    [[EXTRACT:%.*]] = extractvalue { i128, i1 } [[TMP6]], 0
 ; CHECK-NEXT:    ret i128 [[EXTRACT]]
 ;
   %gep = getelementptr i128, ptr addrspace(1) %out, i64 4
