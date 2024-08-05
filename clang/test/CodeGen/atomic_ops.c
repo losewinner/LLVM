@@ -33,8 +33,8 @@
 // NATIVE-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[ATOMIC_TEMP1]], align 4
 // NATIVE-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[I]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 4
 // NATIVE-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// NATIVE-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // NATIVE-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP2]], align 4
+// NATIVE-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // NATIVE-NEXT:    [[TMP1]] = load i32, ptr [[ATOMIC_TEMP2]], align 4
 // NATIVE-NEXT:    br i1 [[CMPXCHG_SUCCESS]], label %[[ATOMIC_CONT:.*]], label %[[ATOMIC_OP]]
 // NATIVE:       [[ATOMIC_CONT]]:
@@ -49,8 +49,8 @@
 // NATIVE-NEXT:    [[CMPXCHG_DESIRED10:%.*]] = load i32, ptr [[ATOMIC_TEMP7]], align 4
 // NATIVE-NEXT:    [[CMPXCHG_PAIR11:%.*]] = cmpxchg ptr [[I]], i32 [[CMPXCHG_EXPECTED9]], i32 [[CMPXCHG_DESIRED10]] seq_cst seq_cst, align 4
 // NATIVE-NEXT:    [[CMPXCHG_PREV12:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR11]], 0
-// NATIVE-NEXT:    [[CMPXCHG_SUCCESS13:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR11]], 1
 // NATIVE-NEXT:    store i32 [[CMPXCHG_PREV12]], ptr [[ATOMIC_TEMP8]], align 4
+// NATIVE-NEXT:    [[CMPXCHG_SUCCESS13:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR11]], 1
 // NATIVE-NEXT:    [[TMP3]] = load i32, ptr [[ATOMIC_TEMP8]], align 4
 // NATIVE-NEXT:    br i1 [[CMPXCHG_SUCCESS13]], label %[[ATOMIC_CONT5:.*]], label %[[ATOMIC_OP3]]
 // NATIVE:       [[ATOMIC_CONT5]]:
@@ -68,8 +68,8 @@
 // NATIVE-NEXT:    [[CMPXCHG_DESIRED23:%.*]] = load i16, ptr [[ATOMIC_TEMP20]], align 2
 // NATIVE-NEXT:    [[CMPXCHG_PAIR24:%.*]] = cmpxchg ptr [[J]], i16 [[CMPXCHG_EXPECTED22]], i16 [[CMPXCHG_DESIRED23]] seq_cst seq_cst, align 2
 // NATIVE-NEXT:    [[CMPXCHG_PREV25:%.*]] = extractvalue { i16, i1 } [[CMPXCHG_PAIR24]], 0
-// NATIVE-NEXT:    [[CMPXCHG_SUCCESS26:%.*]] = extractvalue { i16, i1 } [[CMPXCHG_PAIR24]], 1
 // NATIVE-NEXT:    store i16 [[CMPXCHG_PREV25]], ptr [[ATOMIC_TEMP21]], align 2
+// NATIVE-NEXT:    [[CMPXCHG_SUCCESS26:%.*]] = extractvalue { i16, i1 } [[CMPXCHG_PAIR24]], 1
 // NATIVE-NEXT:    [[TMP6]] = load i16, ptr [[ATOMIC_TEMP21]], align 2
 // NATIVE-NEXT:    br i1 [[CMPXCHG_SUCCESS26]], label %[[ATOMIC_CONT18:.*]], label %[[ATOMIC_OP14]]
 // NATIVE:       [[ATOMIC_CONT18]]:
@@ -89,10 +89,10 @@
 // LIBCALL-NEXT:    [[ATOMIC_TEMP7:%.*]] = alloca i32, align 4
 // LIBCALL-NEXT:    [[ATOMIC_TEMP8:%.*]] = alloca i32, align 4
 // LIBCALL-NEXT:    [[ATOMIC_TEMP9:%.*]] = alloca i32, align 4
-// LIBCALL-NEXT:    [[ATOMIC_TEMP16:%.*]] = alloca i16, align 2
+// LIBCALL-NEXT:    [[ATOMIC_TEMP14:%.*]] = alloca i16, align 2
+// LIBCALL-NEXT:    [[ATOMIC_TEMP18:%.*]] = alloca i16, align 2
+// LIBCALL-NEXT:    [[ATOMIC_TEMP19:%.*]] = alloca i16, align 2
 // LIBCALL-NEXT:    [[ATOMIC_TEMP20:%.*]] = alloca i16, align 2
-// LIBCALL-NEXT:    [[ATOMIC_TEMP21:%.*]] = alloca i16, align 2
-// LIBCALL-NEXT:    [[ATOMIC_TEMP22:%.*]] = alloca i16, align 2
 // LIBCALL-NEXT:    store i32 [[X]], ptr [[X_ADDR]], align 4
 // LIBCALL-NEXT:    store i32 0, ptr [[I]], align 4
 // LIBCALL-NEXT:    store i16 0, ptr [[J]], align 2
@@ -104,12 +104,10 @@
 // LIBCALL-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP1]], 2
 // LIBCALL-NEXT:    store i32 [[TMP1]], ptr [[ATOMIC_TEMP1]], align 4
 // LIBCALL-NEXT:    store i32 [[MUL]], ptr [[ATOMIC_TEMP2]], align 4
-// LIBCALL-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i32, ptr [[ATOMIC_TEMP1]], align 4
 // LIBCALL-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[ATOMIC_TEMP2]], align 4
-// LIBCALL-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[I]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 4
-// LIBCALL-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// LIBCALL-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
-// LIBCALL-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP3]], align 4
+// LIBCALL-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_4:%.*]] = call i8 @__atomic_compare_exchange_4(ptr [[I]], ptr [[ATOMIC_TEMP1]], i32 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+// LIBCALL-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_4]], 0
+// LIBCALL-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP3]], ptr [[ATOMIC_TEMP1]], i64 4, i1 false)
 // LIBCALL-NEXT:    [[TMP2]] = load i32, ptr [[ATOMIC_TEMP3]], align 4
 // LIBCALL-NEXT:    br i1 [[CMPXCHG_SUCCESS]], label %[[ATOMIC_CONT:.*]], label %[[ATOMIC_OP]]
 // LIBCALL:       [[ATOMIC_CONT]]:
@@ -121,35 +119,31 @@
 // LIBCALL-NEXT:    [[DIV:%.*]] = sdiv i32 [[TMP4]], 2
 // LIBCALL-NEXT:    store i32 [[TMP4]], ptr [[ATOMIC_TEMP7]], align 4
 // LIBCALL-NEXT:    store i32 [[DIV]], ptr [[ATOMIC_TEMP8]], align 4
-// LIBCALL-NEXT:    [[CMPXCHG_EXPECTED10:%.*]] = load i32, ptr [[ATOMIC_TEMP7]], align 4
-// LIBCALL-NEXT:    [[CMPXCHG_DESIRED11:%.*]] = load i32, ptr [[ATOMIC_TEMP8]], align 4
-// LIBCALL-NEXT:    [[CMPXCHG_PAIR12:%.*]] = cmpxchg ptr [[I]], i32 [[CMPXCHG_EXPECTED10]], i32 [[CMPXCHG_DESIRED11]] seq_cst seq_cst, align 4
-// LIBCALL-NEXT:    [[CMPXCHG_PREV13:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR12]], 0
-// LIBCALL-NEXT:    [[CMPXCHG_SUCCESS14:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR12]], 1
-// LIBCALL-NEXT:    store i32 [[CMPXCHG_PREV13]], ptr [[ATOMIC_TEMP9]], align 4
+// LIBCALL-NEXT:    [[CMPXCHG_DESIRED10:%.*]] = load i32, ptr [[ATOMIC_TEMP8]], align 4
+// LIBCALL-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_411:%.*]] = call i8 @__atomic_compare_exchange_4(ptr [[I]], ptr [[ATOMIC_TEMP7]], i32 [[CMPXCHG_DESIRED10]], i32 5, i32 5)
+// LIBCALL-NEXT:    [[CMPXCHG_SUCCESS12:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_411]], 0
+// LIBCALL-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP9]], ptr [[ATOMIC_TEMP7]], i64 4, i1 false)
 // LIBCALL-NEXT:    [[TMP5]] = load i32, ptr [[ATOMIC_TEMP9]], align 4
-// LIBCALL-NEXT:    br i1 [[CMPXCHG_SUCCESS14]], label %[[ATOMIC_CONT6:.*]], label %[[ATOMIC_OP4]]
+// LIBCALL-NEXT:    br i1 [[CMPXCHG_SUCCESS12]], label %[[ATOMIC_CONT6:.*]], label %[[ATOMIC_OP4]]
 // LIBCALL:       [[ATOMIC_CONT6]]:
 // LIBCALL-NEXT:    [[TMP6:%.*]] = load i32, ptr [[X_ADDR]], align 4
-// LIBCALL-NEXT:    call void @__atomic_load(i32 noundef 2, ptr noundef [[J]], ptr noundef [[ATOMIC_TEMP16]], i32 noundef 5)
-// LIBCALL-NEXT:    [[TMP7:%.*]] = load i16, ptr [[ATOMIC_TEMP16]], align 2
-// LIBCALL-NEXT:    br label %[[ATOMIC_OP15:.*]]
-// LIBCALL:       [[ATOMIC_OP15]]:
-// LIBCALL-NEXT:    [[TMP8:%.*]] = phi i16 [ [[TMP7]], %[[ATOMIC_CONT6]] ], [ [[TMP9:%.*]], %[[ATOMIC_OP15]] ]
+// LIBCALL-NEXT:    call void @__atomic_load(i32 noundef 2, ptr noundef [[J]], ptr noundef [[ATOMIC_TEMP14]], i32 noundef 5)
+// LIBCALL-NEXT:    [[TMP7:%.*]] = load i16, ptr [[ATOMIC_TEMP14]], align 2
+// LIBCALL-NEXT:    br label %[[ATOMIC_OP13:.*]]
+// LIBCALL:       [[ATOMIC_OP13]]:
+// LIBCALL-NEXT:    [[TMP8:%.*]] = phi i16 [ [[TMP7]], %[[ATOMIC_CONT6]] ], [ [[TMP9:%.*]], %[[ATOMIC_OP13]] ]
 // LIBCALL-NEXT:    [[CONV:%.*]] = zext i16 [[TMP8]] to i32
-// LIBCALL-NEXT:    [[DIV17:%.*]] = sdiv i32 [[CONV]], [[TMP6]]
-// LIBCALL-NEXT:    [[CONV18:%.*]] = trunc i32 [[DIV17]] to i16
-// LIBCALL-NEXT:    store i16 [[TMP8]], ptr [[ATOMIC_TEMP20]], align 2
-// LIBCALL-NEXT:    store i16 [[CONV18]], ptr [[ATOMIC_TEMP21]], align 2
-// LIBCALL-NEXT:    [[CMPXCHG_EXPECTED23:%.*]] = load i16, ptr [[ATOMIC_TEMP20]], align 2
-// LIBCALL-NEXT:    [[CMPXCHG_DESIRED24:%.*]] = load i16, ptr [[ATOMIC_TEMP21]], align 2
-// LIBCALL-NEXT:    [[CMPXCHG_PAIR25:%.*]] = cmpxchg ptr [[J]], i16 [[CMPXCHG_EXPECTED23]], i16 [[CMPXCHG_DESIRED24]] seq_cst seq_cst, align 2
-// LIBCALL-NEXT:    [[CMPXCHG_PREV26:%.*]] = extractvalue { i16, i1 } [[CMPXCHG_PAIR25]], 0
-// LIBCALL-NEXT:    [[CMPXCHG_SUCCESS27:%.*]] = extractvalue { i16, i1 } [[CMPXCHG_PAIR25]], 1
-// LIBCALL-NEXT:    store i16 [[CMPXCHG_PREV26]], ptr [[ATOMIC_TEMP22]], align 2
-// LIBCALL-NEXT:    [[TMP9]] = load i16, ptr [[ATOMIC_TEMP22]], align 2
-// LIBCALL-NEXT:    br i1 [[CMPXCHG_SUCCESS27]], label %[[ATOMIC_CONT19:.*]], label %[[ATOMIC_OP15]]
-// LIBCALL:       [[ATOMIC_CONT19]]:
+// LIBCALL-NEXT:    [[DIV15:%.*]] = sdiv i32 [[CONV]], [[TMP6]]
+// LIBCALL-NEXT:    [[CONV16:%.*]] = trunc i32 [[DIV15]] to i16
+// LIBCALL-NEXT:    store i16 [[TMP8]], ptr [[ATOMIC_TEMP18]], align 2
+// LIBCALL-NEXT:    store i16 [[CONV16]], ptr [[ATOMIC_TEMP19]], align 2
+// LIBCALL-NEXT:    [[CMPXCHG_DESIRED21:%.*]] = load i16, ptr [[ATOMIC_TEMP19]], align 2
+// LIBCALL-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_2:%.*]] = call i8 @__atomic_compare_exchange_2(ptr [[J]], ptr [[ATOMIC_TEMP18]], i16 [[CMPXCHG_DESIRED21]], i32 5, i32 5)
+// LIBCALL-NEXT:    [[CMPXCHG_SUCCESS22:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_2]], 0
+// LIBCALL-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP20]], ptr [[ATOMIC_TEMP18]], i64 2, i1 false)
+// LIBCALL-NEXT:    [[TMP9]] = load i16, ptr [[ATOMIC_TEMP20]], align 2
+// LIBCALL-NEXT:    br i1 [[CMPXCHG_SUCCESS22]], label %[[ATOMIC_CONT17:.*]], label %[[ATOMIC_OP13]]
+// LIBCALL:       [[ATOMIC_CONT17]]:
 // LIBCALL-NEXT:    ret void
 //
 void foo(int x)
@@ -330,8 +324,8 @@ _Atomic(int) compound_and(_Atomic(int) in) {
 // NATIVE-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[ATOMIC_TEMP1]], align 4
 // NATIVE-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[IN_ADDR]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 4
 // NATIVE-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// NATIVE-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // NATIVE-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP2]], align 4
+// NATIVE-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // NATIVE-NEXT:    [[TMP1]] = load i32, ptr [[ATOMIC_TEMP2]], align 4
 // NATIVE-NEXT:    br i1 [[CMPXCHG_SUCCESS]], label %[[ATOMIC_CONT:.*]], label %[[ATOMIC_OP]]
 // NATIVE:       [[ATOMIC_CONT]]:
@@ -354,12 +348,10 @@ _Atomic(int) compound_and(_Atomic(int) in) {
 // LIBCALL-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP1]], 5
 // LIBCALL-NEXT:    store i32 [[TMP1]], ptr [[ATOMIC_TEMP1]], align 4
 // LIBCALL-NEXT:    store i32 [[MUL]], ptr [[ATOMIC_TEMP2]], align 4
-// LIBCALL-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i32, ptr [[ATOMIC_TEMP1]], align 4
 // LIBCALL-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[ATOMIC_TEMP2]], align 4
-// LIBCALL-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[IN_ADDR]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 4
-// LIBCALL-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// LIBCALL-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
-// LIBCALL-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP3]], align 4
+// LIBCALL-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_4:%.*]] = call i8 @__atomic_compare_exchange_4(ptr [[IN_ADDR]], ptr [[ATOMIC_TEMP1]], i32 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+// LIBCALL-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_4]], 0
+// LIBCALL-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP3]], ptr [[ATOMIC_TEMP1]], i64 4, i1 false)
 // LIBCALL-NEXT:    [[TMP2]] = load i32, ptr [[ATOMIC_TEMP3]], align 4
 // LIBCALL-NEXT:    br i1 [[CMPXCHG_SUCCESS]], label %[[ATOMIC_CONT:.*]], label %[[ATOMIC_OP]]
 // LIBCALL:       [[ATOMIC_CONT]]:

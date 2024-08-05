@@ -91,12 +91,10 @@ void testinc(void)
 // CHECK-NEXT:    [[DEC:%.*]] = add i8 [[TMP1]], -1
 // CHECK-NEXT:    store i8 [[TMP1]], ptr [[ATOMIC_TEMP1]], align 1
 // CHECK-NEXT:    store i8 [[DEC]], ptr [[ATOMIC_TEMP2]], align 1
-// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i8, ptr [[ATOMIC_TEMP1]], align 1
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i8, ptr [[ATOMIC_TEMP2]], align 1
-// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @b, i8 [[CMPXCHG_EXPECTED]], i8 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 1
-// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
-// CHECK-NEXT:    store i8 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP3]], align 1
+// CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_1:%.*]] = call i8 @__atomic_compare_exchange_1(ptr @b, ptr [[ATOMIC_TEMP1]], i8 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_1]], 0
+// CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP3]], ptr [[ATOMIC_TEMP1]], i64 1, i1 false)
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[ATOMIC_TEMP3]], align 1
 // CHECK-NEXT:    [[LOADEDV4:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV5]] = zext i1 [[LOADEDV4]] to i8
@@ -111,20 +109,18 @@ void testinc(void)
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV7]] to i8
 // CHECK-NEXT:    br label %[[ATOMIC_OP8:.*]]
 // CHECK:       [[ATOMIC_OP8]]:
-// CHECK-NEXT:    [[TMP7:%.*]] = phi i8 [ [[STOREDV9]], %[[ATOMIC_CONT]] ], [ [[STOREDV21:%.*]], %[[ATOMIC_OP8]] ]
+// CHECK-NEXT:    [[TMP7:%.*]] = phi i8 [ [[STOREDV9]], %[[ATOMIC_CONT]] ], [ [[STOREDV19:%.*]], %[[ATOMIC_OP8]] ]
 // CHECK-NEXT:    [[DEC10:%.*]] = add i8 [[TMP7]], -1
 // CHECK-NEXT:    store i8 [[TMP7]], ptr [[ATOMIC_TEMP12]], align 1
 // CHECK-NEXT:    store i8 [[DEC10]], ptr [[ATOMIC_TEMP13]], align 1
-// CHECK-NEXT:    [[CMPXCHG_EXPECTED15:%.*]] = load i8, ptr [[ATOMIC_TEMP12]], align 1
-// CHECK-NEXT:    [[CMPXCHG_DESIRED16:%.*]] = load i8, ptr [[ATOMIC_TEMP13]], align 1
-// CHECK-NEXT:    [[CMPXCHG_PAIR17:%.*]] = cmpxchg ptr @b, i8 [[CMPXCHG_EXPECTED15]], i8 [[CMPXCHG_DESIRED16]] seq_cst seq_cst, align 1
-// CHECK-NEXT:    [[CMPXCHG_PREV18:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR17]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS19:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR17]], 1
-// CHECK-NEXT:    store i8 [[CMPXCHG_PREV18]], ptr [[ATOMIC_TEMP14]], align 1
+// CHECK-NEXT:    [[CMPXCHG_DESIRED15:%.*]] = load i8, ptr [[ATOMIC_TEMP13]], align 1
+// CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_116:%.*]] = call i8 @__atomic_compare_exchange_1(ptr @b, ptr [[ATOMIC_TEMP12]], i8 [[CMPXCHG_DESIRED15]], i32 5, i32 5)
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS17:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_116]], 0
+// CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP14]], ptr [[ATOMIC_TEMP12]], i64 1, i1 false)
 // CHECK-NEXT:    [[TMP8:%.*]] = load i8, ptr [[ATOMIC_TEMP14]], align 1
-// CHECK-NEXT:    [[LOADEDV20:%.*]] = trunc i8 [[TMP8]] to i1
-// CHECK-NEXT:    [[STOREDV21]] = zext i1 [[LOADEDV20]] to i8
-// CHECK-NEXT:    br i1 [[CMPXCHG_SUCCESS19]], label %[[ATOMIC_CONT11:.*]], label %[[ATOMIC_OP8]]
+// CHECK-NEXT:    [[LOADEDV18:%.*]] = trunc i8 [[TMP8]] to i1
+// CHECK-NEXT:    [[STOREDV19]] = zext i1 [[LOADEDV18]] to i8
+// CHECK-NEXT:    br i1 [[CMPXCHG_SUCCESS17]], label %[[ATOMIC_CONT11:.*]], label %[[ATOMIC_OP8]]
 // CHECK:       [[ATOMIC_CONT11]]:
 // CHECK-NEXT:    [[TMP9:%.*]] = atomicrmw sub ptr @i, i32 1 seq_cst, align 4
 // CHECK-NEXT:    [[TMP10:%.*]] = sub i32 [[TMP9]], 1
@@ -164,12 +160,10 @@ void testdec(void)
 // CHECK-NEXT:    [[CONV1:%.*]] = trunc i32 [[ADD]] to i8
 // CHECK-NEXT:    store i8 [[TMP1]], ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    store i8 [[CONV1]], ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i8, ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i8, ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @b, i8 [[CMPXCHG_EXPECTED]], i8 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 1
-// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
-// CHECK-NEXT:    store i8 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP4]], align 1
+// CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_1:%.*]] = call i8 @__atomic_compare_exchange_1(ptr @b, ptr [[ATOMIC_TEMP2]], i8 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_1]], 0
+// CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP4]], ptr [[ATOMIC_TEMP2]], i64 1, i1 false)
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[ATOMIC_TEMP4]], align 1
 // CHECK-NEXT:    [[LOADEDV5:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV6]] = zext i1 [[LOADEDV5]] to i8
@@ -209,12 +203,10 @@ void testaddeq(void)
 // CHECK-NEXT:    [[CONV1:%.*]] = trunc i32 [[SUB]] to i8
 // CHECK-NEXT:    store i8 [[TMP1]], ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    store i8 [[CONV1]], ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i8, ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i8, ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @b, i8 [[CMPXCHG_EXPECTED]], i8 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 1
-// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
-// CHECK-NEXT:    store i8 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP4]], align 1
+// CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_1:%.*]] = call i8 @__atomic_compare_exchange_1(ptr @b, ptr [[ATOMIC_TEMP2]], i8 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_1]], 0
+// CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP4]], ptr [[ATOMIC_TEMP2]], i64 1, i1 false)
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[ATOMIC_TEMP4]], align 1
 // CHECK-NEXT:    [[LOADEDV5:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV6]] = zext i1 [[LOADEDV5]] to i8
@@ -254,12 +246,10 @@ void testsubeq(void)
 // CHECK-NEXT:    [[CONV1:%.*]] = trunc i32 [[XOR]] to i8
 // CHECK-NEXT:    store i8 [[TMP1]], ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    store i8 [[CONV1]], ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i8, ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i8, ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @b, i8 [[CMPXCHG_EXPECTED]], i8 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 1
-// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
-// CHECK-NEXT:    store i8 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP4]], align 1
+// CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_1:%.*]] = call i8 @__atomic_compare_exchange_1(ptr @b, ptr [[ATOMIC_TEMP2]], i8 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_1]], 0
+// CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP4]], ptr [[ATOMIC_TEMP2]], i64 1, i1 false)
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[ATOMIC_TEMP4]], align 1
 // CHECK-NEXT:    [[LOADEDV5:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV6]] = zext i1 [[LOADEDV5]] to i8
@@ -299,12 +289,10 @@ void testxoreq(void)
 // CHECK-NEXT:    [[CONV1:%.*]] = trunc i32 [[OR]] to i8
 // CHECK-NEXT:    store i8 [[TMP1]], ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    store i8 [[CONV1]], ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i8, ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i8, ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @b, i8 [[CMPXCHG_EXPECTED]], i8 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 1
-// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
-// CHECK-NEXT:    store i8 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP4]], align 1
+// CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_1:%.*]] = call i8 @__atomic_compare_exchange_1(ptr @b, ptr [[ATOMIC_TEMP2]], i8 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_1]], 0
+// CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP4]], ptr [[ATOMIC_TEMP2]], i64 1, i1 false)
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[ATOMIC_TEMP4]], align 1
 // CHECK-NEXT:    [[LOADEDV5:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV6]] = zext i1 [[LOADEDV5]] to i8
@@ -344,12 +332,10 @@ void testoreq(void)
 // CHECK-NEXT:    [[CONV1:%.*]] = trunc i32 [[AND]] to i8
 // CHECK-NEXT:    store i8 [[TMP1]], ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    store i8 [[CONV1]], ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i8, ptr [[ATOMIC_TEMP2]], align 1
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i8, ptr [[ATOMIC_TEMP3]], align 1
-// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @b, i8 [[CMPXCHG_EXPECTED]], i8 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 1
-// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
-// CHECK-NEXT:    store i8 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP4]], align 1
+// CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_1:%.*]] = call i8 @__atomic_compare_exchange_1(ptr @b, ptr [[ATOMIC_TEMP2]], i8 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_1]], 0
+// CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[ATOMIC_TEMP4]], ptr [[ATOMIC_TEMP2]], i64 1, i1 false)
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[ATOMIC_TEMP4]], align 1
 // CHECK-NEXT:    [[LOADEDV5:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV6]] = zext i1 [[LOADEDV5]] to i8
@@ -647,12 +633,9 @@ PS test_promoted_exchange(_Atomic(PS) *addr, PS *val) {
 // CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i32(ptr align 2 [[DOTATOMICTMP]], ptr align 2 [[TMP2]], i32 6, i1 false)
 // CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[ATOMIC_TEMP]], ptr align 2 [[TMP1]], i64 6, i1 false)
 // CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr align 8 [[ATOMIC_TEMP1]], ptr align 2 [[DOTATOMICTMP]], i64 6, i1 false)
-// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i64, ptr [[ATOMIC_TEMP]], align 8
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i64, ptr [[ATOMIC_TEMP1]], align 8
-// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i64 [[CMPXCHG_EXPECTED]], i64 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 8
-// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
-// CHECK-NEXT:    store i64 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP]], align 8
+// CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_8:%.*]] = call i8 @__atomic_compare_exchange_8(ptr [[TMP0]], ptr [[ATOMIC_TEMP]], i64 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_8]], 0
 // CHECK-NEXT:    [[TMP3:%.*]] = load i8, ptr [[CMPXCHG_BOOL]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP3]] to i1
 // CHECK-NEXT:    ret i1 [[LOADEDV]]

@@ -71,8 +71,8 @@ int32_t f6(int32_t *Ptr, int32_t *Val, int32_t *Ret) {
 // CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i32, ptr [[EXP:%.*]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[PTR:%.*]], i32 [[CMPXCHG_EXPECTED]], i32 [[DES:%.*]] seq_cst seq_cst, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[EXP]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    ret i1 [[CMPXCHG_SUCCESS]]
 //
 _Bool f7(int32_t *Ptr, int32_t *Exp, int32_t Des) {
@@ -86,8 +86,8 @@ _Bool f7(int32_t *Ptr, int32_t *Exp, int32_t Des) {
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[DES:%.*]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[PTR:%.*]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[EXP]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    ret i1 [[CMPXCHG_SUCCESS]]
 //
 _Bool f8(int32_t *Ptr, int32_t *Exp, int32_t *Des) {

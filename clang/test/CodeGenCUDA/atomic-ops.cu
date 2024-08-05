@@ -69,8 +69,8 @@
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[DOTATOMICTMP_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("singlethread-one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -82,8 +82,8 @@
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i32, ptr [[DOTATOMICTMP1_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i32 [[CMPXCHG_EXPECTED3]], i32 [[CMPXCHG_DESIRED4]] syncscope("singlethread-one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8
@@ -305,8 +305,8 @@ __device__ unsigned int atomicu32_op_singlethread(unsigned int *ptr, unsigned in
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[DOTATOMICTMP_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("wavefront-one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -318,8 +318,8 @@ __device__ unsigned int atomicu32_op_singlethread(unsigned int *ptr, unsigned in
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i32, ptr [[DOTATOMICTMP1_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i32 [[CMPXCHG_EXPECTED3]], i32 [[CMPXCHG_DESIRED4]] syncscope("wavefront-one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8
@@ -539,8 +539,8 @@ __device__ unsigned int atomicu32_op_wavefront(unsigned int *ptr, unsigned int v
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[DOTATOMICTMP_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("workgroup-one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -552,8 +552,8 @@ __device__ unsigned int atomicu32_op_wavefront(unsigned int *ptr, unsigned int v
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i32, ptr [[DOTATOMICTMP1_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i32 [[CMPXCHG_EXPECTED3]], i32 [[CMPXCHG_DESIRED4]] syncscope("workgroup-one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8
@@ -767,8 +767,8 @@ __device__ unsigned int atomicu32_op_workgroup(unsigned int *ptr, unsigned int v
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[DOTATOMICTMP_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("agent-one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -780,8 +780,8 @@ __device__ unsigned int atomicu32_op_workgroup(unsigned int *ptr, unsigned int v
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i32, ptr [[DOTATOMICTMP1_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i32 [[CMPXCHG_EXPECTED3]], i32 [[CMPXCHG_DESIRED4]] syncscope("agent-one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8
@@ -997,8 +997,8 @@ __device__ unsigned int atomicu32_op_agent(unsigned int *ptr, unsigned int val, 
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[DOTATOMICTMP_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -1010,8 +1010,8 @@ __device__ unsigned int atomicu32_op_agent(unsigned int *ptr, unsigned int val, 
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i32, ptr [[DOTATOMICTMP1_ASCAST]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i32 [[CMPXCHG_EXPECTED3]], i32 [[CMPXCHG_DESIRED4]] syncscope("one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8
@@ -1234,8 +1234,8 @@ __device__ unsigned int atomicu32_op_system(unsigned int *ptr, unsigned int val,
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i64, ptr [[DOTATOMICTMP_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i64 [[CMPXCHG_EXPECTED]], i64 [[CMPXCHG_DESIRED]] syncscope("singlethread-one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -1247,8 +1247,8 @@ __device__ unsigned int atomicu32_op_system(unsigned int *ptr, unsigned int val,
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i64, ptr [[DOTATOMICTMP1_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i64 [[CMPXCHG_EXPECTED3]], i64 [[CMPXCHG_DESIRED4]] syncscope("singlethread-one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8
@@ -1486,8 +1486,8 @@ __device__ unsigned long long atomicu64_op_singlethread(unsigned long long *ptr,
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i64, ptr [[DOTATOMICTMP_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i64 [[CMPXCHG_EXPECTED]], i64 [[CMPXCHG_DESIRED]] syncscope("wavefront-one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -1499,8 +1499,8 @@ __device__ unsigned long long atomicu64_op_singlethread(unsigned long long *ptr,
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i64, ptr [[DOTATOMICTMP1_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i64 [[CMPXCHG_EXPECTED3]], i64 [[CMPXCHG_DESIRED4]] syncscope("wavefront-one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8
@@ -1742,8 +1742,8 @@ __device__ unsigned long long atomicu64_op_wavefront(unsigned long long *ptr, un
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i64, ptr [[DOTATOMICTMP_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i64 [[CMPXCHG_EXPECTED]], i64 [[CMPXCHG_DESIRED]] syncscope("workgroup-one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -1755,8 +1755,8 @@ __device__ unsigned long long atomicu64_op_wavefront(unsigned long long *ptr, un
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i64, ptr [[DOTATOMICTMP1_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i64 [[CMPXCHG_EXPECTED3]], i64 [[CMPXCHG_DESIRED4]] syncscope("workgroup-one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8
@@ -1984,8 +1984,8 @@ __device__ unsigned long long atomicu64_op_workgroup(unsigned long long *ptr, un
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i64, ptr [[DOTATOMICTMP_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i64 [[CMPXCHG_EXPECTED]], i64 [[CMPXCHG_DESIRED]] syncscope("agent-one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -1997,8 +1997,8 @@ __device__ unsigned long long atomicu64_op_workgroup(unsigned long long *ptr, un
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i64, ptr [[DOTATOMICTMP1_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i64 [[CMPXCHG_EXPECTED3]], i64 [[CMPXCHG_DESIRED4]] syncscope("agent-one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8
@@ -2228,8 +2228,8 @@ __device__ unsigned long long atomicu64_op_agent(unsigned long long *ptr, unsign
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i64, ptr [[DOTATOMICTMP_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i64 [[CMPXCHG_EXPECTED]], i64 [[CMPXCHG_DESIRED]] syncscope("one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr [[CMPXCHG_BOOL_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[STOREDV:%.*]] = zext i1 [[LOADEDV]] to i8
@@ -2241,8 +2241,8 @@ __device__ unsigned long long atomicu64_op_agent(unsigned long long *ptr, unsign
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i64, ptr [[DOTATOMICTMP1_ASCAST]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i64 [[CMPXCHG_EXPECTED3]], i64 [[CMPXCHG_DESIRED4]] syncscope("one-as") monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV6]], ptr [[VAL_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr [[CMPXCHG_BOOL2_ASCAST]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    [[STOREDV9:%.*]] = zext i1 [[LOADEDV8]] to i8

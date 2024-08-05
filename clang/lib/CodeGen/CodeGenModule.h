@@ -50,6 +50,7 @@ class FunctionType;
 class LLVMContext;
 class IndexedInstrProfReader;
 class TargetLowering;
+class TargetMachine;
 
 namespace vfs {
 class FileSystem;
@@ -309,7 +310,7 @@ private:
   unsigned NumAutoVarInit = 0;
   llvm::Module &TheModule;
   llvm::TargetLibraryInfoImpl &TLII;
-  const llvm::TargetLowering *TL;
+  const llvm::TargetMachine *TM;
 
   DiagnosticsEngine &Diags;
   const TargetInfo &Target;
@@ -637,7 +638,7 @@ public:
                 const PreprocessorOptions &ppopts,
                 const CodeGenOptions &CodeGenOpts, llvm::Module &M,
                 DiagnosticsEngine &Diags, llvm::TargetLibraryInfoImpl &TLII,
-                const llvm::TargetLowering *TL,
+                const llvm::TargetMachine *TM,
                 CoverageSourceInfo *CoverageInfo = nullptr);
 
   ~CodeGenModule();
@@ -777,7 +778,7 @@ public:
     return TheModule.getDataLayout();
   }
   llvm::TargetLibraryInfoImpl &getTargetLibraryInfoImpl() const { return TLII; }
-  const llvm::TargetLowering *getTargetLowering() const { return TL; }
+  const llvm::TargetMachine *getTargetMachine() const { return TM; }
   const TargetInfo &getTarget() const { return Target; }
   const llvm::Triple &getTriple() const { return Target.getTriple(); }
   bool supportsCOMDAT() const;

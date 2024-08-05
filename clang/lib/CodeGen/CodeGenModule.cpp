@@ -71,6 +71,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/xxhash.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/TargetParser/RISCVISAInfo.h"
 #include "llvm/TargetParser/Triple.h"
 #include "llvm/TargetParser/X86TargetParser.h"
@@ -337,13 +338,13 @@ CodeGenModule::CodeGenModule(
     ASTContext &C, IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
     const HeaderSearchOptions &HSO, const PreprocessorOptions &PPO,
     const CodeGenOptions &CGO, llvm::Module &M, DiagnosticsEngine &diags,
-    llvm::TargetLibraryInfoImpl &TLII, const llvm::TargetLowering *TL,
+    llvm::TargetLibraryInfoImpl &TLII, const llvm::TargetMachine *TM,
     CoverageSourceInfo *CoverageInfo)
     : Context(C), LangOpts(C.getLangOpts()), FS(FS), HeaderSearchOpts(HSO),
       PreprocessorOpts(PPO), CodeGenOpts(CGO), TheModule(M), Diags(diags),
       Target(C.getTargetInfo()), ABI(createCXXABI(*this)),
       VMContext(M.getContext()), Types(*this), VTables(*this),
-      SanitizerMD(new SanitizerMetadata(*this)), TLII(TLII), TL(TL) {
+      SanitizerMD(new SanitizerMetadata(*this)), TLII(TLII), TM(TM) {
 
   // Initialize the type cache.
   llvm::LLVMContext &LLVMContext = M.getContext();

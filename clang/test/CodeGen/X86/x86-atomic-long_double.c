@@ -14,7 +14,6 @@
 // X64-NEXT:    store float [[TMP2]], ptr [[RETVAL]], align 16
 // X64-NEXT:    [[TMP3:%.*]] = load x86_fp80, ptr [[RETVAL]], align 16
 // X64-NEXT:    ret x86_fp80 [[TMP3]]
-//
 // X86-LABEL: define dso_local x86_fp80 @testinc(
 // X86-SAME: ptr noundef [[ADDR:%.*]]) #[[ATTR0:[0-9]+]] {
 // X86-NEXT:  [[ENTRY:.*:]]
@@ -44,7 +43,6 @@ long double testinc(_Atomic long double *addr) {
 // X64-NEXT:    store float [[TMP1]], ptr [[RETVAL]], align 16
 // X64-NEXT:    [[TMP2:%.*]] = load x86_fp80, ptr [[RETVAL]], align 16
 // X64-NEXT:    ret x86_fp80 [[TMP2]]
-//
 // X86-LABEL: define dso_local x86_fp80 @testdec(
 // X86-SAME: ptr noundef [[ADDR:%.*]]) #[[ATTR0]] {
 // X86-NEXT:  [[ENTRY:.*:]]
@@ -98,7 +96,6 @@ long double testdec(_Atomic long double *addr) {
 // X64-NEXT:    store i128 [[ATOMIC_LOAD4]], ptr [[ATOMIC_TEMP5]], align 16
 // X64-NEXT:    [[TMP10:%.*]] = load x86_fp80, ptr [[ATOMIC_TEMP5]], align 16
 // X64-NEXT:    ret x86_fp80 [[TMP10]]
-//
 // X86-LABEL: define dso_local x86_fp80 @testcompassign(
 // X86-SAME: ptr noundef [[ADDR:%.*]]) #[[ATTR0]] {
 // X86-NEXT:  [[ENTRY:.*]]:
@@ -153,7 +150,6 @@ long double testcompassign(_Atomic long double *addr) {
 // X64-NEXT:    store i128 [[ATOMIC_LOAD]], ptr [[ATOMIC_TEMP1]], align 16
 // X64-NEXT:    [[TMP3:%.*]] = load x86_fp80, ptr [[ATOMIC_TEMP1]], align 16
 // X64-NEXT:    ret x86_fp80 [[TMP3]]
-//
 // X86-LABEL: define dso_local x86_fp80 @testassign(
 // X86-SAME: ptr noundef [[ADDR:%.*]]) #[[ATTR0]] {
 // X86-NEXT:  [[ENTRY:.*:]]
@@ -188,7 +184,6 @@ long double testassign(_Atomic long double *addr) {
 // X64-NEXT:    store float [[TMP2]], ptr [[RETVAL]], align 16
 // X64-NEXT:    [[TMP3:%.*]] = load x86_fp80, ptr [[RETVAL]], align 16
 // X64-NEXT:    ret x86_fp80 [[TMP3]]
-//
 // X86-LABEL: define dso_local x86_fp80 @test_volatile_inc(
 // X86-SAME: ptr noundef [[ADDR:%.*]]) #[[ATTR0]] {
 // X86-NEXT:  [[ENTRY:.*:]]
@@ -217,7 +212,6 @@ long double test_volatile_inc(volatile _Atomic long double *addr) {
 // X64-NEXT:    store float [[TMP1]], ptr [[RETVAL]], align 16
 // X64-NEXT:    [[TMP2:%.*]] = load x86_fp80, ptr [[RETVAL]], align 16
 // X64-NEXT:    ret x86_fp80 [[TMP2]]
-//
 // X86-LABEL: define dso_local x86_fp80 @test_volatile_dec(
 // X86-SAME: ptr noundef [[ADDR:%.*]]) #[[ATTR0]] {
 // X86-NEXT:  [[ENTRY:.*:]]

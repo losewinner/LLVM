@@ -67,7 +67,6 @@ namespace {
     std::unique_ptr<llvm::Module> M;
     std::unique_ptr<CodeGen::CodeGenModule> Builder;
     std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
-    std::unique_ptr<llvm::TargetLowering> TL;
     const llvm::TargetMachine *TM;
 
   private:
@@ -171,11 +170,9 @@ namespace {
 
       TLII.reset(
           llvm::driver::createTLII(TargetTriple, CodeGenOpts.getVecLib()));
-      if (TM)
-        TL = std::make_unique<llvm::TargetLowering>(*TM);
       Builder.reset(new CodeGen::CodeGenModule(
           Context, FS, HeaderSearchOpts, PreprocessorOpts, CodeGenOpts, *M,
-          Diags, *TLII.get(), TL.get(), CoverageInfo));
+          Diags, *TLII.get(), TM, CoverageInfo));
 
       for (auto &&Lib : CodeGenOpts.DependentLibraries)
         Builder->AddDependentLib(Lib);

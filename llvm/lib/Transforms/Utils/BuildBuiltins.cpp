@@ -203,26 +203,31 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
       processMemorder(FailureMemorder);
   auto [ScopeConst, ScopeVal] = processScope(Scope);
 
-  if (SuccessMemorderConst && FailureMemorderConst) {
-    // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
-    //
-    //   [failure_memorder] This memory order cannot be __ATOMIC_RELEASE nor
-    //   __ATOMIC_ACQ_REL. It also cannot be a stronger order than that
-    //   specified by success_memorder.
-    //
-    // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
-    //
-    //   Both ordering parameters must be at least monotonic, the failure
-    //   ordering cannot be either release or acq_rel.
-    //
-    // Release/Acquire exception because of test/CodeGen/atomic-ops.c (function
-    // "generalWeakness") regression test.
-    assert(*FailureMemorderConst != AtomicOrdering::Release);
-    assert(*FailureMemorderConst != AtomicOrdering::AcquireRelease);
-    assert(
-        isAtLeastOrStrongerThan(*SuccessMemorderConst, *FailureMemorderConst) ||
-        (*SuccessMemorderConst == AtomicOrdering::Release &&
-         *FailureMemorderConst == AtomicOrdering::Acquire));
+  // Fix malformed inputs. We do not want to emit illegal IR.
+  //
+  // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
+  //
+  //   [failure_memorder] This memory order cannot be __ATOMIC_RELEASE nor
+  //   __ATOMIC_ACQ_REL. It also cannot be a stronger order than that
+  //   specified by success_memorder.
+  //
+  // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
+  //
+  //   Both ordering parameters must be at least monotonic, the failure
+  //   ordering cannot be either release or acq_rel.
+  //
+  if (FailureMemorderConst &&
+      ((*FailureMemorderConst == AtomicOrdering::Release) ||
+       (*FailureMemorderConst == AtomicOrdering::AcquireRelease))) {
+    // Fall back to monotonic atomic when illegal value is passed. As with the
+    // dynamic case below, it is an arbitrary choice.
+    FailureMemorderConst = AtomicOrdering::Monotonic;
+  }
+  if (FailureMemorderConst && SuccessMemorderConst &&
+      !isAtLeastOrStrongerThan(*SuccessMemorderConst, *FailureMemorderConst)) {
+    // Make SuccessMemorder as least as strong as FailureMemorder
+    SuccessMemorderConst =
+        getMergedAtomicOrdering(*SuccessMemorderConst, *FailureMemorderConst);
   }
 
   // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
@@ -510,27 +515,28 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
     return GenWeakSwitch();
   }
 
-  // Fallback to a libcall function. From here on IsWeak/IsVolatile is ignored.
-  // IsWeak is assumed to be false and volatile does not apply to function
-  // calls.
+  // Fallback to a libcall function. From here on IsWeak/Scope/IsVolatile is
+  // ignored. IsWeak is assumed to be false, Scope is assumed to be
+  // SyncScope::System (strongest possible assumption synchronizing with
+  // everything, instead of just a subset of sibling threads), and volatile does
+  // not apply to function calls.
 
   // FIXME: Some AMDGCN regression tests the addrspace, but
   // __atomic_compare_exchange by definition is addrsspace(0) and
   // emitAtomicCompareExchange will complain about it.
-  if (Ptr->getType()->getPointerAddressSpace())
+  if (Ptr->getType()->getPointerAddressSpace() ||
+      ExpectedPtr->getType()->getPointerAddressSpace() ||
+      DesiredPtr->getType()->getPointerAddressSpace())
     return Builder.getInt1(false);
-
-  assert(ScopeConst && *ScopeConst == SyncScope::System && !ScopeVal &&
-         "Synchronization scopes not supported by libcall functions");
 
   if (CanUseSizedLibcall && AllowSizedLibcall) {
     LoadInst *DesiredVal =
-        Builder.CreateLoad(CoercedTy, DesiredPtr, "cmpxchg.desired");
+        Builder.CreateLoad(IntegerType::get(Ctx, PreferredSize * 8), DesiredPtr,
+                           "cmpxchg.desired");
     Value *SuccessResult = emitAtomicCompareExchangeN(
         PreferredSize, Ptr, ExpectedPtr, DesiredVal, SuccessMemorderCABI,
         FailureMemorderCABI, Builder, DL, TLI);
     if (SuccessResult) {
-      assert(SuccessResult && "Must be able to emit libcall functions");
       Value *SuccessBool =
           Builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, SuccessResult,
                             Builder.getInt8(0), "cmpxchg.success");

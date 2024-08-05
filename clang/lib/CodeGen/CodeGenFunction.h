@@ -53,6 +53,7 @@ class SwitchInst;
 class Twine;
 class Value;
 class CanonicalLoopInfo;
+class TargetSubtargetInfo;
 }
 
 namespace clang {
@@ -286,6 +287,8 @@ public:
   CodeGenModule &CGM;  // Per-module state.
   const TargetInfo &Target;
   std::unique_ptr<llvm::TargetLibraryInfo> TLI;
+  //  std::unique_ptr<llvm::MCSubtarget> STM;
+  const llvm::TargetSubtargetInfo *TSI = nullptr;
 
   // For EH/SEH outlined funclets, this field points to parent's CGF
   CodeGenFunction *ParentCGF = nullptr;
@@ -2154,6 +2157,8 @@ public:
   const llvm::TargetLibraryInfo *getTargetLibraryInfo() const {
     return TLI.get();
   }
+
+  const llvm::TargetLowering *getTargetLowering() const;
 
   /// Returns a pointer to the function's exception object and selector slot,
   /// which is assigned in every landing pad.

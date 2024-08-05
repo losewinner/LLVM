@@ -37,6 +37,7 @@
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
@@ -47,6 +48,7 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/CRC.h"
 #include "llvm/Support/xxhash.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <optional>
@@ -105,6 +107,12 @@ CodeGenFunction::~CodeGenFunction() {
   // been "emitted" to the outside, thus, modifications are still sensible.
   if (CGM.getLangOpts().OpenMPIRBuilder && CurFn)
     CGM.getOpenMPRuntime().getOMPBuilder().finalize(CurFn);
+}
+
+const llvm::TargetLowering *CodeGenFunction::getTargetLowering() const {
+  if (!TSI)
+    return nullptr;
+  return TSI->getTargetLowering();
 }
 
 // Map the LangOption for exception behavior into
@@ -1521,6 +1529,8 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
     CurFn->addFnAttr(llvm::Attribute::MustProgress);
 
   TLI.reset(new llvm::TargetLibraryInfo(CGM.getTargetLibraryInfoImpl(), Fn));
+  if (const llvm::TargetMachine *TM = CGM.getTargetMachine())
+    TSI = TM->getSubtargetImpl(*Fn);
 
   // Generate the body of the function.
   PGO.assignRegionCounters(GD, CurFn);

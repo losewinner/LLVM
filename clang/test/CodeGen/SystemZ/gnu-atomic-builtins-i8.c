@@ -71,8 +71,8 @@ int8_t f6(int8_t *Ptr, int8_t *Val, int8_t *Ret) {
 // CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i8, ptr [[EXP:%.*]], align 1
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[PTR:%.*]], i8 [[CMPXCHG_EXPECTED]], i8 [[DES:%.*]] seq_cst seq_cst, align 1
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i8 [[CMPXCHG_PREV]], ptr [[EXP]], align 1
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    ret i1 [[CMPXCHG_SUCCESS]]
 //
 _Bool f7(int8_t *Ptr, int8_t *Exp, int8_t Des) {
@@ -86,8 +86,8 @@ _Bool f7(int8_t *Ptr, int8_t *Exp, int8_t Des) {
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i8, ptr [[DES:%.*]], align 1
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[PTR:%.*]], i8 [[CMPXCHG_EXPECTED]], i8 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 1
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i8 [[CMPXCHG_PREV]], ptr [[EXP]], align 1
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i8, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    ret i1 [[CMPXCHG_SUCCESS]]
 //
 _Bool f8(int8_t *Ptr, int8_t *Exp, int8_t *Des) {

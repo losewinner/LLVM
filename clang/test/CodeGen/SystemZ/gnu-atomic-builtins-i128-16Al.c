@@ -85,8 +85,8 @@ __int128 f6() {
 // CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i128, ptr @Exp, align 16
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @Ptr, i128 [[CMPXCHG_EXPECTED]], i128 [[TMP0]] seq_cst seq_cst, align 16
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i128 [[CMPXCHG_PREV]], ptr @Exp, align 16
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    ret i1 [[CMPXCHG_SUCCESS]]
 //
 _Bool f7() {
@@ -100,8 +100,8 @@ _Bool f7() {
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i128, ptr @Des, align 16
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @Ptr, i128 [[CMPXCHG_EXPECTED]], i128 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 16
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i128 [[CMPXCHG_PREV]], ptr @Exp, align 16
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    ret i1 [[CMPXCHG_SUCCESS]]
 //
 _Bool f8() {

@@ -442,7 +442,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
         LLVMPtr, Expected, Desired, IsWeakOp, E->isVolatile(), Order,
         FailureOrder, Scope, Expected, Ptr.getElementType(), {}, {}, Align,
         CGF.Builder, CGF.CGM.getDataLayout(), CGF.getTargetLibraryInfo(),
-        CGF.CGM.getTargetLowering(), SupportedScopes, DefaultScope);
+        CGF.getTargetLowering(), SupportedScopes, DefaultScope);
     return;
   }
 
@@ -468,7 +468,7 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
         LLVMPtr, Expected, Desired, IsWeak, E->isVolatile(), Order,
         FailureOrder, Scope, Expected, Ptr.getElementType(), {}, {}, Align,
         CGF.Builder, CGF.CGM.getDataLayout(), CGF.getTargetLibraryInfo(),
-        CGF.CGM.getTargetLowering(), SupportedScopes, DefaultScope);
+        CGF.getTargetLowering(), SupportedScopes, DefaultScope);
     CGF.EmitStoreOfScalar(SuccessVal, CGF.MakeAddrLValue(Dest, E->getType()));
     return;
   }
@@ -1583,7 +1583,7 @@ std::pair<RValue, llvm::Value *> AtomicInfo::EmitAtomicCompareExchange(
       Failure, PrevPtr, getAtomicAddress().getElementType(),
       getValueSizeInBytes(), getAtomicSizeInBytes(),
       getAtomicAlignment().getAsAlign(), CGF.Builder, CGF.CGM.getDataLayout(),
-      CGF.getTargetLibraryInfo(), CGF.CGM.getTargetLowering());
+      CGF.getTargetLibraryInfo(), CGF.getTargetLowering());
   return std::make_pair(
       convertAtomicTempToRValue(PrevAddr, AggValueSlot::ignored(),
                                 SourceLocation(), /*AsValue=*/false),

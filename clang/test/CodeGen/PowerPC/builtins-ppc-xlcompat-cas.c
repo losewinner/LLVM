@@ -25,8 +25,8 @@
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[ATOMIC_TEMP1]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg weak volatile ptr [[A_ADDR]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load volatile i32, ptr [[ATOMIC_TEMP2]], align 4
 // CHECK-NEXT:    store i32 [[TMP2]], ptr [[B_ADDR]], align 4
 // CHECK-NEXT:    [[TMP3:%.*]] = zext i1 [[CMPXCHG_SUCCESS]] to i32
@@ -56,8 +56,8 @@ int test_builtin_ppc_compare_and_swap(int a, int b, int c) {
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i64, ptr [[ATOMIC_TEMP1]], align 8
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg weak volatile ptr [[A_ADDR]], i64 [[CMPXCHG_EXPECTED]], i64 [[CMPXCHG_DESIRED]] monotonic monotonic, align 8
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i64 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP2]], align 8
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load volatile i64, ptr [[ATOMIC_TEMP2]], align 8
 // CHECK-NEXT:    store i64 [[TMP2]], ptr [[B_ADDR]], align 8
 // CHECK-NEXT:    [[TMP3:%.*]] = zext i1 [[CMPXCHG_SUCCESS]] to i32

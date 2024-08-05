@@ -210,8 +210,8 @@ void fi3(atomic_int *i, atomic_uint *ui) {
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr addrspace(5) [[DOTATOMICTMP]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("workgroup-one-as") acquire acquire, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr addrspace(5) [[CMP]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP1:%.*]] = load i8, ptr addrspace(5) [[CMPXCHG_BOOL]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP1]] to i1
 // CHECK-NEXT:    ret i1 [[LOADEDV]]
@@ -488,8 +488,8 @@ void atomic_init_foo()
 // CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr addrspace(5) [[DOTATOMICTMP]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("workgroup-one-as") acquire monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[TMP1]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    [[TMP2:%.*]] = load i8, ptr addrspace(5) [[CMPXCHG_BOOL]], align 1
 // CHECK-NEXT:    [[LOADEDV:%.*]] = trunc i8 [[TMP2]] to i1
 // CHECK-NEXT:    [[TMP3:%.*]] = load ptr, ptr addrspace(5) [[PTR_ADDR]], align 8
@@ -499,8 +499,8 @@ void atomic_init_foo()
 // CHECK-NEXT:    [[CMPXCHG_DESIRED4:%.*]] = load i32, ptr addrspace(5) [[DOTATOMICTMP1]], align 4
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg weak ptr [[TMP3]], i32 [[CMPXCHG_EXPECTED3]], i32 [[CMPXCHG_DESIRED4]] syncscope("workgroup") seq_cst acquire, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV6]], ptr [[TMP4]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    [[TMP5:%.*]] = load i8, ptr addrspace(5) [[CMPXCHG_BOOL2]], align 1
 // CHECK-NEXT:    [[LOADEDV8:%.*]] = trunc i8 [[TMP5]] to i1
 // CHECK-NEXT:    ret void
@@ -583,20 +583,20 @@ void failureOrder(atomic_int *ptr, int *ptr2) {
 // CHECK:       [[MONOTONIC_FAIL]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("workgroup-one-as") monotonic monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE1:.*]]
 // CHECK:       [[ACQUIRE_FAIL]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR2:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("workgroup-one-as") monotonic acquire, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV3:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR2]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS4:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR2]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV3]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS4:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR2]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE1]]
 // CHECK:       [[SEQCST_FAIL]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR5:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] syncscope("workgroup-one-as") monotonic seq_cst, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV6:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV6]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS7:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR5]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE1]]
 // CHECK:       [[ATOMIC_CONTINUE1]]:
 // CHECK-NEXT:    [[CMPXCGH_SUCCESS:%.*]] = phi i1 [ [[CMPXCHG_SUCCESS]], %[[MONOTONIC_FAIL]] ], [ [[CMPXCHG_SUCCESS4]], %[[ACQUIRE_FAIL]] ], [ [[CMPXCHG_SUCCESS7]], %[[SEQCST_FAIL]] ]
@@ -604,20 +604,20 @@ void failureOrder(atomic_int *ptr, int *ptr2) {
 // CHECK:       [[MONOTONIC_FAIL10]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR14:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED8]], i32 [[CMPXCHG_DESIRED9]] syncscope("workgroup-one-as") acquire monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV15:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR14]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS16:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR14]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV15]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS16:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR14]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE13:.*]]
 // CHECK:       [[ACQUIRE_FAIL11]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR17:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED8]], i32 [[CMPXCHG_DESIRED9]] syncscope("workgroup-one-as") acquire acquire, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV18:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR17]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS19:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR17]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV18]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS19:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR17]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE13]]
 // CHECK:       [[SEQCST_FAIL12]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR20:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED8]], i32 [[CMPXCHG_DESIRED9]] syncscope("workgroup-one-as") acquire seq_cst, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV21:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR20]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS22:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR20]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV21]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS22:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR20]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE13]]
 // CHECK:       [[ATOMIC_CONTINUE13]]:
 // CHECK-NEXT:    [[CMPXCGH_SUCCESS23:%.*]] = phi i1 [ [[CMPXCHG_SUCCESS16]], %[[MONOTONIC_FAIL10]] ], [ [[CMPXCHG_SUCCESS19]], %[[ACQUIRE_FAIL11]] ], [ [[CMPXCHG_SUCCESS22]], %[[SEQCST_FAIL12]] ]
@@ -625,20 +625,20 @@ void failureOrder(atomic_int *ptr, int *ptr2) {
 // CHECK:       [[MONOTONIC_FAIL26]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR30:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED24]], i32 [[CMPXCHG_DESIRED25]] syncscope("workgroup-one-as") release monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV31:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR30]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS32:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR30]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV31]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS32:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR30]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE29:.*]]
 // CHECK:       [[ACQUIRE_FAIL27]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR33:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED24]], i32 [[CMPXCHG_DESIRED25]] syncscope("workgroup-one-as") release acquire, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV34:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR33]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS35:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR33]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV34]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS35:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR33]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE29]]
 // CHECK:       [[SEQCST_FAIL28]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR36:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED24]], i32 [[CMPXCHG_DESIRED25]] syncscope("workgroup-one-as") release seq_cst, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV37:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR36]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS38:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR36]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV37]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS38:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR36]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE29]]
 // CHECK:       [[ATOMIC_CONTINUE29]]:
 // CHECK-NEXT:    [[CMPXCGH_SUCCESS39:%.*]] = phi i1 [ [[CMPXCHG_SUCCESS32]], %[[MONOTONIC_FAIL26]] ], [ [[CMPXCHG_SUCCESS35]], %[[ACQUIRE_FAIL27]] ], [ [[CMPXCHG_SUCCESS38]], %[[SEQCST_FAIL28]] ]
@@ -646,20 +646,20 @@ void failureOrder(atomic_int *ptr, int *ptr2) {
 // CHECK:       [[MONOTONIC_FAIL42]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR46:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED40]], i32 [[CMPXCHG_DESIRED41]] syncscope("workgroup-one-as") acq_rel monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV47:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR46]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS48:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR46]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV47]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS48:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR46]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE45:.*]]
 // CHECK:       [[ACQUIRE_FAIL43]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR49:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED40]], i32 [[CMPXCHG_DESIRED41]] syncscope("workgroup-one-as") acq_rel acquire, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV50:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR49]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS51:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR49]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV50]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS51:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR49]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE45]]
 // CHECK:       [[SEQCST_FAIL44]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR52:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED40]], i32 [[CMPXCHG_DESIRED41]] syncscope("workgroup-one-as") acq_rel seq_cst, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV53:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR52]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS54:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR52]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV53]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS54:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR52]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE45]]
 // CHECK:       [[ATOMIC_CONTINUE45]]:
 // CHECK-NEXT:    [[CMPXCGH_SUCCESS55:%.*]] = phi i1 [ [[CMPXCHG_SUCCESS48]], %[[MONOTONIC_FAIL42]] ], [ [[CMPXCHG_SUCCESS51]], %[[ACQUIRE_FAIL43]] ], [ [[CMPXCHG_SUCCESS54]], %[[SEQCST_FAIL44]] ]
@@ -667,20 +667,20 @@ void failureOrder(atomic_int *ptr, int *ptr2) {
 // CHECK:       [[MONOTONIC_FAIL58]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR62:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED56]], i32 [[CMPXCHG_DESIRED57]] syncscope("workgroup") seq_cst monotonic, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV63:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR62]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS64:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR62]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV63]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS64:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR62]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE61:.*]]
 // CHECK:       [[ACQUIRE_FAIL59]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR65:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED56]], i32 [[CMPXCHG_DESIRED57]] syncscope("workgroup") seq_cst acquire, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV66:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR65]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS67:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR65]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV66]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS67:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR65]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE61]]
 // CHECK:       [[SEQCST_FAIL60]]:
 // CHECK-NEXT:    [[CMPXCHG_PAIR68:%.*]] = cmpxchg ptr [[TMP0]], i32 [[CMPXCHG_EXPECTED56]], i32 [[CMPXCHG_DESIRED57]] syncscope("workgroup") seq_cst seq_cst, align 4
 // CHECK-NEXT:    [[CMPXCHG_PREV69:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR68]], 0
-// CHECK-NEXT:    [[CMPXCHG_SUCCESS70:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR68]], 1
 // CHECK-NEXT:    store i32 [[CMPXCHG_PREV69]], ptr [[TMP2]], align 4
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS70:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR68]], 1
 // CHECK-NEXT:    br label %[[ATOMIC_CONTINUE61]]
 // CHECK:       [[ATOMIC_CONTINUE61]]:
 // CHECK-NEXT:    [[CMPXCGH_SUCCESS71:%.*]] = phi i1 [ [[CMPXCHG_SUCCESS64]], %[[MONOTONIC_FAIL58]] ], [ [[CMPXCHG_SUCCESS67]], %[[ACQUIRE_FAIL59]] ], [ [[CMPXCHG_SUCCESS70]], %[[SEQCST_FAIL60]] ]
