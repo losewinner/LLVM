@@ -30,15 +30,19 @@ define i1 @test_cmpxchg_seq_cst(ptr %addr, i128 %desire, i128 %new) {
 ;
 ; PWR7-LABEL: @test_cmpxchg_seq_cst(
 ; PWR7-NEXT:  entry:
-; PWR7-NEXT:    [[TMP0:%.*]] = alloca i128, align 8
-; PWR7-NEXT:    call void @llvm.lifetime.start.p0(i64 16, ptr [[TMP0]])
-; PWR7-NEXT:    store i128 [[DESIRE:%.*]], ptr [[TMP0]], align 8
-; PWR7-NEXT:    [[TMP1:%.*]] = call zeroext i1 @__atomic_compare_exchange_16(ptr [[ADDR:%.*]], ptr [[TMP0]], i128 [[NEW:%.*]], i32 5, i32 5)
-; PWR7-NEXT:    [[TMP2:%.*]] = load i128, ptr [[TMP0]], align 8
-; PWR7-NEXT:    call void @llvm.lifetime.end.p0(i64 16, ptr [[TMP0]])
-; PWR7-NEXT:    [[TMP3:%.*]] = insertvalue { i128, i1 } poison, i128 [[TMP2]], 0
-; PWR7-NEXT:    [[TMP4:%.*]] = insertvalue { i128, i1 } [[TMP3]], i1 [[TMP1]], 1
-; PWR7-NEXT:    [[SUCC:%.*]] = extractvalue { i128, i1 } [[TMP4]], 1
+; PWR7-NEXT:    [[CMPXCHG_EXPECTED_PTR:%.*]] = alloca i128, align 8
+; PWR7-NEXT:    store i128 [[DESIRE:%.*]], ptr [[CMPXCHG_EXPECTED_PTR]], align 8
+; PWR7-NEXT:    [[CMPXCHG_DESIRED_PTR:%.*]] = alloca i128, align 8
+; PWR7-NEXT:    store i128 [[NEW:%.*]], ptr [[CMPXCHG_DESIRED_PTR]], align 8
+; PWR7-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca i128, align 8
+; PWR7-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i128, ptr [[CMPXCHG_DESIRED_PTR]], align 8
+; PWR7-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_16:%.*]] = call i8 @__atomic_compare_exchange_16(ptr [[ADDR:%.*]], ptr [[CMPXCHG_EXPECTED_PTR]], i128 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+; PWR7-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_16]], 0
+; PWR7-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[CMPXCHG_PREV_PTR]], ptr [[CMPXCHG_EXPECTED_PTR]], i64 16, i1 false)
+; PWR7-NEXT:    [[CMPXCHG_PREV_LOAD:%.*]] = load i128, ptr [[CMPXCHG_PREV_PTR]], align 8
+; PWR7-NEXT:    [[TMP0:%.*]] = insertvalue { i128, i1 } poison, i128 [[CMPXCHG_PREV_LOAD]], 0
+; PWR7-NEXT:    [[TMP1:%.*]] = insertvalue { i128, i1 } [[TMP0]], i1 [[CMPXCHG_SUCCESS]], 1
+; PWR7-NEXT:    [[SUCC:%.*]] = extractvalue { i128, i1 } [[TMP1]], 1
 ; PWR7-NEXT:    ret i1 [[SUCC]]
 ;
 entry:

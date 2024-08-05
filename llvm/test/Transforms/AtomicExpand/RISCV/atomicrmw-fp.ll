@@ -3,22 +3,25 @@
 
 define float @test_atomicrmw_fadd_f32(ptr %ptr, float %value) {
 ; CHECK-LABEL: @test_atomicrmw_fadd_f32(
-; CHECK-NEXT:    [[TMP1:%.*]] = alloca float, align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = load float, ptr [[PTR:%.*]], align 4
+; CHECK-NEXT:    [[CMPXCHG_EXPECTED_PTR:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[CMPXCHG_DESIRED_PTR:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load float, ptr [[PTR:%.*]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi float [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[LOADED:%.*]] = phi float [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fadd float [[LOADED]], [[VALUE:%.*]]
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 4, ptr [[TMP1]])
-; CHECK-NEXT:    store float [[LOADED]], ptr [[TMP1]], align 4
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast float [[NEW]] to i32
-; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange_4(ptr [[PTR]], ptr [[TMP1]], i32 [[TMP5]], i32 5, i32 5)
-; CHECK-NEXT:    [[TMP7:%.*]] = load float, ptr [[TMP1]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 4, ptr [[TMP1]])
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { float, i1 } poison, float [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { float, i1 } [[TMP8]], i1 [[TMP6]], 1
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { float, i1 } [[TMP9]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { float, i1 } [[TMP9]], 0
+; CHECK-NEXT:    store float [[LOADED]], ptr [[CMPXCHG_EXPECTED_PTR]], align 4
+; CHECK-NEXT:    store float [[NEW]], ptr [[CMPXCHG_DESIRED_PTR]], align 4
+; CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[CMPXCHG_DESIRED_PTR]], align 4
+; CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_4:%.*]] = call i8 @__atomic_compare_exchange_4(ptr [[PTR]], ptr [[CMPXCHG_EXPECTED_PTR]], i32 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+; CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_4]], 0
+; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[CMPXCHG_PREV_PTR]], ptr [[CMPXCHG_EXPECTED_PTR]], i64 4, i1 false)
+; CHECK-NEXT:    [[CMPXCHG_PREV_LOAD:%.*]] = load float, ptr [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = insertvalue { float, i1 } poison, float [[CMPXCHG_PREV_LOAD]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = insertvalue { float, i1 } [[TMP2]], i1 [[CMPXCHG_SUCCESS]], 1
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { float, i1 } [[TMP3]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { float, i1 } [[TMP3]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret float [[NEWLOADED]]
@@ -29,22 +32,25 @@ define float @test_atomicrmw_fadd_f32(ptr %ptr, float %value) {
 
 define float @test_atomicrmw_fsub_f32(ptr %ptr, float %value) {
 ; CHECK-LABEL: @test_atomicrmw_fsub_f32(
-; CHECK-NEXT:    [[TMP1:%.*]] = alloca float, align 4
-; CHECK-NEXT:    [[TMP2:%.*]] = load float, ptr [[PTR:%.*]], align 4
+; CHECK-NEXT:    [[CMPXCHG_EXPECTED_PTR:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[CMPXCHG_DESIRED_PTR:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca float, align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load float, ptr [[PTR:%.*]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi float [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[LOADED:%.*]] = phi float [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fsub float [[LOADED]], [[VALUE:%.*]]
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0(i64 4, ptr [[TMP1]])
-; CHECK-NEXT:    store float [[LOADED]], ptr [[TMP1]], align 4
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast float [[NEW]] to i32
-; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange_4(ptr [[PTR]], ptr [[TMP1]], i32 [[TMP5]], i32 5, i32 5)
-; CHECK-NEXT:    [[TMP7:%.*]] = load float, ptr [[TMP1]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0(i64 4, ptr [[TMP1]])
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { float, i1 } poison, float [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { float, i1 } [[TMP8]], i1 [[TMP6]], 1
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { float, i1 } [[TMP9]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { float, i1 } [[TMP9]], 0
+; CHECK-NEXT:    store float [[LOADED]], ptr [[CMPXCHG_EXPECTED_PTR]], align 4
+; CHECK-NEXT:    store float [[NEW]], ptr [[CMPXCHG_DESIRED_PTR]], align 4
+; CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[CMPXCHG_DESIRED_PTR]], align 4
+; CHECK-NEXT:    [[__ATOMIC_COMPARE_EXCHANGE_4:%.*]] = call i8 @__atomic_compare_exchange_4(ptr [[PTR]], ptr [[CMPXCHG_EXPECTED_PTR]], i32 [[CMPXCHG_DESIRED]], i32 5, i32 5)
+; CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = icmp eq i8 [[__ATOMIC_COMPARE_EXCHANGE_4]], 0
+; CHECK-NEXT:    call void @llvm.memcpy.p0.p0.i64(ptr [[CMPXCHG_PREV_PTR]], ptr [[CMPXCHG_EXPECTED_PTR]], i64 4, i1 false)
+; CHECK-NEXT:    [[CMPXCHG_PREV_LOAD:%.*]] = load float, ptr [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP2:%.*]] = insertvalue { float, i1 } poison, float [[CMPXCHG_PREV_LOAD]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = insertvalue { float, i1 } [[TMP2]], i1 [[CMPXCHG_SUCCESS]], 1
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { float, i1 } [[TMP3]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { float, i1 } [[TMP3]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret float [[NEWLOADED]]

@@ -282,23 +282,28 @@ define i64 @cas_weak_i64_release_monotonic(ptr %mem) {
 ; PPC32-LABEL: cas_weak_i64_release_monotonic:
 ; PPC32:       # %bb.0:
 ; PPC32-NEXT:    mflr r0
-; PPC32-NEXT:    stwu r1, -16(r1)
-; PPC32-NEXT:    stw r0, 20(r1)
-; PPC32-NEXT:    .cfi_def_cfa_offset 16
+; PPC32-NEXT:    stwu r1, -32(r1)
+; PPC32-NEXT:    stw r0, 36(r1)
+; PPC32-NEXT:    .cfi_def_cfa_offset 32
 ; PPC32-NEXT:    .cfi_offset lr, 4
 ; PPC32-NEXT:    li r4, 0
-; PPC32-NEXT:    stw r4, 12(r1)
-; PPC32-NEXT:    li r5, 0
-; PPC32-NEXT:    stw r4, 8(r1)
-; PPC32-NEXT:    addi r4, r1, 8
+; PPC32-NEXT:    li r5, 1
+; PPC32-NEXT:    stw r4, 28(r1)
 ; PPC32-NEXT:    li r6, 1
+; PPC32-NEXT:    stw r4, 24(r1)
 ; PPC32-NEXT:    li r7, 3
+; PPC32-NEXT:    stw r5, 20(r1)
+; PPC32-NEXT:    li r5, 0
+; PPC32-NEXT:    stw r4, 16(r1)
+; PPC32-NEXT:    addi r4, r1, 24
 ; PPC32-NEXT:    li r8, 0
 ; PPC32-NEXT:    bl __atomic_compare_exchange_8
-; PPC32-NEXT:    lwz r4, 12(r1)
-; PPC32-NEXT:    lwz r3, 8(r1)
-; PPC32-NEXT:    lwz r0, 20(r1)
-; PPC32-NEXT:    addi r1, r1, 16
+; PPC32-NEXT:    lwz r4, 28(r1)
+; PPC32-NEXT:    lwz r3, 24(r1)
+; PPC32-NEXT:    stw r4, 12(r1)
+; PPC32-NEXT:    stw r3, 8(r1)
+; PPC32-NEXT:    lwz r0, 36(r1)
+; PPC32-NEXT:    addi r1, r1, 32
 ; PPC32-NEXT:    mtlr r0
 ; PPC32-NEXT:    blr
 ;

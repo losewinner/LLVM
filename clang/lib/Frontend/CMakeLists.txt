@@ -51,6 +51,7 @@ add_clang_library(clangFrontend
   clangAPINotes
   clangAST
   clangBasic
+  clangCodeGen
   clangDriver
   clangEdit
   clangLex

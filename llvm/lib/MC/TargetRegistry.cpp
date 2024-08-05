@@ -15,9 +15,25 @@
 #include "llvm/MC/MCObjectStreamer.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
 #include <cassert>
 #include <vector>
 using namespace llvm;
+
+TargetMachine *Target::createTargetMachine(StringRef TT, StringRef CPU,
+                                           StringRef Features,
+                                           const TargetOptions &Options,
+                                           std::optional<Reloc::Model> RM,
+                                           std::optional<CodeModel::Model> CM,
+                                           CodeGenOptLevel OL, bool JIT) const {
+  if (!TargetMachineCtorFn)
+    return nullptr;
+  TargetMachine *Result = TargetMachineCtorFn(*this, Triple(TT), CPU, Features,
+                                              Options, RM, CM, OL, JIT);
+  if (!Result->isValid())
+    return nullptr;
+  return Result;
+}
 
 // Clients are responsible for avoid race conditions in registration.
 static Target *FirstTarget = nullptr;

@@ -19,6 +19,7 @@ namespace llvm {
   template <typename T> class IntrusiveRefCntPtr;
   class Module;
   class MemoryBufferRef;
+  class TargetOptions;
   namespace vfs {
   class FileSystem;
   } // namespace vfs
@@ -54,6 +55,15 @@ namespace clang {
 
   void EmbedObject(llvm::Module *M, const CodeGenOptions &CGOpts,
                    DiagnosticsEngine &Diags);
+
+  std::optional<llvm::CodeModel::Model>
+  getCodeModel(const CodeGenOptions &CodeGenOpts);
+
+  bool initTargetOptions(DiagnosticsEngine &Diags, llvm::TargetOptions &Options,
+                         const CodeGenOptions &CodeGenOpts,
+                         const clang::TargetOptions &TargetOpts,
+                         const LangOptions &LangOpts,
+                         const HeaderSearchOptions &HSOpts);
 }
 
 #endif

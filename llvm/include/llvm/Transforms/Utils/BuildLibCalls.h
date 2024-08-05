@@ -192,6 +192,25 @@ namespace llvm {
   Value *emitVSPrintf(Value *Dest, Value *Fmt, Value *VAList, IRBuilderBase &B,
                       const TargetLibraryInfo *TLI);
 
+  /// Emit a call to the __atomic_compare_exchange function.
+  /// Defined here: https://llvm.org/docs/Atomics.html#libcalls-atomic,
+  /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#list_of_library_routines
+  /// (Different signature than the builtins defined here:
+  /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#GCC_intrinsics)
+  Value *emitAtomicCompareExchange(Value *Size, Value *Ptr, Value *Expected,
+                                   Value *Desired, Value *SuccessMemorder,
+                                   Value *FailureMemorder, IRBuilderBase &B,
+                                   const DataLayout &DL,
+                                   const TargetLibraryInfo *TLI);
+
+  /// Variant of __atomic_compare_exchange where \p Size is either 1, 2, 4, 8,
+  /// or 16.
+  Value *emitAtomicCompareExchangeN(int Size, Value *Ptr, Value *Expected,
+                                    Value *Desired, Value *SuccessMemorder,
+                                    Value *FailureMemorder, IRBuilderBase &B,
+                                    const DataLayout &DL,
+                                    const TargetLibraryInfo *TLI);
+
   /// Emit a call to the unary function named 'Name' (e.g.  'floor'). This
   /// function is known to take a single of type matching 'Op' and returns one
   /// value with the same type. If 'Op' is a long double, 'l' is added as the

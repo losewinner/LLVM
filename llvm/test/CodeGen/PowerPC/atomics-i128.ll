@@ -184,10 +184,11 @@ define i128 @add(ptr %a, i128 %x) {
 ; PPC-PWR8-LABEL: add:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -80(r1)
-; PPC-PWR8-NEXT:    stw r0, 84(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
+; PPC-PWR8-NEXT:    stwu r1, -112(r1)
+; PPC-PWR8-NEXT:    stw r0, 116(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 112
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r23, -36
 ; PPC-PWR8-NEXT:    .cfi_offset r24, -32
 ; PPC-PWR8-NEXT:    .cfi_offset r25, -28
 ; PPC-PWR8-NEXT:    .cfi_offset r26, -24
@@ -195,63 +196,67 @@ define i128 @add(ptr %a, i128 %x) {
 ; PPC-PWR8-NEXT:    .cfi_offset r28, -16
 ; PPC-PWR8-NEXT:    .cfi_offset r29, -12
 ; PPC-PWR8-NEXT:    .cfi_offset r30, -8
-; PPC-PWR8-NEXT:    stw r26, 56(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    stw r27, 60(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r26, 88(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r27, 92(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r27, r5
 ; PPC-PWR8-NEXT:    mr r26, r3
-; PPC-PWR8-NEXT:    stw r28, 64(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r28, 96(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r28, r6
 ; PPC-PWR8-NEXT:    lwz r6, 12(r3)
-; PPC-PWR8-NEXT:    stw r24, 48(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r23, 76(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    lwz r5, 8(r3)
 ; PPC-PWR8-NEXT:    lwz r4, 4(r3)
-; PPC-PWR8-NEXT:    stw r25, 52(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    addi r25, r1, 32
+; PPC-PWR8-NEXT:    stw r24, 80(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r24, r1, 40
 ; PPC-PWR8-NEXT:    lwz r3, 0(r3)
-; PPC-PWR8-NEXT:    stw r29, 68(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    mr r29, r7
-; PPC-PWR8-NEXT:    addi r24, r1, 16
-; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r25, 84(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r25, r1, 56
+; PPC-PWR8-NEXT:    addi r23, r1, 16
+; PPC-PWR8-NEXT:    stw r29, 100(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r30, 104(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r30, r8
+; PPC-PWR8-NEXT:    mr r29, r7
 ; PPC-PWR8-NEXT:    .p2align 4
 ; PPC-PWR8-NEXT:  .LBB1_1: # %atomicrmw.start
 ; PPC-PWR8-NEXT:    #
 ; PPC-PWR8-NEXT:    addc r7, r6, r30
-; PPC-PWR8-NEXT:    stw r4, 36(r1)
-; PPC-PWR8-NEXT:    stw r3, 32(r1)
+; PPC-PWR8-NEXT:    stw r4, 60(r1)
+; PPC-PWR8-NEXT:    stw r3, 56(r1)
 ; PPC-PWR8-NEXT:    adde r8, r5, r29
-; PPC-PWR8-NEXT:    stw r5, 40(r1)
-; PPC-PWR8-NEXT:    stw r6, 44(r1)
+; PPC-PWR8-NEXT:    stw r5, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 68(r1)
 ; PPC-PWR8-NEXT:    mr r5, r25
 ; PPC-PWR8-NEXT:    mr r6, r24
 ; PPC-PWR8-NEXT:    adde r4, r4, r28
-; PPC-PWR8-NEXT:    stw r7, 28(r1)
+; PPC-PWR8-NEXT:    stw r7, 52(r1)
 ; PPC-PWR8-NEXT:    li r7, 5
 ; PPC-PWR8-NEXT:    adde r3, r3, r27
-; PPC-PWR8-NEXT:    stw r8, 24(r1)
+; PPC-PWR8-NEXT:    stw r8, 48(r1)
 ; PPC-PWR8-NEXT:    li r8, 5
-; PPC-PWR8-NEXT:    stw r4, 20(r1)
+; PPC-PWR8-NEXT:    stw r4, 44(r1)
 ; PPC-PWR8-NEXT:    mr r4, r26
-; PPC-PWR8-NEXT:    stw r3, 16(r1)
+; PPC-PWR8-NEXT:    stw r3, 40(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    mr r7, r3
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    cmplwi r7, 0
-; PPC-PWR8-NEXT:    beq cr0, .LBB1_1
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r25
+; PPC-PWR8-NEXT:    andi. r3, r3, 255
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r23
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    bne cr0, .LBB1_1
 ; PPC-PWR8-NEXT:  # %bb.2: # %atomicrmw.end
-; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r29, 68(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r28, 64(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r27, 60(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r26, 56(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r25, 52(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r24, 48(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r0, 84(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 80
+; PPC-PWR8-NEXT:    lwz r30, 104(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r29, 100(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r28, 96(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r27, 92(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r26, 88(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r25, 84(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r24, 80(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r23, 76(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r0, 116(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 112
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -326,10 +331,11 @@ define i128 @sub(ptr %a, i128 %x) {
 ; PPC-PWR8-LABEL: sub:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -80(r1)
-; PPC-PWR8-NEXT:    stw r0, 84(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
+; PPC-PWR8-NEXT:    stwu r1, -112(r1)
+; PPC-PWR8-NEXT:    stw r0, 116(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 112
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r23, -36
 ; PPC-PWR8-NEXT:    .cfi_offset r24, -32
 ; PPC-PWR8-NEXT:    .cfi_offset r25, -28
 ; PPC-PWR8-NEXT:    .cfi_offset r26, -24
@@ -337,63 +343,67 @@ define i128 @sub(ptr %a, i128 %x) {
 ; PPC-PWR8-NEXT:    .cfi_offset r28, -16
 ; PPC-PWR8-NEXT:    .cfi_offset r29, -12
 ; PPC-PWR8-NEXT:    .cfi_offset r30, -8
-; PPC-PWR8-NEXT:    stw r26, 56(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    stw r27, 60(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r26, 88(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r27, 92(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r27, r5
 ; PPC-PWR8-NEXT:    mr r26, r3
-; PPC-PWR8-NEXT:    stw r28, 64(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r28, 96(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r28, r6
 ; PPC-PWR8-NEXT:    lwz r6, 12(r3)
-; PPC-PWR8-NEXT:    stw r24, 48(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r23, 76(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    lwz r5, 8(r3)
 ; PPC-PWR8-NEXT:    lwz r4, 4(r3)
-; PPC-PWR8-NEXT:    stw r25, 52(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    addi r25, r1, 32
+; PPC-PWR8-NEXT:    stw r24, 80(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r24, r1, 40
 ; PPC-PWR8-NEXT:    lwz r3, 0(r3)
-; PPC-PWR8-NEXT:    stw r29, 68(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    mr r29, r7
-; PPC-PWR8-NEXT:    addi r24, r1, 16
-; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r25, 84(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r25, r1, 56
+; PPC-PWR8-NEXT:    addi r23, r1, 16
+; PPC-PWR8-NEXT:    stw r29, 100(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r30, 104(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r30, r8
+; PPC-PWR8-NEXT:    mr r29, r7
 ; PPC-PWR8-NEXT:    .p2align 4
 ; PPC-PWR8-NEXT:  .LBB2_1: # %atomicrmw.start
 ; PPC-PWR8-NEXT:    #
 ; PPC-PWR8-NEXT:    subc r7, r6, r30
-; PPC-PWR8-NEXT:    stw r4, 36(r1)
-; PPC-PWR8-NEXT:    stw r3, 32(r1)
+; PPC-PWR8-NEXT:    stw r4, 60(r1)
+; PPC-PWR8-NEXT:    stw r3, 56(r1)
 ; PPC-PWR8-NEXT:    subfe r8, r29, r5
-; PPC-PWR8-NEXT:    stw r5, 40(r1)
-; PPC-PWR8-NEXT:    stw r6, 44(r1)
+; PPC-PWR8-NEXT:    stw r5, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 68(r1)
 ; PPC-PWR8-NEXT:    mr r5, r25
 ; PPC-PWR8-NEXT:    mr r6, r24
 ; PPC-PWR8-NEXT:    subfe r4, r28, r4
-; PPC-PWR8-NEXT:    stw r7, 28(r1)
+; PPC-PWR8-NEXT:    stw r7, 52(r1)
 ; PPC-PWR8-NEXT:    li r7, 5
 ; PPC-PWR8-NEXT:    subfe r3, r27, r3
-; PPC-PWR8-NEXT:    stw r8, 24(r1)
+; PPC-PWR8-NEXT:    stw r8, 48(r1)
 ; PPC-PWR8-NEXT:    li r8, 5
-; PPC-PWR8-NEXT:    stw r4, 20(r1)
+; PPC-PWR8-NEXT:    stw r4, 44(r1)
 ; PPC-PWR8-NEXT:    mr r4, r26
-; PPC-PWR8-NEXT:    stw r3, 16(r1)
+; PPC-PWR8-NEXT:    stw r3, 40(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    mr r7, r3
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    cmplwi r7, 0
-; PPC-PWR8-NEXT:    beq cr0, .LBB2_1
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r25
+; PPC-PWR8-NEXT:    andi. r3, r3, 255
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r23
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    bne cr0, .LBB2_1
 ; PPC-PWR8-NEXT:  # %bb.2: # %atomicrmw.end
-; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r29, 68(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r28, 64(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r27, 60(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r26, 56(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r25, 52(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r24, 48(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r0, 84(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 80
+; PPC-PWR8-NEXT:    lwz r30, 104(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r29, 100(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r28, 96(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r27, 92(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r26, 88(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r25, 84(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r24, 80(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r23, 76(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r0, 116(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 112
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -468,10 +478,11 @@ define i128 @and(ptr %a, i128 %x) {
 ; PPC-PWR8-LABEL: and:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -80(r1)
-; PPC-PWR8-NEXT:    stw r0, 84(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
+; PPC-PWR8-NEXT:    stwu r1, -112(r1)
+; PPC-PWR8-NEXT:    stw r0, 116(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 112
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r23, -36
 ; PPC-PWR8-NEXT:    .cfi_offset r24, -32
 ; PPC-PWR8-NEXT:    .cfi_offset r25, -28
 ; PPC-PWR8-NEXT:    .cfi_offset r26, -24
@@ -479,63 +490,67 @@ define i128 @and(ptr %a, i128 %x) {
 ; PPC-PWR8-NEXT:    .cfi_offset r28, -16
 ; PPC-PWR8-NEXT:    .cfi_offset r29, -12
 ; PPC-PWR8-NEXT:    .cfi_offset r30, -8
-; PPC-PWR8-NEXT:    stw r26, 56(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    stw r27, 60(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r26, 88(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r27, 92(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r27, r5
 ; PPC-PWR8-NEXT:    mr r26, r3
-; PPC-PWR8-NEXT:    stw r28, 64(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r28, 96(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r28, r6
 ; PPC-PWR8-NEXT:    lwz r6, 12(r3)
-; PPC-PWR8-NEXT:    stw r24, 48(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r23, 76(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    lwz r5, 8(r3)
 ; PPC-PWR8-NEXT:    lwz r4, 4(r3)
-; PPC-PWR8-NEXT:    stw r25, 52(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    addi r25, r1, 32
+; PPC-PWR8-NEXT:    stw r24, 80(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r24, r1, 40
 ; PPC-PWR8-NEXT:    lwz r3, 0(r3)
-; PPC-PWR8-NEXT:    stw r29, 68(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    mr r29, r7
-; PPC-PWR8-NEXT:    addi r24, r1, 16
-; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r25, 84(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r25, r1, 56
+; PPC-PWR8-NEXT:    addi r23, r1, 16
+; PPC-PWR8-NEXT:    stw r29, 100(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r30, 104(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r30, r8
+; PPC-PWR8-NEXT:    mr r29, r7
 ; PPC-PWR8-NEXT:    .p2align 4
 ; PPC-PWR8-NEXT:  .LBB3_1: # %atomicrmw.start
 ; PPC-PWR8-NEXT:    #
-; PPC-PWR8-NEXT:    stw r3, 32(r1)
-; PPC-PWR8-NEXT:    and r3, r3, r27
-; PPC-PWR8-NEXT:    stw r4, 36(r1)
+; PPC-PWR8-NEXT:    stw r3, 56(r1)
+; PPC-PWR8-NEXT:    and r7, r6, r30
+; PPC-PWR8-NEXT:    stw r4, 60(r1)
+; PPC-PWR8-NEXT:    and r8, r5, r29
 ; PPC-PWR8-NEXT:    and r4, r4, r28
-; PPC-PWR8-NEXT:    and r7, r5, r29
-; PPC-PWR8-NEXT:    stw r5, 40(r1)
-; PPC-PWR8-NEXT:    and r5, r6, r30
-; PPC-PWR8-NEXT:    stw r6, 44(r1)
-; PPC-PWR8-NEXT:    stw r5, 28(r1)
-; PPC-PWR8-NEXT:    stw r7, 24(r1)
-; PPC-PWR8-NEXT:    mr r5, r25
-; PPC-PWR8-NEXT:    li r7, 5
-; PPC-PWR8-NEXT:    stw r4, 20(r1)
-; PPC-PWR8-NEXT:    stw r3, 16(r1)
+; PPC-PWR8-NEXT:    and r3, r3, r27
+; PPC-PWR8-NEXT:    stw r5, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 68(r1)
+; PPC-PWR8-NEXT:    stw r3, 40(r1)
+; PPC-PWR8-NEXT:    stw r4, 44(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    mr r4, r26
+; PPC-PWR8-NEXT:    stw r8, 48(r1)
+; PPC-PWR8-NEXT:    stw r7, 52(r1)
+; PPC-PWR8-NEXT:    mr r5, r25
+; PPC-PWR8-NEXT:    li r7, 5
 ; PPC-PWR8-NEXT:    mr r6, r24
 ; PPC-PWR8-NEXT:    li r8, 5
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    mr r7, r3
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    cmplwi r7, 0
-; PPC-PWR8-NEXT:    beq cr0, .LBB3_1
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r25
+; PPC-PWR8-NEXT:    andi. r3, r3, 255
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r23
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    bne cr0, .LBB3_1
 ; PPC-PWR8-NEXT:  # %bb.2: # %atomicrmw.end
-; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r29, 68(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r28, 64(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r27, 60(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r26, 56(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r25, 52(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r24, 48(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r0, 84(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 80
+; PPC-PWR8-NEXT:    lwz r30, 104(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r29, 100(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r28, 96(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r27, 92(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r26, 88(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r25, 84(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r24, 80(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r23, 76(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r0, 116(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 112
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -610,10 +625,11 @@ define i128 @or(ptr %a, i128 %x) {
 ; PPC-PWR8-LABEL: or:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -80(r1)
-; PPC-PWR8-NEXT:    stw r0, 84(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
+; PPC-PWR8-NEXT:    stwu r1, -112(r1)
+; PPC-PWR8-NEXT:    stw r0, 116(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 112
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r23, -36
 ; PPC-PWR8-NEXT:    .cfi_offset r24, -32
 ; PPC-PWR8-NEXT:    .cfi_offset r25, -28
 ; PPC-PWR8-NEXT:    .cfi_offset r26, -24
@@ -621,63 +637,67 @@ define i128 @or(ptr %a, i128 %x) {
 ; PPC-PWR8-NEXT:    .cfi_offset r28, -16
 ; PPC-PWR8-NEXT:    .cfi_offset r29, -12
 ; PPC-PWR8-NEXT:    .cfi_offset r30, -8
-; PPC-PWR8-NEXT:    stw r26, 56(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    stw r27, 60(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r26, 88(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r27, 92(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r27, r5
 ; PPC-PWR8-NEXT:    mr r26, r3
-; PPC-PWR8-NEXT:    stw r28, 64(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r28, 96(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r28, r6
 ; PPC-PWR8-NEXT:    lwz r6, 12(r3)
-; PPC-PWR8-NEXT:    stw r24, 48(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r23, 76(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    lwz r5, 8(r3)
 ; PPC-PWR8-NEXT:    lwz r4, 4(r3)
-; PPC-PWR8-NEXT:    stw r25, 52(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    addi r25, r1, 32
+; PPC-PWR8-NEXT:    stw r24, 80(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r24, r1, 40
 ; PPC-PWR8-NEXT:    lwz r3, 0(r3)
-; PPC-PWR8-NEXT:    stw r29, 68(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    mr r29, r7
-; PPC-PWR8-NEXT:    addi r24, r1, 16
-; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r25, 84(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r25, r1, 56
+; PPC-PWR8-NEXT:    addi r23, r1, 16
+; PPC-PWR8-NEXT:    stw r29, 100(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r30, 104(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r30, r8
+; PPC-PWR8-NEXT:    mr r29, r7
 ; PPC-PWR8-NEXT:    .p2align 4
 ; PPC-PWR8-NEXT:  .LBB4_1: # %atomicrmw.start
 ; PPC-PWR8-NEXT:    #
-; PPC-PWR8-NEXT:    stw r3, 32(r1)
-; PPC-PWR8-NEXT:    or r3, r3, r27
-; PPC-PWR8-NEXT:    stw r4, 36(r1)
+; PPC-PWR8-NEXT:    stw r3, 56(r1)
+; PPC-PWR8-NEXT:    or r7, r6, r30
+; PPC-PWR8-NEXT:    stw r4, 60(r1)
+; PPC-PWR8-NEXT:    or r8, r5, r29
 ; PPC-PWR8-NEXT:    or r4, r4, r28
-; PPC-PWR8-NEXT:    or r7, r5, r29
-; PPC-PWR8-NEXT:    stw r5, 40(r1)
-; PPC-PWR8-NEXT:    or r5, r6, r30
-; PPC-PWR8-NEXT:    stw r6, 44(r1)
-; PPC-PWR8-NEXT:    stw r5, 28(r1)
-; PPC-PWR8-NEXT:    stw r7, 24(r1)
-; PPC-PWR8-NEXT:    mr r5, r25
-; PPC-PWR8-NEXT:    li r7, 5
-; PPC-PWR8-NEXT:    stw r4, 20(r1)
-; PPC-PWR8-NEXT:    stw r3, 16(r1)
+; PPC-PWR8-NEXT:    or r3, r3, r27
+; PPC-PWR8-NEXT:    stw r5, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 68(r1)
+; PPC-PWR8-NEXT:    stw r3, 40(r1)
+; PPC-PWR8-NEXT:    stw r4, 44(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    mr r4, r26
+; PPC-PWR8-NEXT:    stw r8, 48(r1)
+; PPC-PWR8-NEXT:    stw r7, 52(r1)
+; PPC-PWR8-NEXT:    mr r5, r25
+; PPC-PWR8-NEXT:    li r7, 5
 ; PPC-PWR8-NEXT:    mr r6, r24
 ; PPC-PWR8-NEXT:    li r8, 5
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    mr r7, r3
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    cmplwi r7, 0
-; PPC-PWR8-NEXT:    beq cr0, .LBB4_1
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r25
+; PPC-PWR8-NEXT:    andi. r3, r3, 255
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r23
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    bne cr0, .LBB4_1
 ; PPC-PWR8-NEXT:  # %bb.2: # %atomicrmw.end
-; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r29, 68(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r28, 64(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r27, 60(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r26, 56(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r25, 52(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r24, 48(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r0, 84(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 80
+; PPC-PWR8-NEXT:    lwz r30, 104(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r29, 100(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r28, 96(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r27, 92(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r26, 88(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r25, 84(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r24, 80(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r23, 76(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r0, 116(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 112
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -752,10 +772,11 @@ define i128 @xor(ptr %a, i128 %x) {
 ; PPC-PWR8-LABEL: xor:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -80(r1)
-; PPC-PWR8-NEXT:    stw r0, 84(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
+; PPC-PWR8-NEXT:    stwu r1, -112(r1)
+; PPC-PWR8-NEXT:    stw r0, 116(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 112
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r23, -36
 ; PPC-PWR8-NEXT:    .cfi_offset r24, -32
 ; PPC-PWR8-NEXT:    .cfi_offset r25, -28
 ; PPC-PWR8-NEXT:    .cfi_offset r26, -24
@@ -763,63 +784,67 @@ define i128 @xor(ptr %a, i128 %x) {
 ; PPC-PWR8-NEXT:    .cfi_offset r28, -16
 ; PPC-PWR8-NEXT:    .cfi_offset r29, -12
 ; PPC-PWR8-NEXT:    .cfi_offset r30, -8
-; PPC-PWR8-NEXT:    stw r26, 56(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    stw r27, 60(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r26, 88(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r27, 92(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r27, r5
 ; PPC-PWR8-NEXT:    mr r26, r3
-; PPC-PWR8-NEXT:    stw r28, 64(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r28, 96(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r28, r6
 ; PPC-PWR8-NEXT:    lwz r6, 12(r3)
-; PPC-PWR8-NEXT:    stw r24, 48(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r23, 76(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    lwz r5, 8(r3)
 ; PPC-PWR8-NEXT:    lwz r4, 4(r3)
-; PPC-PWR8-NEXT:    stw r25, 52(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    addi r25, r1, 32
+; PPC-PWR8-NEXT:    stw r24, 80(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r24, r1, 40
 ; PPC-PWR8-NEXT:    lwz r3, 0(r3)
-; PPC-PWR8-NEXT:    stw r29, 68(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    mr r29, r7
-; PPC-PWR8-NEXT:    addi r24, r1, 16
-; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r25, 84(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r25, r1, 56
+; PPC-PWR8-NEXT:    addi r23, r1, 16
+; PPC-PWR8-NEXT:    stw r29, 100(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r30, 104(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r30, r8
+; PPC-PWR8-NEXT:    mr r29, r7
 ; PPC-PWR8-NEXT:    .p2align 4
 ; PPC-PWR8-NEXT:  .LBB5_1: # %atomicrmw.start
 ; PPC-PWR8-NEXT:    #
-; PPC-PWR8-NEXT:    stw r3, 32(r1)
-; PPC-PWR8-NEXT:    xor r3, r3, r27
-; PPC-PWR8-NEXT:    stw r4, 36(r1)
+; PPC-PWR8-NEXT:    stw r3, 56(r1)
+; PPC-PWR8-NEXT:    xor r7, r6, r30
+; PPC-PWR8-NEXT:    stw r4, 60(r1)
+; PPC-PWR8-NEXT:    xor r8, r5, r29
 ; PPC-PWR8-NEXT:    xor r4, r4, r28
-; PPC-PWR8-NEXT:    xor r7, r5, r29
-; PPC-PWR8-NEXT:    stw r5, 40(r1)
-; PPC-PWR8-NEXT:    xor r5, r6, r30
-; PPC-PWR8-NEXT:    stw r6, 44(r1)
-; PPC-PWR8-NEXT:    stw r5, 28(r1)
-; PPC-PWR8-NEXT:    stw r7, 24(r1)
-; PPC-PWR8-NEXT:    mr r5, r25
-; PPC-PWR8-NEXT:    li r7, 5
-; PPC-PWR8-NEXT:    stw r4, 20(r1)
-; PPC-PWR8-NEXT:    stw r3, 16(r1)
+; PPC-PWR8-NEXT:    xor r3, r3, r27
+; PPC-PWR8-NEXT:    stw r5, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 68(r1)
+; PPC-PWR8-NEXT:    stw r3, 40(r1)
+; PPC-PWR8-NEXT:    stw r4, 44(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    mr r4, r26
+; PPC-PWR8-NEXT:    stw r8, 48(r1)
+; PPC-PWR8-NEXT:    stw r7, 52(r1)
+; PPC-PWR8-NEXT:    mr r5, r25
+; PPC-PWR8-NEXT:    li r7, 5
 ; PPC-PWR8-NEXT:    mr r6, r24
 ; PPC-PWR8-NEXT:    li r8, 5
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    mr r7, r3
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    cmplwi r7, 0
-; PPC-PWR8-NEXT:    beq cr0, .LBB5_1
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r25
+; PPC-PWR8-NEXT:    andi. r3, r3, 255
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r23
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    bne cr0, .LBB5_1
 ; PPC-PWR8-NEXT:  # %bb.2: # %atomicrmw.end
-; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r29, 68(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r28, 64(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r27, 60(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r26, 56(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r25, 52(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r24, 48(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r0, 84(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 80
+; PPC-PWR8-NEXT:    lwz r30, 104(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r29, 100(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r28, 96(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r27, 92(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r26, 88(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r25, 84(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r24, 80(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r23, 76(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r0, 116(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 112
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -894,10 +919,11 @@ define i128 @nand(ptr %a, i128 %x) {
 ; PPC-PWR8-LABEL: nand:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -80(r1)
-; PPC-PWR8-NEXT:    stw r0, 84(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
+; PPC-PWR8-NEXT:    stwu r1, -112(r1)
+; PPC-PWR8-NEXT:    stw r0, 116(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 112
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r23, -36
 ; PPC-PWR8-NEXT:    .cfi_offset r24, -32
 ; PPC-PWR8-NEXT:    .cfi_offset r25, -28
 ; PPC-PWR8-NEXT:    .cfi_offset r26, -24
@@ -905,63 +931,67 @@ define i128 @nand(ptr %a, i128 %x) {
 ; PPC-PWR8-NEXT:    .cfi_offset r28, -16
 ; PPC-PWR8-NEXT:    .cfi_offset r29, -12
 ; PPC-PWR8-NEXT:    .cfi_offset r30, -8
-; PPC-PWR8-NEXT:    stw r26, 56(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    stw r27, 60(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r26, 88(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r27, 92(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r27, r5
 ; PPC-PWR8-NEXT:    mr r26, r3
-; PPC-PWR8-NEXT:    stw r28, 64(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r28, 96(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r28, r6
 ; PPC-PWR8-NEXT:    lwz r6, 12(r3)
-; PPC-PWR8-NEXT:    stw r24, 48(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r23, 76(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    lwz r5, 8(r3)
 ; PPC-PWR8-NEXT:    lwz r4, 4(r3)
-; PPC-PWR8-NEXT:    stw r25, 52(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    addi r25, r1, 32
+; PPC-PWR8-NEXT:    stw r24, 80(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r24, r1, 40
 ; PPC-PWR8-NEXT:    lwz r3, 0(r3)
-; PPC-PWR8-NEXT:    stw r29, 68(r1) # 4-byte Folded Spill
-; PPC-PWR8-NEXT:    mr r29, r7
-; PPC-PWR8-NEXT:    addi r24, r1, 16
-; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r25, 84(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r25, r1, 56
+; PPC-PWR8-NEXT:    addi r23, r1, 16
+; PPC-PWR8-NEXT:    stw r29, 100(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    stw r30, 104(r1) # 4-byte Folded Spill
 ; PPC-PWR8-NEXT:    mr r30, r8
+; PPC-PWR8-NEXT:    mr r29, r7
 ; PPC-PWR8-NEXT:    .p2align 4
 ; PPC-PWR8-NEXT:  .LBB6_1: # %atomicrmw.start
 ; PPC-PWR8-NEXT:    #
-; PPC-PWR8-NEXT:    stw r3, 32(r1)
-; PPC-PWR8-NEXT:    nand r3, r3, r27
-; PPC-PWR8-NEXT:    stw r4, 36(r1)
+; PPC-PWR8-NEXT:    stw r3, 56(r1)
+; PPC-PWR8-NEXT:    nand r7, r6, r30
+; PPC-PWR8-NEXT:    stw r4, 60(r1)
+; PPC-PWR8-NEXT:    nand r8, r5, r29
 ; PPC-PWR8-NEXT:    nand r4, r4, r28
-; PPC-PWR8-NEXT:    nand r7, r5, r29
-; PPC-PWR8-NEXT:    stw r5, 40(r1)
-; PPC-PWR8-NEXT:    nand r5, r6, r30
-; PPC-PWR8-NEXT:    stw r6, 44(r1)
-; PPC-PWR8-NEXT:    stw r5, 28(r1)
-; PPC-PWR8-NEXT:    stw r7, 24(r1)
-; PPC-PWR8-NEXT:    mr r5, r25
-; PPC-PWR8-NEXT:    li r7, 5
-; PPC-PWR8-NEXT:    stw r4, 20(r1)
-; PPC-PWR8-NEXT:    stw r3, 16(r1)
+; PPC-PWR8-NEXT:    nand r3, r3, r27
+; PPC-PWR8-NEXT:    stw r5, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 68(r1)
+; PPC-PWR8-NEXT:    stw r3, 40(r1)
+; PPC-PWR8-NEXT:    stw r4, 44(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    mr r4, r26
+; PPC-PWR8-NEXT:    stw r8, 48(r1)
+; PPC-PWR8-NEXT:    stw r7, 52(r1)
+; PPC-PWR8-NEXT:    mr r5, r25
+; PPC-PWR8-NEXT:    li r7, 5
 ; PPC-PWR8-NEXT:    mr r6, r24
 ; PPC-PWR8-NEXT:    li r8, 5
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    mr r7, r3
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    cmplwi r7, 0
-; PPC-PWR8-NEXT:    beq cr0, .LBB6_1
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r25
+; PPC-PWR8-NEXT:    andi. r3, r3, 255
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r23
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    bne cr0, .LBB6_1
 ; PPC-PWR8-NEXT:  # %bb.2: # %atomicrmw.end
-; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r29, 68(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r28, 64(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r27, 60(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r26, 56(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r25, 52(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r24, 48(r1) # 4-byte Folded Reload
-; PPC-PWR8-NEXT:    lwz r0, 84(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 80
+; PPC-PWR8-NEXT:    lwz r30, 104(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r29, 100(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r28, 96(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r27, 92(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r26, 88(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r25, 84(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r24, 80(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r23, 76(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    lwz r0, 116(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 112
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -995,22 +1025,31 @@ define i128 @cas_weak_acquire_acquire(ptr %a, i128 %cmp, i128 %new) {
 ; PWR7-LABEL: cas_weak_acquire_acquire:
 ; PWR7:       # %bb.0: # %entry
 ; PWR7-NEXT:    mflr r0
-; PWR7-NEXT:    stdu r1, -128(r1)
-; PWR7-NEXT:    std r0, 144(r1)
-; PWR7-NEXT:    .cfi_def_cfa_offset 128
+; PWR7-NEXT:    stdu r1, -176(r1)
+; PWR7-NEXT:    std r0, 192(r1)
+; PWR7-NEXT:    .cfi_def_cfa_offset 176
 ; PWR7-NEXT:    .cfi_offset lr, 16
-; PWR7-NEXT:    std r5, 120(r1)
-; PWR7-NEXT:    std r4, 112(r1)
-; PWR7-NEXT:    addi r4, r1, 112
+; PWR7-NEXT:    .cfi_offset r30, -16
+; PWR7-NEXT:    std r30, 160(r1) # 8-byte Folded Spill
+; PWR7-NEXT:    addi r30, r1, 144
+; PWR7-NEXT:    std r5, 152(r1)
+; PWR7-NEXT:    std r7, 136(r1)
+; PWR7-NEXT:    std r6, 128(r1)
 ; PWR7-NEXT:    mr r5, r6
 ; PWR7-NEXT:    mr r6, r7
 ; PWR7-NEXT:    li r7, 2
 ; PWR7-NEXT:    li r8, 2
+; PWR7-NEXT:    std r4, 144(r1)
+; PWR7-NEXT:    mr r4, r30
 ; PWR7-NEXT:    bl __atomic_compare_exchange_16
 ; PWR7-NEXT:    nop
-; PWR7-NEXT:    ld r4, 120(r1)
+; PWR7-NEXT:    lxvd2x vs0, 0, r30
+; PWR7-NEXT:    addi r3, r1, 112
+; PWR7-NEXT:    ld r30, 160(r1) # 8-byte Folded Reload
+; PWR7-NEXT:    stxvd2x vs0, 0, r3
 ; PWR7-NEXT:    ld r3, 112(r1)
-; PWR7-NEXT:    addi r1, r1, 128
+; PWR7-NEXT:    ld r4, 120(r1)
+; PWR7-NEXT:    addi r1, r1, 176
 ; PWR7-NEXT:    ld r0, 16(r1)
 ; PWR7-NEXT:    mtlr r0
 ; PWR7-NEXT:    blr
@@ -1060,33 +1099,40 @@ define i128 @cas_weak_acquire_acquire(ptr %a, i128 %cmp, i128 %new) {
 ; PPC-PWR8-LABEL: cas_weak_acquire_acquire:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -48(r1)
-; PPC-PWR8-NEXT:    stw r0, 52(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 48
+; PPC-PWR8-NEXT:    stwu r1, -80(r1)
+; PPC-PWR8-NEXT:    stw r0, 84(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r30, -8
 ; PPC-PWR8-NEXT:    mr r4, r3
-; PPC-PWR8-NEXT:    lwz r3, 60(r1)
-; PPC-PWR8-NEXT:    stw r8, 44(r1)
-; PPC-PWR8-NEXT:    stw r7, 40(r1)
-; PPC-PWR8-NEXT:    stw r6, 36(r1)
-; PPC-PWR8-NEXT:    stw r5, 32(r1)
-; PPC-PWR8-NEXT:    addi r5, r1, 32
-; PPC-PWR8-NEXT:    addi r6, r1, 16
+; PPC-PWR8-NEXT:    lwz r3, 92(r1)
+; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r30, r1, 56
+; PPC-PWR8-NEXT:    stw r8, 68(r1)
+; PPC-PWR8-NEXT:    stw r7, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 60(r1)
+; PPC-PWR8-NEXT:    addi r6, r1, 40
+; PPC-PWR8-NEXT:    stw r5, 56(r1)
+; PPC-PWR8-NEXT:    mr r5, r30
 ; PPC-PWR8-NEXT:    li r7, 2
 ; PPC-PWR8-NEXT:    li r8, 2
-; PPC-PWR8-NEXT:    stw r10, 20(r1)
-; PPC-PWR8-NEXT:    stw r9, 16(r1)
-; PPC-PWR8-NEXT:    stw r3, 28(r1)
-; PPC-PWR8-NEXT:    lwz r3, 56(r1)
-; PPC-PWR8-NEXT:    stw r3, 24(r1)
+; PPC-PWR8-NEXT:    stw r3, 52(r1)
+; PPC-PWR8-NEXT:    lwz r3, 88(r1)
+; PPC-PWR8-NEXT:    stw r10, 44(r1)
+; PPC-PWR8-NEXT:    stw r9, 40(r1)
+; PPC-PWR8-NEXT:    stw r3, 48(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    lwz r0, 52(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 48
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r30
+; PPC-PWR8-NEXT:    addi r3, r1, 16
+; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r3
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r0, 84(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 80
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -1120,22 +1166,31 @@ define i128 @cas_weak_release_monotonic(ptr %a, i128 %cmp, i128 %new) {
 ; PWR7-LABEL: cas_weak_release_monotonic:
 ; PWR7:       # %bb.0: # %entry
 ; PWR7-NEXT:    mflr r0
-; PWR7-NEXT:    stdu r1, -128(r1)
-; PWR7-NEXT:    std r0, 144(r1)
-; PWR7-NEXT:    .cfi_def_cfa_offset 128
+; PWR7-NEXT:    stdu r1, -176(r1)
+; PWR7-NEXT:    std r0, 192(r1)
+; PWR7-NEXT:    .cfi_def_cfa_offset 176
 ; PWR7-NEXT:    .cfi_offset lr, 16
-; PWR7-NEXT:    std r5, 120(r1)
-; PWR7-NEXT:    std r4, 112(r1)
-; PWR7-NEXT:    addi r4, r1, 112
+; PWR7-NEXT:    .cfi_offset r30, -16
+; PWR7-NEXT:    std r30, 160(r1) # 8-byte Folded Spill
+; PWR7-NEXT:    addi r30, r1, 144
+; PWR7-NEXT:    std r5, 152(r1)
+; PWR7-NEXT:    std r7, 136(r1)
+; PWR7-NEXT:    std r6, 128(r1)
 ; PWR7-NEXT:    mr r5, r6
 ; PWR7-NEXT:    mr r6, r7
 ; PWR7-NEXT:    li r7, 3
 ; PWR7-NEXT:    li r8, 0
+; PWR7-NEXT:    std r4, 144(r1)
+; PWR7-NEXT:    mr r4, r30
 ; PWR7-NEXT:    bl __atomic_compare_exchange_16
 ; PWR7-NEXT:    nop
-; PWR7-NEXT:    ld r4, 120(r1)
+; PWR7-NEXT:    lxvd2x vs0, 0, r30
+; PWR7-NEXT:    addi r3, r1, 112
+; PWR7-NEXT:    ld r30, 160(r1) # 8-byte Folded Reload
+; PWR7-NEXT:    stxvd2x vs0, 0, r3
 ; PWR7-NEXT:    ld r3, 112(r1)
-; PWR7-NEXT:    addi r1, r1, 128
+; PWR7-NEXT:    ld r4, 120(r1)
+; PWR7-NEXT:    addi r1, r1, 176
 ; PWR7-NEXT:    ld r0, 16(r1)
 ; PWR7-NEXT:    mtlr r0
 ; PWR7-NEXT:    blr
@@ -1185,33 +1240,40 @@ define i128 @cas_weak_release_monotonic(ptr %a, i128 %cmp, i128 %new) {
 ; PPC-PWR8-LABEL: cas_weak_release_monotonic:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -48(r1)
-; PPC-PWR8-NEXT:    stw r0, 52(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 48
+; PPC-PWR8-NEXT:    stwu r1, -80(r1)
+; PPC-PWR8-NEXT:    stw r0, 84(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r30, -8
 ; PPC-PWR8-NEXT:    mr r4, r3
-; PPC-PWR8-NEXT:    lwz r3, 60(r1)
-; PPC-PWR8-NEXT:    stw r8, 44(r1)
-; PPC-PWR8-NEXT:    stw r7, 40(r1)
-; PPC-PWR8-NEXT:    stw r6, 36(r1)
-; PPC-PWR8-NEXT:    stw r5, 32(r1)
-; PPC-PWR8-NEXT:    addi r5, r1, 32
-; PPC-PWR8-NEXT:    addi r6, r1, 16
+; PPC-PWR8-NEXT:    lwz r3, 92(r1)
+; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r30, r1, 56
+; PPC-PWR8-NEXT:    stw r8, 68(r1)
+; PPC-PWR8-NEXT:    stw r7, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 60(r1)
+; PPC-PWR8-NEXT:    addi r6, r1, 40
+; PPC-PWR8-NEXT:    stw r5, 56(r1)
+; PPC-PWR8-NEXT:    mr r5, r30
 ; PPC-PWR8-NEXT:    li r7, 3
 ; PPC-PWR8-NEXT:    li r8, 0
-; PPC-PWR8-NEXT:    stw r10, 20(r1)
-; PPC-PWR8-NEXT:    stw r9, 16(r1)
-; PPC-PWR8-NEXT:    stw r3, 28(r1)
-; PPC-PWR8-NEXT:    lwz r3, 56(r1)
-; PPC-PWR8-NEXT:    stw r3, 24(r1)
+; PPC-PWR8-NEXT:    stw r3, 52(r1)
+; PPC-PWR8-NEXT:    lwz r3, 88(r1)
+; PPC-PWR8-NEXT:    stw r10, 44(r1)
+; PPC-PWR8-NEXT:    stw r9, 40(r1)
+; PPC-PWR8-NEXT:    stw r3, 48(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    lwz r0, 52(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 48
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r30
+; PPC-PWR8-NEXT:    addi r3, r1, 16
+; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r3
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r0, 84(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 80
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -1246,22 +1308,31 @@ define i128 @cas_sc_sc(ptr %a, i128 %cmp, i128 %new) {
 ; PWR7-LABEL: cas_sc_sc:
 ; PWR7:       # %bb.0: # %entry
 ; PWR7-NEXT:    mflr r0
-; PWR7-NEXT:    stdu r1, -128(r1)
-; PWR7-NEXT:    std r0, 144(r1)
-; PWR7-NEXT:    .cfi_def_cfa_offset 128
+; PWR7-NEXT:    stdu r1, -176(r1)
+; PWR7-NEXT:    std r0, 192(r1)
+; PWR7-NEXT:    .cfi_def_cfa_offset 176
 ; PWR7-NEXT:    .cfi_offset lr, 16
-; PWR7-NEXT:    std r5, 120(r1)
-; PWR7-NEXT:    std r4, 112(r1)
-; PWR7-NEXT:    addi r4, r1, 112
+; PWR7-NEXT:    .cfi_offset r30, -16
+; PWR7-NEXT:    std r30, 160(r1) # 8-byte Folded Spill
+; PWR7-NEXT:    addi r30, r1, 144
+; PWR7-NEXT:    std r5, 152(r1)
+; PWR7-NEXT:    std r7, 136(r1)
+; PWR7-NEXT:    std r6, 128(r1)
 ; PWR7-NEXT:    mr r5, r6
 ; PWR7-NEXT:    mr r6, r7
 ; PWR7-NEXT:    li r7, 5
 ; PWR7-NEXT:    li r8, 5
+; PWR7-NEXT:    std r4, 144(r1)
+; PWR7-NEXT:    mr r4, r30
 ; PWR7-NEXT:    bl __atomic_compare_exchange_16
 ; PWR7-NEXT:    nop
-; PWR7-NEXT:    ld r4, 120(r1)
+; PWR7-NEXT:    lxvd2x vs0, 0, r30
+; PWR7-NEXT:    addi r3, r1, 112
+; PWR7-NEXT:    ld r30, 160(r1) # 8-byte Folded Reload
+; PWR7-NEXT:    stxvd2x vs0, 0, r3
 ; PWR7-NEXT:    ld r3, 112(r1)
-; PWR7-NEXT:    addi r1, r1, 128
+; PWR7-NEXT:    ld r4, 120(r1)
+; PWR7-NEXT:    addi r1, r1, 176
 ; PWR7-NEXT:    ld r0, 16(r1)
 ; PWR7-NEXT:    mtlr r0
 ; PWR7-NEXT:    blr
@@ -1313,33 +1384,40 @@ define i128 @cas_sc_sc(ptr %a, i128 %cmp, i128 %new) {
 ; PPC-PWR8-LABEL: cas_sc_sc:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -48(r1)
-; PPC-PWR8-NEXT:    stw r0, 52(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 48
+; PPC-PWR8-NEXT:    stwu r1, -80(r1)
+; PPC-PWR8-NEXT:    stw r0, 84(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r30, -8
 ; PPC-PWR8-NEXT:    mr r4, r3
-; PPC-PWR8-NEXT:    lwz r3, 60(r1)
-; PPC-PWR8-NEXT:    stw r8, 44(r1)
-; PPC-PWR8-NEXT:    stw r7, 40(r1)
-; PPC-PWR8-NEXT:    stw r6, 36(r1)
-; PPC-PWR8-NEXT:    stw r5, 32(r1)
-; PPC-PWR8-NEXT:    addi r5, r1, 32
-; PPC-PWR8-NEXT:    addi r6, r1, 16
+; PPC-PWR8-NEXT:    lwz r3, 92(r1)
+; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r30, r1, 56
+; PPC-PWR8-NEXT:    stw r8, 68(r1)
+; PPC-PWR8-NEXT:    stw r7, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 60(r1)
+; PPC-PWR8-NEXT:    addi r6, r1, 40
+; PPC-PWR8-NEXT:    stw r5, 56(r1)
+; PPC-PWR8-NEXT:    mr r5, r30
 ; PPC-PWR8-NEXT:    li r7, 5
 ; PPC-PWR8-NEXT:    li r8, 5
-; PPC-PWR8-NEXT:    stw r10, 20(r1)
-; PPC-PWR8-NEXT:    stw r9, 16(r1)
-; PPC-PWR8-NEXT:    stw r3, 28(r1)
-; PPC-PWR8-NEXT:    lwz r3, 56(r1)
-; PPC-PWR8-NEXT:    stw r3, 24(r1)
+; PPC-PWR8-NEXT:    stw r3, 52(r1)
+; PPC-PWR8-NEXT:    lwz r3, 88(r1)
+; PPC-PWR8-NEXT:    stw r10, 44(r1)
+; PPC-PWR8-NEXT:    stw r9, 40(r1)
+; PPC-PWR8-NEXT:    stw r3, 48(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    lwz r0, 52(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 48
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r30
+; PPC-PWR8-NEXT:    addi r3, r1, 16
+; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r3
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r0, 84(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 80
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -1374,22 +1452,31 @@ define i128 @cas_acqrel_acquire(ptr %a, i128 %cmp, i128 %new) {
 ; PWR7-LABEL: cas_acqrel_acquire:
 ; PWR7:       # %bb.0: # %entry
 ; PWR7-NEXT:    mflr r0
-; PWR7-NEXT:    stdu r1, -128(r1)
-; PWR7-NEXT:    std r0, 144(r1)
-; PWR7-NEXT:    .cfi_def_cfa_offset 128
+; PWR7-NEXT:    stdu r1, -176(r1)
+; PWR7-NEXT:    std r0, 192(r1)
+; PWR7-NEXT:    .cfi_def_cfa_offset 176
 ; PWR7-NEXT:    .cfi_offset lr, 16
-; PWR7-NEXT:    std r5, 120(r1)
-; PWR7-NEXT:    std r4, 112(r1)
-; PWR7-NEXT:    addi r4, r1, 112
+; PWR7-NEXT:    .cfi_offset r30, -16
+; PWR7-NEXT:    std r30, 160(r1) # 8-byte Folded Spill
+; PWR7-NEXT:    addi r30, r1, 144
+; PWR7-NEXT:    std r5, 152(r1)
+; PWR7-NEXT:    std r7, 136(r1)
+; PWR7-NEXT:    std r6, 128(r1)
 ; PWR7-NEXT:    mr r5, r6
 ; PWR7-NEXT:    mr r6, r7
 ; PWR7-NEXT:    li r7, 4
 ; PWR7-NEXT:    li r8, 2
+; PWR7-NEXT:    std r4, 144(r1)
+; PWR7-NEXT:    mr r4, r30
 ; PWR7-NEXT:    bl __atomic_compare_exchange_16
 ; PWR7-NEXT:    nop
-; PWR7-NEXT:    ld r4, 120(r1)
+; PWR7-NEXT:    lxvd2x vs0, 0, r30
+; PWR7-NEXT:    addi r3, r1, 112
+; PWR7-NEXT:    ld r30, 160(r1) # 8-byte Folded Reload
+; PWR7-NEXT:    stxvd2x vs0, 0, r3
 ; PWR7-NEXT:    ld r3, 112(r1)
-; PWR7-NEXT:    addi r1, r1, 128
+; PWR7-NEXT:    ld r4, 120(r1)
+; PWR7-NEXT:    addi r1, r1, 176
 ; PWR7-NEXT:    ld r0, 16(r1)
 ; PWR7-NEXT:    mtlr r0
 ; PWR7-NEXT:    blr
@@ -1441,33 +1528,40 @@ define i128 @cas_acqrel_acquire(ptr %a, i128 %cmp, i128 %new) {
 ; PPC-PWR8-LABEL: cas_acqrel_acquire:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -48(r1)
-; PPC-PWR8-NEXT:    stw r0, 52(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 48
+; PPC-PWR8-NEXT:    stwu r1, -80(r1)
+; PPC-PWR8-NEXT:    stw r0, 84(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r30, -8
 ; PPC-PWR8-NEXT:    mr r4, r3
-; PPC-PWR8-NEXT:    lwz r3, 60(r1)
-; PPC-PWR8-NEXT:    stw r8, 44(r1)
-; PPC-PWR8-NEXT:    stw r7, 40(r1)
-; PPC-PWR8-NEXT:    stw r6, 36(r1)
-; PPC-PWR8-NEXT:    stw r5, 32(r1)
-; PPC-PWR8-NEXT:    addi r5, r1, 32
-; PPC-PWR8-NEXT:    addi r6, r1, 16
+; PPC-PWR8-NEXT:    lwz r3, 92(r1)
+; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r30, r1, 56
+; PPC-PWR8-NEXT:    stw r8, 68(r1)
+; PPC-PWR8-NEXT:    stw r7, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 60(r1)
+; PPC-PWR8-NEXT:    addi r6, r1, 40
+; PPC-PWR8-NEXT:    stw r5, 56(r1)
+; PPC-PWR8-NEXT:    mr r5, r30
 ; PPC-PWR8-NEXT:    li r7, 4
 ; PPC-PWR8-NEXT:    li r8, 2
-; PPC-PWR8-NEXT:    stw r10, 20(r1)
-; PPC-PWR8-NEXT:    stw r9, 16(r1)
-; PPC-PWR8-NEXT:    stw r3, 28(r1)
-; PPC-PWR8-NEXT:    lwz r3, 56(r1)
-; PPC-PWR8-NEXT:    stw r3, 24(r1)
+; PPC-PWR8-NEXT:    stw r3, 52(r1)
+; PPC-PWR8-NEXT:    lwz r3, 88(r1)
+; PPC-PWR8-NEXT:    stw r10, 44(r1)
+; PPC-PWR8-NEXT:    stw r9, 40(r1)
+; PPC-PWR8-NEXT:    stw r3, 48(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    lwz r6, 44(r1)
-; PPC-PWR8-NEXT:    lwz r5, 40(r1)
-; PPC-PWR8-NEXT:    lwz r4, 36(r1)
-; PPC-PWR8-NEXT:    lwz r3, 32(r1)
-; PPC-PWR8-NEXT:    lwz r0, 52(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 48
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r30
+; PPC-PWR8-NEXT:    addi r3, r1, 16
+; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r3
+; PPC-PWR8-NEXT:    lwz r3, 16(r1)
+; PPC-PWR8-NEXT:    lwz r4, 20(r1)
+; PPC-PWR8-NEXT:    lwz r5, 24(r1)
+; PPC-PWR8-NEXT:    lwz r6, 28(r1)
+; PPC-PWR8-NEXT:    lwz r0, 84(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 80
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -1505,20 +1599,31 @@ define i1 @cas_acqrel_acquire_check_succ(ptr %a, i128 %cmp, i128 %new) {
 ; PWR7-LABEL: cas_acqrel_acquire_check_succ:
 ; PWR7:       # %bb.0: # %entry
 ; PWR7-NEXT:    mflr r0
-; PWR7-NEXT:    stdu r1, -128(r1)
-; PWR7-NEXT:    std r0, 144(r1)
-; PWR7-NEXT:    .cfi_def_cfa_offset 128
+; PWR7-NEXT:    stdu r1, -176(r1)
+; PWR7-NEXT:    std r0, 192(r1)
+; PWR7-NEXT:    .cfi_def_cfa_offset 176
 ; PWR7-NEXT:    .cfi_offset lr, 16
-; PWR7-NEXT:    std r5, 120(r1)
-; PWR7-NEXT:    std r4, 112(r1)
-; PWR7-NEXT:    addi r4, r1, 112
+; PWR7-NEXT:    .cfi_offset r30, -16
+; PWR7-NEXT:    std r30, 160(r1) # 8-byte Folded Spill
+; PWR7-NEXT:    addi r30, r1, 144
+; PWR7-NEXT:    std r5, 152(r1)
+; PWR7-NEXT:    std r7, 136(r1)
+; PWR7-NEXT:    std r6, 128(r1)
 ; PWR7-NEXT:    mr r5, r6
 ; PWR7-NEXT:    mr r6, r7
 ; PWR7-NEXT:    li r7, 4
 ; PWR7-NEXT:    li r8, 2
+; PWR7-NEXT:    std r4, 144(r1)
+; PWR7-NEXT:    mr r4, r30
 ; PWR7-NEXT:    bl __atomic_compare_exchange_16
 ; PWR7-NEXT:    nop
-; PWR7-NEXT:    addi r1, r1, 128
+; PWR7-NEXT:    lxvd2x vs0, 0, r30
+; PWR7-NEXT:    cntlzw r3, r3
+; PWR7-NEXT:    addi r4, r1, 112
+; PWR7-NEXT:    ld r30, 160(r1) # 8-byte Folded Reload
+; PWR7-NEXT:    stxvd2x vs0, 0, r4
+; PWR7-NEXT:    rlwinm r3, r3, 27, 31, 31
+; PWR7-NEXT:    addi r1, r1, 176
 ; PWR7-NEXT:    ld r0, 16(r1)
 ; PWR7-NEXT:    mtlr r0
 ; PWR7-NEXT:    blr
@@ -1576,29 +1681,39 @@ define i1 @cas_acqrel_acquire_check_succ(ptr %a, i128 %cmp, i128 %new) {
 ; PPC-PWR8-LABEL: cas_acqrel_acquire_check_succ:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -48(r1)
-; PPC-PWR8-NEXT:    stw r0, 52(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 48
+; PPC-PWR8-NEXT:    stwu r1, -80(r1)
+; PPC-PWR8-NEXT:    stw r0, 84(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r30, -8
 ; PPC-PWR8-NEXT:    mr r4, r3
-; PPC-PWR8-NEXT:    lwz r3, 60(r1)
-; PPC-PWR8-NEXT:    stw r8, 44(r1)
-; PPC-PWR8-NEXT:    stw r7, 40(r1)
-; PPC-PWR8-NEXT:    stw r6, 36(r1)
-; PPC-PWR8-NEXT:    stw r5, 32(r1)
-; PPC-PWR8-NEXT:    addi r5, r1, 32
-; PPC-PWR8-NEXT:    addi r6, r1, 16
+; PPC-PWR8-NEXT:    lwz r3, 92(r1)
+; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r30, r1, 56
+; PPC-PWR8-NEXT:    stw r8, 68(r1)
+; PPC-PWR8-NEXT:    stw r7, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 60(r1)
+; PPC-PWR8-NEXT:    addi r6, r1, 40
+; PPC-PWR8-NEXT:    stw r5, 56(r1)
+; PPC-PWR8-NEXT:    mr r5, r30
 ; PPC-PWR8-NEXT:    li r7, 4
 ; PPC-PWR8-NEXT:    li r8, 2
-; PPC-PWR8-NEXT:    stw r10, 20(r1)
-; PPC-PWR8-NEXT:    stw r9, 16(r1)
-; PPC-PWR8-NEXT:    stw r3, 28(r1)
-; PPC-PWR8-NEXT:    lwz r3, 56(r1)
-; PPC-PWR8-NEXT:    stw r3, 24(r1)
+; PPC-PWR8-NEXT:    stw r3, 52(r1)
+; PPC-PWR8-NEXT:    lwz r3, 88(r1)
+; PPC-PWR8-NEXT:    stw r10, 44(r1)
+; PPC-PWR8-NEXT:    stw r9, 40(r1)
+; PPC-PWR8-NEXT:    stw r3, 48(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    lwz r0, 52(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 48
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r30
+; PPC-PWR8-NEXT:    clrlwi r3, r3, 24
+; PPC-PWR8-NEXT:    addi r4, r1, 16
+; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    cntlzw r3, r3
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r4
+; PPC-PWR8-NEXT:    rlwinm r3, r3, 27, 31, 31
+; PPC-PWR8-NEXT:    lwz r0, 84(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 80
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:
@@ -1636,20 +1751,31 @@ define i1 @bool_cas_weak_acquire_acquire(ptr %a, i128 %cmp, i128 %new) {
 ; PWR7-LABEL: bool_cas_weak_acquire_acquire:
 ; PWR7:       # %bb.0: # %entry
 ; PWR7-NEXT:    mflr r0
-; PWR7-NEXT:    stdu r1, -128(r1)
-; PWR7-NEXT:    std r0, 144(r1)
-; PWR7-NEXT:    .cfi_def_cfa_offset 128
+; PWR7-NEXT:    stdu r1, -176(r1)
+; PWR7-NEXT:    std r0, 192(r1)
+; PWR7-NEXT:    .cfi_def_cfa_offset 176
 ; PWR7-NEXT:    .cfi_offset lr, 16
-; PWR7-NEXT:    std r5, 120(r1)
-; PWR7-NEXT:    std r4, 112(r1)
-; PWR7-NEXT:    addi r4, r1, 112
+; PWR7-NEXT:    .cfi_offset r30, -16
+; PWR7-NEXT:    std r30, 160(r1) # 8-byte Folded Spill
+; PWR7-NEXT:    addi r30, r1, 144
+; PWR7-NEXT:    std r5, 152(r1)
+; PWR7-NEXT:    std r7, 136(r1)
+; PWR7-NEXT:    std r6, 128(r1)
 ; PWR7-NEXT:    mr r5, r6
 ; PWR7-NEXT:    mr r6, r7
 ; PWR7-NEXT:    li r7, 2
 ; PWR7-NEXT:    li r8, 2
+; PWR7-NEXT:    std r4, 144(r1)
+; PWR7-NEXT:    mr r4, r30
 ; PWR7-NEXT:    bl __atomic_compare_exchange_16
 ; PWR7-NEXT:    nop
-; PWR7-NEXT:    addi r1, r1, 128
+; PWR7-NEXT:    lxvd2x vs0, 0, r30
+; PWR7-NEXT:    cntlzw r3, r3
+; PWR7-NEXT:    addi r4, r1, 112
+; PWR7-NEXT:    ld r30, 160(r1) # 8-byte Folded Reload
+; PWR7-NEXT:    stxvd2x vs0, 0, r4
+; PWR7-NEXT:    rlwinm r3, r3, 27, 31, 31
+; PWR7-NEXT:    addi r1, r1, 176
 ; PWR7-NEXT:    ld r0, 16(r1)
 ; PWR7-NEXT:    mtlr r0
 ; PWR7-NEXT:    blr
@@ -1705,29 +1831,39 @@ define i1 @bool_cas_weak_acquire_acquire(ptr %a, i128 %cmp, i128 %new) {
 ; PPC-PWR8-LABEL: bool_cas_weak_acquire_acquire:
 ; PPC-PWR8:       # %bb.0: # %entry
 ; PPC-PWR8-NEXT:    mflr r0
-; PPC-PWR8-NEXT:    stwu r1, -48(r1)
-; PPC-PWR8-NEXT:    stw r0, 52(r1)
-; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 48
+; PPC-PWR8-NEXT:    stwu r1, -80(r1)
+; PPC-PWR8-NEXT:    stw r0, 84(r1)
+; PPC-PWR8-NEXT:    .cfi_def_cfa_offset 80
 ; PPC-PWR8-NEXT:    .cfi_offset lr, 4
+; PPC-PWR8-NEXT:    .cfi_offset r30, -8
 ; PPC-PWR8-NEXT:    mr r4, r3
-; PPC-PWR8-NEXT:    lwz r3, 60(r1)
-; PPC-PWR8-NEXT:    stw r8, 44(r1)
-; PPC-PWR8-NEXT:    stw r7, 40(r1)
-; PPC-PWR8-NEXT:    stw r6, 36(r1)
-; PPC-PWR8-NEXT:    stw r5, 32(r1)
-; PPC-PWR8-NEXT:    addi r5, r1, 32
-; PPC-PWR8-NEXT:    addi r6, r1, 16
+; PPC-PWR8-NEXT:    lwz r3, 92(r1)
+; PPC-PWR8-NEXT:    stw r30, 72(r1) # 4-byte Folded Spill
+; PPC-PWR8-NEXT:    addi r30, r1, 56
+; PPC-PWR8-NEXT:    stw r8, 68(r1)
+; PPC-PWR8-NEXT:    stw r7, 64(r1)
+; PPC-PWR8-NEXT:    stw r6, 60(r1)
+; PPC-PWR8-NEXT:    addi r6, r1, 40
+; PPC-PWR8-NEXT:    stw r5, 56(r1)
+; PPC-PWR8-NEXT:    mr r5, r30
 ; PPC-PWR8-NEXT:    li r7, 2
 ; PPC-PWR8-NEXT:    li r8, 2
-; PPC-PWR8-NEXT:    stw r10, 20(r1)
-; PPC-PWR8-NEXT:    stw r9, 16(r1)
-; PPC-PWR8-NEXT:    stw r3, 28(r1)
-; PPC-PWR8-NEXT:    lwz r3, 56(r1)
-; PPC-PWR8-NEXT:    stw r3, 24(r1)
+; PPC-PWR8-NEXT:    stw r3, 52(r1)
+; PPC-PWR8-NEXT:    lwz r3, 88(r1)
+; PPC-PWR8-NEXT:    stw r10, 44(r1)
+; PPC-PWR8-NEXT:    stw r9, 40(r1)
+; PPC-PWR8-NEXT:    stw r3, 48(r1)
 ; PPC-PWR8-NEXT:    li r3, 16
 ; PPC-PWR8-NEXT:    bl __atomic_compare_exchange
-; PPC-PWR8-NEXT:    lwz r0, 52(r1)
-; PPC-PWR8-NEXT:    addi r1, r1, 48
+; PPC-PWR8-NEXT:    lxvw4x vs0, 0, r30
+; PPC-PWR8-NEXT:    clrlwi r3, r3, 24
+; PPC-PWR8-NEXT:    addi r4, r1, 16
+; PPC-PWR8-NEXT:    lwz r30, 72(r1) # 4-byte Folded Reload
+; PPC-PWR8-NEXT:    cntlzw r3, r3
+; PPC-PWR8-NEXT:    stxvw4x vs0, 0, r4
+; PPC-PWR8-NEXT:    rlwinm r3, r3, 27, 31, 31
+; PPC-PWR8-NEXT:    lwz r0, 84(r1)
+; PPC-PWR8-NEXT:    addi r1, r1, 80
 ; PPC-PWR8-NEXT:    mtlr r0
 ; PPC-PWR8-NEXT:    blr
 entry:

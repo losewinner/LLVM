@@ -285,6 +285,7 @@ public:
 
   CodeGenModule &CGM;  // Per-module state.
   const TargetInfo &Target;
+  std::unique_ptr<llvm::TargetLibraryInfo> TLI;
 
   // For EH/SEH outlined funclets, this field points to parent's CGF
   CodeGenFunction *ParentCGF = nullptr;
@@ -2149,6 +2150,10 @@ public:
   }
 
   const LangOptions &getLangOpts() const { return CGM.getLangOpts(); }
+
+  const llvm::TargetLibraryInfo *getTargetLibraryInfo() const {
+    return TLI.get();
+  }
 
   /// Returns a pointer to the function's exception object and selector slot,
   /// which is assigned in every landing pad.

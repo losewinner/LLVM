@@ -21,6 +21,7 @@
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/Preprocessor.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Bitstream/BitstreamReader.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/IR/Constants.h"
@@ -56,6 +57,7 @@ class PCHContainerGenerator : public ASTConsumer {
   std::unique_ptr<CodeGen::CodeGenModule> Builder;
   std::unique_ptr<raw_pwrite_stream> OS;
   std::shared_ptr<PCHBuffer> Buffer;
+  std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
 
   /// Visit every type and emit debug info for it.
   struct DebugTypeVisitor : public RecursiveASTVisitor<DebugTypeVisitor> {
@@ -177,8 +179,11 @@ public:
     VMContext.reset(new llvm::LLVMContext());
     M.reset(new llvm::Module(MainFileName, *VMContext));
     M->setDataLayout(Ctx->getTargetInfo().getDataLayoutString());
-    Builder.reset(new CodeGen::CodeGenModule(
-        *Ctx, FS, HeaderSearchOpts, PreprocessorOpts, CodeGenOpts, *M, Diags));
+    llvm::Triple TargetTriple(M->getTargetTriple());
+    TLII.reset(llvm::driver::createTLII(TargetTriple, CodeGenOpts.getVecLib()));
+    Builder.reset(new CodeGen::CodeGenModule(*Ctx, FS, HeaderSearchOpts,
+                                             PreprocessorOpts, CodeGenOpts, *M,
+                                             Diags, *TLII.get(), nullptr));
 
     // Prepare CGDebugInfo to emit debug info for a clang module.
     auto *DI = Builder->getModuleDebugInfo();

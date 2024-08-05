@@ -35,6 +35,7 @@ namespace llvm {
 class raw_fd_ostream;
 class Timer;
 class TimerGroup;
+class TargetMachine;
 }
 
 namespace clang {
@@ -85,6 +86,8 @@ class CompilerInstance : public ModuleLoader {
 
   /// The target being compiled for.
   IntrusiveRefCntPtr<TargetInfo> Target;
+
+  std::unique_ptr<llvm::TargetMachine> TM;
 
   /// Auxiliary Target info.
   IntrusiveRefCntPtr<TargetInfo> AuxTarget;
@@ -356,6 +359,8 @@ public:
   const TargetOptions &getTargetOpts() const {
     return Invocation->getTargetOpts();
   }
+
+  llvm::TargetMachine *getTargetMachine() const { return TM.get(); }
 
   /// @}
   /// @name Diagnostics Engine

@@ -441,6 +441,39 @@ TLI_DEFINE_ENUM_INTERNAL(atomic_store)
 TLI_DEFINE_STRING_INTERNAL("__atomic_store")
 TLI_DEFINE_SIG_INTERNAL(Void, SizeT, Ptr, Ptr, Int)
 
+
+/// bool __atomic_compare_exchange(size_t size, void *obj, void *expected, void *desired, int success, int failure)
+TLI_DEFINE_ENUM_INTERNAL(atomic_compare_exchange)
+TLI_DEFINE_STRING_INTERNAL("__atomic_compare_exchange")
+TLI_DEFINE_SIG_INTERNAL(Bool, SizeT, Ptr, Ptr, Ptr, Int, Int)
+
+
+/// bool __atomic_compare_exchange_1(void *obj, void *expected, uint8_t desired, int success, int failure)
+TLI_DEFINE_ENUM_INTERNAL(atomic_compare_exchange_1)
+TLI_DEFINE_STRING_INTERNAL("__atomic_compare_exchange_1")
+TLI_DEFINE_SIG_INTERNAL(Bool, Ptr, Ptr, Int8, Int, Int)
+
+/// bool __atomic_compare_exchange_2(void *obj, void *expected, uint16_t desired, int success, int failure)
+TLI_DEFINE_ENUM_INTERNAL(atomic_compare_exchange_2)
+TLI_DEFINE_STRING_INTERNAL("__atomic_compare_exchange_2")
+TLI_DEFINE_SIG_INTERNAL(Bool, Ptr, Ptr, Int16, Int, Int)
+
+/// bool __atomic_compare_exchange_4(void *obj, void *expected, uint32_t desired, int success, int failure)
+TLI_DEFINE_ENUM_INTERNAL(atomic_compare_exchange_4)
+TLI_DEFINE_STRING_INTERNAL("__atomic_compare_exchange_4")
+TLI_DEFINE_SIG_INTERNAL(Bool, Ptr, Ptr, Int32, Int, Int)
+
+/// bool __atomic_compare_exchange_8(void *obj, void *expected, uint64_t desired, int success, int failure)
+TLI_DEFINE_ENUM_INTERNAL(atomic_compare_exchange_8)
+TLI_DEFINE_STRING_INTERNAL("__atomic_compare_exchange_8")
+TLI_DEFINE_SIG_INTERNAL(Bool, Ptr, Ptr, Int64, Int, Int)
+
+/// bool __atomic_compare_exchange_16(void *obj, void *expected, uint128_t desired, int success, int failure)
+TLI_DEFINE_ENUM_INTERNAL(atomic_compare_exchange_16)
+TLI_DEFINE_STRING_INTERNAL("__atomic_compare_exchange_16")
+TLI_DEFINE_SIG_INTERNAL(Bool, Ptr, Ptr, Int128, Int, Int)
+
+
 /// double __cosh_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(cosh_finite)
 TLI_DEFINE_STRING_INTERNAL("__cosh_finite")

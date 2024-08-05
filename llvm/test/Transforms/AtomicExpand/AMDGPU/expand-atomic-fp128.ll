@@ -15,23 +15,21 @@ define fp128 @test_atomicrmw_xchg_fp128_global_agent(ptr addrspace(1) %ptr, fp12
 
 define fp128 @test_atomicrmw_fadd_fp128_global_agent(ptr addrspace(1) %ptr, fp128 %value) {
 ; CHECK-LABEL: @test_atomicrmw_fadd_fp128_global_agent(
-; CHECK-NEXT:    [[TMP1:%.*]] = alloca fp128, align 8, addrspace(5)
-; CHECK-NEXT:    [[TMP2:%.*]] = load fp128, ptr addrspace(1) [[PTR:%.*]], align 16
+; CHECK-NEXT:    [[CMPXCHG_EXPECTED_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[CMPXCHG_DESIRED_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[TMP1:%.*]] = load fp128, ptr addrspace(1) [[PTR:%.*]], align 16
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi fp128 [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[LOADED:%.*]] = phi fp128 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fadd fp128 [[LOADED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP3:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
-; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 16, ptr addrspace(5) [[TMP1]])
-; CHECK-NEXT:    store fp128 [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128 [[NEW]] to i128
-; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange_16(ptr [[TMP3]], ptr addrspace(5) [[TMP1]], i128 [[TMP4]], i32 5, i32 5)
-; CHECK-NEXT:    [[TMP6:%.*]] = load fp128, ptr addrspace(5) [[TMP1]], align 8
-; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 16, ptr addrspace(5) [[TMP1]])
-; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { fp128, i1 } poison, fp128 [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { fp128, i1 } [[TMP7]], i1 [[TMP5]], 1
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { fp128, i1 } [[TMP8]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { fp128, i1 } [[TMP8]], 0
+; CHECK-NEXT:    store fp128 [[LOADED]], ptr addrspace(5) [[CMPXCHG_EXPECTED_PTR]], align 16
+; CHECK-NEXT:    store fp128 [[NEW]], ptr addrspace(5) [[CMPXCHG_DESIRED_PTR]], align 16
+; CHECK-NEXT:    [[CMPXCHG_PREV_LOAD:%.*]] = load fp128, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = insertvalue { fp128, i1 } poison, fp128 [[CMPXCHG_PREV_LOAD]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = insertvalue { fp128, i1 } [[TMP2]], i1 false, 1
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { fp128, i1 } [[TMP3]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { fp128, i1 } [[TMP3]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret fp128 [[NEWLOADED]]
@@ -42,23 +40,21 @@ define fp128 @test_atomicrmw_fadd_fp128_global_agent(ptr addrspace(1) %ptr, fp12
 
 define fp128 @test_atomicrmw_fsub_fp128_global_agent(ptr addrspace(1) %ptr, fp128 %value) {
 ; CHECK-LABEL: @test_atomicrmw_fsub_fp128_global_agent(
-; CHECK-NEXT:    [[TMP1:%.*]] = alloca fp128, align 8, addrspace(5)
-; CHECK-NEXT:    [[TMP2:%.*]] = load fp128, ptr addrspace(1) [[PTR:%.*]], align 16
+; CHECK-NEXT:    [[CMPXCHG_EXPECTED_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[CMPXCHG_DESIRED_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[TMP1:%.*]] = load fp128, ptr addrspace(1) [[PTR:%.*]], align 16
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi fp128 [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[LOADED:%.*]] = phi fp128 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fsub fp128 [[LOADED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP3:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
-; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 16, ptr addrspace(5) [[TMP1]])
-; CHECK-NEXT:    store fp128 [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast fp128 [[NEW]] to i128
-; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange_16(ptr [[TMP3]], ptr addrspace(5) [[TMP1]], i128 [[TMP4]], i32 5, i32 5)
-; CHECK-NEXT:    [[TMP6:%.*]] = load fp128, ptr addrspace(5) [[TMP1]], align 8
-; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 16, ptr addrspace(5) [[TMP1]])
-; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { fp128, i1 } poison, fp128 [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { fp128, i1 } [[TMP7]], i1 [[TMP5]], 1
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { fp128, i1 } [[TMP8]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { fp128, i1 } [[TMP8]], 0
+; CHECK-NEXT:    store fp128 [[LOADED]], ptr addrspace(5) [[CMPXCHG_EXPECTED_PTR]], align 16
+; CHECK-NEXT:    store fp128 [[NEW]], ptr addrspace(5) [[CMPXCHG_DESIRED_PTR]], align 16
+; CHECK-NEXT:    [[CMPXCHG_PREV_LOAD:%.*]] = load fp128, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP2:%.*]] = insertvalue { fp128, i1 } poison, fp128 [[CMPXCHG_PREV_LOAD]], 0
+; CHECK-NEXT:    [[TMP3:%.*]] = insertvalue { fp128, i1 } [[TMP2]], i1 false, 1
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { fp128, i1 } [[TMP3]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { fp128, i1 } [[TMP3]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret fp128 [[NEWLOADED]]
@@ -69,23 +65,21 @@ define fp128 @test_atomicrmw_fsub_fp128_global_agent(ptr addrspace(1) %ptr, fp12
 
 define fp128 @test_atomicrmw_fmin_fp128_global_agent(ptr addrspace(1) %ptr, fp128 %value) {
 ; CHECK-LABEL: @test_atomicrmw_fmin_fp128_global_agent(
-; CHECK-NEXT:    [[TMP1:%.*]] = alloca fp128, align 8, addrspace(5)
-; CHECK-NEXT:    [[TMP2:%.*]] = load fp128, ptr addrspace(1) [[PTR:%.*]], align 16
+; CHECK-NEXT:    [[CMPXCHG_EXPECTED_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[CMPXCHG_DESIRED_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[TMP1:%.*]] = load fp128, ptr addrspace(1) [[PTR:%.*]], align 16
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi fp128 [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
-; CHECK-NEXT:    [[TMP3:%.*]] = call fp128 @llvm.minnum.f128(fp128 [[LOADED]], fp128 [[VALUE:%.*]])
-; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
-; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 16, ptr addrspace(5) [[TMP1]])
-; CHECK-NEXT:    store fp128 [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast fp128 [[TMP3]] to i128
-; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange_16(ptr [[TMP4]], ptr addrspace(5) [[TMP1]], i128 [[TMP5]], i32 5, i32 5)
-; CHECK-NEXT:    [[TMP7:%.*]] = load fp128, ptr addrspace(5) [[TMP1]], align 8
-; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 16, ptr addrspace(5) [[TMP1]])
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { fp128, i1 } poison, fp128 [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { fp128, i1 } [[TMP8]], i1 [[TMP6]], 1
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { fp128, i1 } [[TMP9]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { fp128, i1 } [[TMP9]], 0
+; CHECK-NEXT:    [[LOADED:%.*]] = phi fp128 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[TMP2:%.*]] = call fp128 @llvm.minnum.f128(fp128 [[LOADED]], fp128 [[VALUE:%.*]])
+; CHECK-NEXT:    store fp128 [[LOADED]], ptr addrspace(5) [[CMPXCHG_EXPECTED_PTR]], align 16
+; CHECK-NEXT:    store fp128 [[TMP2]], ptr addrspace(5) [[CMPXCHG_DESIRED_PTR]], align 16
+; CHECK-NEXT:    [[CMPXCHG_PREV_LOAD:%.*]] = load fp128, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = insertvalue { fp128, i1 } poison, fp128 [[CMPXCHG_PREV_LOAD]], 0
+; CHECK-NEXT:    [[TMP4:%.*]] = insertvalue { fp128, i1 } [[TMP3]], i1 false, 1
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { fp128, i1 } [[TMP4]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { fp128, i1 } [[TMP4]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret fp128 [[NEWLOADED]]
@@ -96,23 +90,21 @@ define fp128 @test_atomicrmw_fmin_fp128_global_agent(ptr addrspace(1) %ptr, fp12
 
 define fp128 @test_atomicrmw_fmax_fp128_global_agent(ptr addrspace(1) %ptr, fp128 %value) {
 ; CHECK-LABEL: @test_atomicrmw_fmax_fp128_global_agent(
-; CHECK-NEXT:    [[TMP1:%.*]] = alloca fp128, align 8, addrspace(5)
-; CHECK-NEXT:    [[TMP2:%.*]] = load fp128, ptr addrspace(1) [[PTR:%.*]], align 16
+; CHECK-NEXT:    [[CMPXCHG_EXPECTED_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[CMPXCHG_DESIRED_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca fp128, align 16, addrspace(5)
+; CHECK-NEXT:    [[TMP1:%.*]] = load fp128, ptr addrspace(1) [[PTR:%.*]], align 16
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
-; CHECK-NEXT:    [[LOADED:%.*]] = phi fp128 [ [[TMP2]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
-; CHECK-NEXT:    [[TMP3:%.*]] = call fp128 @llvm.maxnum.f128(fp128 [[LOADED]], fp128 [[VALUE:%.*]])
-; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
-; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 16, ptr addrspace(5) [[TMP1]])
-; CHECK-NEXT:    store fp128 [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast fp128 [[TMP3]] to i128
-; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange_16(ptr [[TMP4]], ptr addrspace(5) [[TMP1]], i128 [[TMP5]], i32 5, i32 5)
-; CHECK-NEXT:    [[TMP7:%.*]] = load fp128, ptr addrspace(5) [[TMP1]], align 8
-; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 16, ptr addrspace(5) [[TMP1]])
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { fp128, i1 } poison, fp128 [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { fp128, i1 } [[TMP8]], i1 [[TMP6]], 1
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { fp128, i1 } [[TMP9]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { fp128, i1 } [[TMP9]], 0
+; CHECK-NEXT:    [[LOADED:%.*]] = phi fp128 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
+; CHECK-NEXT:    [[TMP2:%.*]] = call fp128 @llvm.maxnum.f128(fp128 [[LOADED]], fp128 [[VALUE:%.*]])
+; CHECK-NEXT:    store fp128 [[LOADED]], ptr addrspace(5) [[CMPXCHG_EXPECTED_PTR]], align 16
+; CHECK-NEXT:    store fp128 [[TMP2]], ptr addrspace(5) [[CMPXCHG_DESIRED_PTR]], align 16
+; CHECK-NEXT:    [[CMPXCHG_PREV_LOAD:%.*]] = load fp128, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP3:%.*]] = insertvalue { fp128, i1 } poison, fp128 [[CMPXCHG_PREV_LOAD]], 0
+; CHECK-NEXT:    [[TMP4:%.*]] = insertvalue { fp128, i1 } [[TMP3]], i1 false, 1
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { fp128, i1 } [[TMP4]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { fp128, i1 } [[TMP4]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    ret fp128 [[NEWLOADED]]

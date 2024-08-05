@@ -22,6 +22,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/Transforms/Utils/BuildBuiltins.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -133,7 +134,9 @@ namespace {
     QualType getValueType() const { return ValueTy; }
     CharUnits getAtomicAlignment() const { return AtomicAlign; }
     uint64_t getAtomicSizeInBits() const { return AtomicSizeInBits; }
+    uint64_t getAtomicSizeInBytes() const { return AtomicSizeInBits / 8; }
     uint64_t getValueSizeInBits() const { return ValueSizeInBits; }
+    uint64_t getValueSizeInBytes() const { return ValueSizeInBits / 8; }
     TypeEvaluationKind getEvaluationKind() const { return EvaluationKind; }
     bool shouldUseLibcall() const { return UseLibcall; }
     const LValue &getAtomicLValue() const { return LVal; }
@@ -374,130 +377,6 @@ bool AtomicInfo::emitMemSetZeroIfNecessary() const {
   return true;
 }
 
-static void emitAtomicCmpXchg(CodeGenFunction &CGF, AtomicExpr *E, bool IsWeak,
-                              Address Dest, Address Ptr,
-                              Address Val1, Address Val2,
-                              uint64_t Size,
-                              llvm::AtomicOrdering SuccessOrder,
-                              llvm::AtomicOrdering FailureOrder,
-                              llvm::SyncScope::ID Scope) {
-  // Note that cmpxchg doesn't support weak cmpxchg, at least at the moment.
-  llvm::Value *Expected = CGF.Builder.CreateLoad(Val1);
-  llvm::Value *Desired = CGF.Builder.CreateLoad(Val2);
-
-  llvm::AtomicCmpXchgInst *Pair = CGF.Builder.CreateAtomicCmpXchg(
-      Ptr, Expected, Desired, SuccessOrder, FailureOrder, Scope);
-  Pair->setVolatile(E->isVolatile());
-  Pair->setWeak(IsWeak);
-
-  // Cmp holds the result of the compare-exchange operation: true on success,
-  // false on failure.
-  llvm::Value *Old = CGF.Builder.CreateExtractValue(Pair, 0);
-  llvm::Value *Cmp = CGF.Builder.CreateExtractValue(Pair, 1);
-
-  // This basic block is used to hold the store instruction if the operation
-  // failed.
-  llvm::BasicBlock *StoreExpectedBB =
-      CGF.createBasicBlock("cmpxchg.store_expected", CGF.CurFn);
-
-  // This basic block is the exit point of the operation, we should end up
-  // here regardless of whether or not the operation succeeded.
-  llvm::BasicBlock *ContinueBB =
-      CGF.createBasicBlock("cmpxchg.continue", CGF.CurFn);
-
-  // Update Expected if Expected isn't equal to Old, otherwise branch to the
-  // exit point.
-  CGF.Builder.CreateCondBr(Cmp, ContinueBB, StoreExpectedBB);
-
-  CGF.Builder.SetInsertPoint(StoreExpectedBB);
-  // Update the memory at Expected with Old's value.
-  CGF.Builder.CreateStore(Old, Val1);
-  // Finally, branch to the exit point.
-  CGF.Builder.CreateBr(ContinueBB);
-
-  CGF.Builder.SetInsertPoint(ContinueBB);
-  // Update the memory at Dest with Cmp's value.
-  CGF.EmitStoreOfScalar(Cmp, CGF.MakeAddrLValue(Dest, E->getType()));
-}
-
-/// Given an ordering required on success, emit all possible cmpxchg
-/// instructions to cope with the provided (but possibly only dynamically known)
-/// FailureOrder.
-static void emitAtomicCmpXchgFailureSet(CodeGenFunction &CGF, AtomicExpr *E,
-                                        bool IsWeak, Address Dest, Address Ptr,
-                                        Address Val1, Address Val2,
-                                        llvm::Value *FailureOrderVal,
-                                        uint64_t Size,
-                                        llvm::AtomicOrdering SuccessOrder,
-                                        llvm::SyncScope::ID Scope) {
-  llvm::AtomicOrdering FailureOrder;
-  if (llvm::ConstantInt *FO = dyn_cast<llvm::ConstantInt>(FailureOrderVal)) {
-    auto FOS = FO->getSExtValue();
-    if (!llvm::isValidAtomicOrderingCABI(FOS))
-      FailureOrder = llvm::AtomicOrdering::Monotonic;
-    else
-      switch ((llvm::AtomicOrderingCABI)FOS) {
-      case llvm::AtomicOrderingCABI::relaxed:
-      // 31.7.2.18: "The failure argument shall not be memory_order_release
-      // nor memory_order_acq_rel". Fallback to monotonic.
-      case llvm::AtomicOrderingCABI::release:
-      case llvm::AtomicOrderingCABI::acq_rel:
-        FailureOrder = llvm::AtomicOrdering::Monotonic;
-        break;
-      case llvm::AtomicOrderingCABI::consume:
-      case llvm::AtomicOrderingCABI::acquire:
-        FailureOrder = llvm::AtomicOrdering::Acquire;
-        break;
-      case llvm::AtomicOrderingCABI::seq_cst:
-        FailureOrder = llvm::AtomicOrdering::SequentiallyConsistent;
-        break;
-      }
-    // Prior to c++17, "the failure argument shall be no stronger than the
-    // success argument". This condition has been lifted and the only
-    // precondition is 31.7.2.18. Effectively treat this as a DR and skip
-    // language version checks.
-    emitAtomicCmpXchg(CGF, E, IsWeak, Dest, Ptr, Val1, Val2, Size, SuccessOrder,
-                      FailureOrder, Scope);
-    return;
-  }
-
-  // Create all the relevant BB's
-  auto *MonotonicBB = CGF.createBasicBlock("monotonic_fail", CGF.CurFn);
-  auto *AcquireBB = CGF.createBasicBlock("acquire_fail", CGF.CurFn);
-  auto *SeqCstBB = CGF.createBasicBlock("seqcst_fail", CGF.CurFn);
-  auto *ContBB = CGF.createBasicBlock("atomic.continue", CGF.CurFn);
-
-  // MonotonicBB is arbitrarily chosen as the default case; in practice, this
-  // doesn't matter unless someone is crazy enough to use something that
-  // doesn't fold to a constant for the ordering.
-  llvm::SwitchInst *SI = CGF.Builder.CreateSwitch(FailureOrderVal, MonotonicBB);
-  // Implemented as acquire, since it's the closest in LLVM.
-  SI->addCase(CGF.Builder.getInt32((int)llvm::AtomicOrderingCABI::consume),
-              AcquireBB);
-  SI->addCase(CGF.Builder.getInt32((int)llvm::AtomicOrderingCABI::acquire),
-              AcquireBB);
-  SI->addCase(CGF.Builder.getInt32((int)llvm::AtomicOrderingCABI::seq_cst),
-              SeqCstBB);
-
-  // Emit all the different atomics
-  CGF.Builder.SetInsertPoint(MonotonicBB);
-  emitAtomicCmpXchg(CGF, E, IsWeak, Dest, Ptr, Val1, Val2,
-                    Size, SuccessOrder, llvm::AtomicOrdering::Monotonic, Scope);
-  CGF.Builder.CreateBr(ContBB);
-
-  CGF.Builder.SetInsertPoint(AcquireBB);
-  emitAtomicCmpXchg(CGF, E, IsWeak, Dest, Ptr, Val1, Val2, Size, SuccessOrder,
-                    llvm::AtomicOrdering::Acquire, Scope);
-  CGF.Builder.CreateBr(ContBB);
-
-  CGF.Builder.SetInsertPoint(SeqCstBB);
-  emitAtomicCmpXchg(CGF, E, IsWeak, Dest, Ptr, Val1, Val2, Size, SuccessOrder,
-                    llvm::AtomicOrdering::SequentiallyConsistent, Scope);
-  CGF.Builder.CreateBr(ContBB);
-
-  CGF.Builder.SetInsertPoint(ContBB);
-}
-
 /// Duplicate the atomic min/max operation in conventional IR for the builtin
 /// variants that return the new rather than the original value.
 static llvm::Value *EmitPostAtomicMinMax(CGBuilderTy &Builder,
@@ -531,53 +410,66 @@ static void EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, Address Dest,
   bool PostOpMinMax = false;
   unsigned PostOp = 0;
 
+  bool IsWeakOp = false;
   switch (E->getOp()) {
   case AtomicExpr::AO__c11_atomic_init:
   case AtomicExpr::AO__opencl_atomic_init:
     llvm_unreachable("Already handled!");
 
-  case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
-  case AtomicExpr::AO__hip_atomic_compare_exchange_strong:
-  case AtomicExpr::AO__opencl_atomic_compare_exchange_strong:
-    emitAtomicCmpXchgFailureSet(CGF, E, false, Dest, Ptr, Val1, Val2,
-                                FailureOrder, Size, Order, Scope);
-    return;
   case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
   case AtomicExpr::AO__opencl_atomic_compare_exchange_weak:
   case AtomicExpr::AO__hip_atomic_compare_exchange_weak:
-    emitAtomicCmpXchgFailureSet(CGF, E, true, Dest, Ptr, Val1, Val2,
-                                FailureOrder, Size, Order, Scope);
+    IsWeakOp = true;
+    [[fallthrough]];
+  case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
+  case AtomicExpr::AO__hip_atomic_compare_exchange_strong:
+  case AtomicExpr::AO__opencl_atomic_compare_exchange_strong: {
+    llvm::Value *LLVMPtr = Ptr.emitRawPointer(CGF);
+    llvm::Value *Expected = Val1.emitRawPointer(CGF);
+    llvm::Value *Desired = Val2.emitRawPointer(CGF);
+    llvm::Align Align = Ptr.getAlignment().getAsAlign();
+
+    SmallVector<std::pair<uint32_t, StringRef>> SupportedScopes;
+    StringRef DefaultScope;
+    if (std::unique_ptr<AtomicScopeModel> ScopeModel = E->getScopeModel()) {
+      for (unsigned S : ScopeModel->getRuntimeValues())
+        SupportedScopes.emplace_back(S, getAsString(ScopeModel->map(S)));
+      DefaultScope =
+          getAsString(ScopeModel->map(ScopeModel->getFallBackValue()));
+    }
+
+    llvm::emitAtomicCompareExchangeBuiltin(
+        LLVMPtr, Expected, Desired, IsWeakOp, E->isVolatile(), Order,
+        FailureOrder, Scope, Expected, Ptr.getElementType(), {}, {}, Align,
+        CGF.Builder, CGF.CGM.getDataLayout(), CGF.getTargetLibraryInfo(),
+        CGF.CGM.getTargetLowering(), SupportedScopes, DefaultScope);
     return;
+  }
+
   case AtomicExpr::AO__atomic_compare_exchange:
   case AtomicExpr::AO__atomic_compare_exchange_n:
   case AtomicExpr::AO__scoped_atomic_compare_exchange:
   case AtomicExpr::AO__scoped_atomic_compare_exchange_n: {
-    if (llvm::ConstantInt *IsWeakC = dyn_cast<llvm::ConstantInt>(IsWeak)) {
-      emitAtomicCmpXchgFailureSet(CGF, E, IsWeakC->getZExtValue(), Dest, Ptr,
-                                  Val1, Val2, FailureOrder, Size, Order, Scope);
-    } else {
-      // Create all the relevant BB's
-      llvm::BasicBlock *StrongBB =
-          CGF.createBasicBlock("cmpxchg.strong", CGF.CurFn);
-      llvm::BasicBlock *WeakBB = CGF.createBasicBlock("cmxchg.weak", CGF.CurFn);
-      llvm::BasicBlock *ContBB =
-          CGF.createBasicBlock("cmpxchg.continue", CGF.CurFn);
+    llvm::Value *LLVMPtr = Ptr.emitRawPointer(CGF);
+    llvm::Value *Expected = Val1.emitRawPointer(CGF);
+    llvm::Value *Desired = Val2.emitRawPointer(CGF);
+    llvm::Align Align = Ptr.getAlignment().getAsAlign();
 
-      llvm::SwitchInst *SI = CGF.Builder.CreateSwitch(IsWeak, WeakBB);
-      SI->addCase(CGF.Builder.getInt1(false), StrongBB);
-
-      CGF.Builder.SetInsertPoint(StrongBB);
-      emitAtomicCmpXchgFailureSet(CGF, E, false, Dest, Ptr, Val1, Val2,
-                                  FailureOrder, Size, Order, Scope);
-      CGF.Builder.CreateBr(ContBB);
-
-      CGF.Builder.SetInsertPoint(WeakBB);
-      emitAtomicCmpXchgFailureSet(CGF, E, true, Dest, Ptr, Val1, Val2,
-                                  FailureOrder, Size, Order, Scope);
-      CGF.Builder.CreateBr(ContBB);
-
-      CGF.Builder.SetInsertPoint(ContBB);
+    SmallVector<std::pair<uint32_t, StringRef>> SupportedScopes;
+    StringRef DefaultScope;
+    if (std::unique_ptr<AtomicScopeModel> ScopeModel = E->getScopeModel()) {
+      for (unsigned S : ScopeModel->getRuntimeValues())
+        SupportedScopes.emplace_back(S, getAsString(ScopeModel->map(S)));
+      DefaultScope =
+          getAsString(ScopeModel->map(ScopeModel->getFallBackValue()));
     }
+
+    llvm::Value *SuccessVal = llvm::emitAtomicCompareExchangeBuiltin(
+        LLVMPtr, Expected, Desired, IsWeak, E->isVolatile(), Order,
+        FailureOrder, Scope, Expected, Ptr.getElementType(), {}, {}, Align,
+        CGF.Builder, CGF.CGM.getDataLayout(), CGF.getTargetLibraryInfo(),
+        CGF.CGM.getTargetLowering(), SupportedScopes, DefaultScope);
+    CGF.EmitStoreOfScalar(SuccessVal, CGF.MakeAddrLValue(Dest, E->getType()));
     return;
   }
   case AtomicExpr::AO__c11_atomic_load:
@@ -1679,31 +1571,23 @@ AtomicInfo::EmitAtomicCompareExchangeLibcall(llvm::Value *ExpectedAddr,
 std::pair<RValue, llvm::Value *> AtomicInfo::EmitAtomicCompareExchange(
     RValue Expected, RValue Desired, llvm::AtomicOrdering Success,
     llvm::AtomicOrdering Failure, bool IsWeak) {
-  // Check whether we should use a library call.
-  if (shouldUseLibcall()) {
-    // Produce a source address.
-    Address ExpectedAddr = materializeRValue(Expected);
-    llvm::Value *ExpectedPtr = ExpectedAddr.emitRawPointer(CGF);
-    llvm::Value *DesiredPtr = materializeRValue(Desired).emitRawPointer(CGF);
-    auto *Res = EmitAtomicCompareExchangeLibcall(ExpectedPtr, DesiredPtr,
-                                                 Success, Failure);
-    return std::make_pair(
-        convertAtomicTempToRValue(ExpectedAddr, AggValueSlot::ignored(),
-                                  SourceLocation(), /*AsValue=*/false),
-        Res);
-  }
+  llvm::Value *Ptr = getAtomicPointer();
+  Address ExpectedAddr = materializeRValue(Expected);
+  llvm::Value *ExpectedPtr = ExpectedAddr.emitRawPointer(CGF);
+  llvm::Value *DesiredPtr = materializeRValue(Desired).emitRawPointer(CGF);
+  Address PrevAddr = CreateTempAlloca();
+  llvm::Value *PrevPtr = PrevAddr.emitRawPointer(CGF);
 
-  // If we've got a scalar value of the right size, try to avoid going
-  // through memory.
-  auto *ExpectedVal = convertRValueToInt(Expected, /*CmpXchg=*/true);
-  auto *DesiredVal = convertRValueToInt(Desired, /*CmpXchg=*/true);
-  auto Res = EmitAtomicCompareExchangeOp(ExpectedVal, DesiredVal, Success,
-                                         Failure, IsWeak);
+  llvm::Value *SuccessResult = llvm::emitAtomicCompareExchangeBuiltin(
+      Ptr, ExpectedPtr, DesiredPtr, IsWeak, LVal.isVolatileQualified(), Success,
+      Failure, PrevPtr, getAtomicAddress().getElementType(),
+      getValueSizeInBytes(), getAtomicSizeInBytes(),
+      getAtomicAlignment().getAsAlign(), CGF.Builder, CGF.CGM.getDataLayout(),
+      CGF.getTargetLibraryInfo(), CGF.CGM.getTargetLowering());
   return std::make_pair(
-      ConvertToValueOrAtomic(Res.first, AggValueSlot::ignored(),
-                             SourceLocation(), /*AsValue=*/false,
-                             /*CmpXchg=*/true),
-      Res.second);
+      convertAtomicTempToRValue(PrevAddr, AggValueSlot::ignored(),
+                                SourceLocation(), /*AsValue=*/false),
+      SuccessResult);
 }
 
 static void

@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 // NOTE: NO INCLUDE GUARD DESIRED!
+// FIXME: Redundant with Analysis/TargetLibraryInfo.def
 
 // Provide definitions of macros so that users of this file do not have to
 // define everything to use it...

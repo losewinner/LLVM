@@ -117,7 +117,7 @@ define i64 @atomicrmw_uinc_wrap_i64(ptr %ptr, i64 %val) {
 ; CHECK-LABEL: atomicrmw_uinc_wrap_i64:
 ; CHECK:         .cfi_startproc
 ; CHECK-NEXT:  ! %bb.0:
-; CHECK-NEXT:    save %sp, -104, %sp
+; CHECK-NEXT:    save %sp, -120, %sp
 ; CHECK-NEXT:    .cfi_def_cfa_register %fp
 ; CHECK-NEXT:    .cfi_window_save
 ; CHECK-NEXT:    .cfi_register %o7, %i7
@@ -137,17 +137,20 @@ define i64 @atomicrmw_uinc_wrap_i64(ptr %ptr, i64 %val) {
 ; CHECK-NEXT:    cmp %g2, %i1
 ; CHECK-NEXT:    move %icc, %g4, %i5
 ; CHECK-NEXT:    cmp %i5, 0
-; CHECK-NEXT:    movne %icc, 0, %o2
 ; CHECK-NEXT:    movne %icc, 0, %o3
+; CHECK-NEXT:    movne %icc, 0, %o2
 ; CHECK-NEXT:    std %g2, [%fp+-8]
+; CHECK-NEXT:    std %o2, [%fp+-16]
 ; CHECK-NEXT:    mov %i0, %o0
 ; CHECK-NEXT:    mov %i3, %o1
 ; CHECK-NEXT:    mov %i4, %o4
 ; CHECK-NEXT:    call __atomic_compare_exchange_8
 ; CHECK-NEXT:    mov %i4, %o5
-; CHECK-NEXT:    cmp %o0, 0
-; CHECK-NEXT:    be %icc, .LBB3_1
 ; CHECK-NEXT:    ldd [%fp+-8], %g2
+; CHECK-NEXT:    and %o0, 255, %i5
+; CHECK-NEXT:    cmp %i5, 0
+; CHECK-NEXT:    bne %icc, .LBB3_1
+; CHECK-NEXT:    std %g2, [%fp+-24]
 ; CHECK-NEXT:  ! %bb.2: ! %atomicrmw.end
 ; CHECK-NEXT:    mov %g2, %i0
 ; CHECK-NEXT:    ret
@@ -278,7 +281,7 @@ define i64 @atomicrmw_udec_wrap_i64(ptr %ptr, i64 %val) {
 ; CHECK-LABEL: atomicrmw_udec_wrap_i64:
 ; CHECK:         .cfi_startproc
 ; CHECK-NEXT:  ! %bb.0:
-; CHECK-NEXT:    save %sp, -104, %sp
+; CHECK-NEXT:    save %sp, -120, %sp
 ; CHECK-NEXT:    .cfi_def_cfa_register %fp
 ; CHECK-NEXT:    .cfi_window_save
 ; CHECK-NEXT:    .cfi_register %o7, %i7
@@ -303,17 +306,20 @@ define i64 @atomicrmw_udec_wrap_i64(ptr %ptr, i64 %val) {
 ; CHECK-NEXT:    move %icc, %l0, %g4
 ; CHECK-NEXT:    or %i5, %g4, %i5
 ; CHECK-NEXT:    cmp %i5, 0
-; CHECK-NEXT:    movne %icc, %i1, %o2
 ; CHECK-NEXT:    movne %icc, %i2, %o3
+; CHECK-NEXT:    movne %icc, %i1, %o2
 ; CHECK-NEXT:    std %g2, [%fp+-8]
+; CHECK-NEXT:    std %o2, [%fp+-16]
 ; CHECK-NEXT:    mov %i0, %o0
 ; CHECK-NEXT:    mov %i3, %o1
 ; CHECK-NEXT:    mov %i4, %o4
 ; CHECK-NEXT:    call __atomic_compare_exchange_8
 ; CHECK-NEXT:    mov %i4, %o5
-; CHECK-NEXT:    cmp %o0, 0
-; CHECK-NEXT:    be %icc, .LBB7_1
 ; CHECK-NEXT:    ldd [%fp+-8], %g2
+; CHECK-NEXT:    and %o0, 255, %i5
+; CHECK-NEXT:    cmp %i5, 0
+; CHECK-NEXT:    bne %icc, .LBB7_1
+; CHECK-NEXT:    std %g2, [%fp+-24]
 ; CHECK-NEXT:  ! %bb.2: ! %atomicrmw.end
 ; CHECK-NEXT:    mov %g2, %i0
 ; CHECK-NEXT:    ret

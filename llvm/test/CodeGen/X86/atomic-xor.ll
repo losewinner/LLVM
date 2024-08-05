@@ -26,7 +26,7 @@ define i128 @xor128_signbit_used(ptr %p) nounwind {
 ; X86-NEXT:    pushl %edi
 ; X86-NEXT:    pushl %esi
 ; X86-NEXT:    andl $-16, %esp
-; X86-NEXT:    subl $48, %esp
+; X86-NEXT:    subl $64, %esp
 ; X86-NEXT:    movl 12(%ebp), %edi
 ; X86-NEXT:    movl 12(%edi), %ecx
 ; X86-NEXT:    movl 8(%edi), %edx
@@ -40,10 +40,10 @@ define i128 @xor128_signbit_used(ptr %p) nounwind {
 ; X86-NEXT:    movl %edx, {{[0-9]+}}(%esp)
 ; X86-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
 ; X86-NEXT:    addl $-2147483648, %ecx # imm = 0x80000000
-; X86-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X86-NEXT:    movl %edx, {{[0-9]+}}(%esp)
-; X86-NEXT:    movl %esi, {{[0-9]+}}(%esp)
 ; X86-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
+; X86-NEXT:    movl %esi, {{[0-9]+}}(%esp)
+; X86-NEXT:    movl %edx, {{[0-9]+}}(%esp)
+; X86-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
 ; X86-NEXT:    pushl $0
 ; X86-NEXT:    pushl $0
 ; X86-NEXT:    leal {{[0-9]+}}(%esp), %eax
@@ -55,11 +55,15 @@ define i128 @xor128_signbit_used(ptr %p) nounwind {
 ; X86-NEXT:    calll __atomic_compare_exchange@PLT
 ; X86-NEXT:    addl $24, %esp
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %edx
+; X86-NEXT:    movl %edx, {{[0-9]+}}(%esp)
 ; X86-NEXT:    movl (%esp), %ebx
 ; X86-NEXT:    movl {{[0-9]+}}(%esp), %esi
+; X86-NEXT:    movl %esi, {{[0-9]+}}(%esp)
+; X86-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
 ; X86-NEXT:    testb %al, %al
-; X86-NEXT:    je .LBB1_1
+; X86-NEXT:    jne .LBB1_1
 ; X86-NEXT:  # %bb.2: # %atomicrmw.end
 ; X86-NEXT:    movl 8(%ebp), %eax
 ; X86-NEXT:    movl %ebx, (%eax)

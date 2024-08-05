@@ -114,12 +114,16 @@ protected: // Can only create subclasses.
   // PGO related tunables.
   std::optional<PGOOptions> PGOOption;
 
+  bool IsValid = true;
+
 public:
   mutable TargetOptions Options;
 
   TargetMachine(const TargetMachine &) = delete;
   void operator=(const TargetMachine &) = delete;
   virtual ~TargetMachine();
+
+  bool isValid() const { return IsValid; }
 
   const Target &getTarget() const { return TheTarget; }
 

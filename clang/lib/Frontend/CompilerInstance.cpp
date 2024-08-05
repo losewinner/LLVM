@@ -19,6 +19,7 @@
 #include "clang/Basic/Stack.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/Version.h"
+#include "clang/CodeGen/BackendUtil.h"
 #include "clang/Config/config.h"
 #include "clang/Frontend/ChainedDiagnosticConsumer.h"
 #include "clang/Frontend/FrontendAction.h"
@@ -43,6 +44,7 @@
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/Errc.h"
@@ -55,6 +57,7 @@
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/TargetParser/Host.h"
 #include <optional>
 #include <time.h>
@@ -153,6 +156,35 @@ bool CompilerInstance::createTarget() {
 
   if (auto *Aux = getAuxTarget())
     getTarget().setAuxTarget(Aux);
+
+  llvm::Triple TargetTriple = getTarget().getTriple();
+  TargetOptions &TargetOpts = getTargetOpts();
+  std::string Error;
+  const llvm::Target *TheTarget =
+      llvm::TargetRegistry::lookupTarget(TargetTriple.getTriple(), Error);
+  if (TheTarget) {
+    CodeGenOptions &CodeGenOpts = getCodeGenOpts();
+    std::optional<llvm::CodeModel::Model> CM = getCodeModel(CodeGenOpts);
+    std::string FeaturesStr =
+        llvm::join(TargetOpts.Features.begin(), TargetOpts.Features.end(), ",");
+    llvm::Reloc::Model RM = CodeGenOpts.RelocationModel;
+    std::optional<llvm::CodeGenOptLevel> OptLevelOrNone =
+        llvm::CodeGenOpt::getLevel(CodeGenOpts.OptimizationLevel);
+    assert(OptLevelOrNone && "Invalid optimization level!");
+    llvm::CodeGenOptLevel OptLevel = *OptLevelOrNone;
+
+    llvm::TargetOptions Options;
+    bool Scc =
+        initTargetOptions(getDiagnostics(), Options, CodeGenOpts, TargetOpts,
+                          getLangOpts(), getHeaderSearchOpts());
+    if (Scc) {
+      TM.reset(TheTarget->createTargetMachine(TargetTriple.getTriple(),
+                                              TargetOpts.CPU, FeaturesStr,
+                                              Options, RM, CM, OptLevel));
+      if (TM)
+        TM->setLargeDataThreshold(CodeGenOpts.LargeDataThreshold);
+    }
+  }
 
   return true;
 }

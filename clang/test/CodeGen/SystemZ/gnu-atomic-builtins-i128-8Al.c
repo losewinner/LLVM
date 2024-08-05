@@ -87,16 +87,12 @@ __int128 f6() {
 // CHECK-LABEL: @f7(
 // CHECK-NEXT:  entry:
 // CHECK-NEXT:    [[TMP0:%.*]] = load i128, ptr @Des, align 8, !tbaa [[TBAA2]]
-// CHECK-NEXT:    [[TMP1:%.*]] = load i128, ptr @Exp, align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = cmpxchg ptr @Ptr, i128 [[TMP1]], i128 [[TMP0]] seq_cst seq_cst, align 8
-// CHECK-NEXT:    [[TMP3:%.*]] = extractvalue { i128, i1 } [[TMP2]], 1
-// CHECK-NEXT:    br i1 [[TMP3]], label [[CMPXCHG_CONTINUE:%.*]], label [[CMPXCHG_STORE_EXPECTED:%.*]]
-// CHECK:       cmpxchg.store_expected:
-// CHECK-NEXT:    [[TMP4:%.*]] = extractvalue { i128, i1 } [[TMP2]], 0
-// CHECK-NEXT:    store i128 [[TMP4]], ptr @Exp, align 8
-// CHECK-NEXT:    br label [[CMPXCHG_CONTINUE]]
-// CHECK:       cmpxchg.continue:
-// CHECK-NEXT:    ret i1 [[TMP3]]
+// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i128, ptr @Exp, align 8
+// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @Ptr, i128 [[CMPXCHG_EXPECTED]], i128 [[TMP0]] seq_cst seq_cst, align 8
+// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 0
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 1
+// CHECK-NEXT:    store i128 [[CMPXCHG_PREV]], ptr @Exp, align 8
+// CHECK-NEXT:    ret i1 [[CMPXCHG_SUCCESS]]
 //
 _Bool f7() {
   return __atomic_compare_exchange_n(&Ptr, &Exp, Des, 0,
@@ -105,17 +101,13 @@ _Bool f7() {
 
 // CHECK-LABEL: @f8(
 // CHECK-NEXT:  entry:
-// CHECK-NEXT:    [[TMP0:%.*]] = load i128, ptr @Exp, align 8
-// CHECK-NEXT:    [[TMP1:%.*]] = load i128, ptr @Des, align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = cmpxchg ptr @Ptr, i128 [[TMP0]], i128 [[TMP1]] seq_cst seq_cst, align 8
-// CHECK-NEXT:    [[TMP3:%.*]] = extractvalue { i128, i1 } [[TMP2]], 1
-// CHECK-NEXT:    br i1 [[TMP3]], label [[CMPXCHG_CONTINUE:%.*]], label [[CMPXCHG_STORE_EXPECTED:%.*]]
-// CHECK:       cmpxchg.store_expected:
-// CHECK-NEXT:    [[TMP4:%.*]] = extractvalue { i128, i1 } [[TMP2]], 0
-// CHECK-NEXT:    store i128 [[TMP4]], ptr @Exp, align 8
-// CHECK-NEXT:    br label [[CMPXCHG_CONTINUE]]
-// CHECK:       cmpxchg.continue:
-// CHECK-NEXT:    ret i1 [[TMP3]]
+// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i128, ptr @Exp, align 8
+// CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i128, ptr @Des, align 8
+// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg ptr @Ptr, i128 [[CMPXCHG_EXPECTED]], i128 [[CMPXCHG_DESIRED]] seq_cst seq_cst, align 8
+// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 0
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i128, i1 } [[CMPXCHG_PAIR]], 1
+// CHECK-NEXT:    store i128 [[CMPXCHG_PREV]], ptr @Exp, align 8
+// CHECK-NEXT:    ret i1 [[CMPXCHG_SUCCESS]]
 //
 _Bool f8() {
   return __atomic_compare_exchange(&Ptr, &Exp, &Des, 0,

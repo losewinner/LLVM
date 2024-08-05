@@ -8452,8 +8452,8 @@ define i64 @test_max_i64() {
 ; CHECK-THUMB8BASE:       @ %bb.0: @ %entry
 ; CHECK-THUMB8BASE-NEXT:    .save {r4, lr}
 ; CHECK-THUMB8BASE-NEXT:    push {r4, lr}
-; CHECK-THUMB8BASE-NEXT:    .pad #72
-; CHECK-THUMB8BASE-NEXT:    sub sp, #72
+; CHECK-THUMB8BASE-NEXT:    .pad #88
+; CHECK-THUMB8BASE-NEXT:    sub sp, #88
 ; CHECK-THUMB8BASE-NEXT:    movw r1, :lower16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    movt r1, :upper16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [r1, #4]
@@ -8504,33 +8504,42 @@ define i64 @test_max_i64() {
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #24] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:  .LBB40_7: @ %atomicrmw.start
 ; CHECK-THUMB8BASE-NEXT:    @ in Loop: Header=BB40_1 Depth=1
-; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #20] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #44] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #36] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #20] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #36] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r4, [sp, #40] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #24] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    str r4, [sp, #64]
-; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #68]
+; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #24] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    str r4, [sp, #80]
+; CHECK-THUMB8BASE-NEXT:    str r3, [sp, #84]
+; CHECK-THUMB8BASE-NEXT:    str r2, [sp, #76]
+; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #72]
+; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #76]
+; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #72]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #4]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp]
 ; CHECK-THUMB8BASE-NEXT:    movw r0, :lower16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    movt r0, :upper16:atomic_i64
-; CHECK-THUMB8BASE-NEXT:    add r1, sp, #64
+; CHECK-THUMB8BASE-NEXT:    add r1, sp, #80
 ; CHECK-THUMB8BASE-NEXT:    bl __atomic_compare_exchange_8
 ; CHECK-THUMB8BASE-NEXT:    mov r2, r0
+; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #84]
+; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #68]
+; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #80]
+; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #64]
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #68]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #12] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #64]
 ; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #16] @ 4-byte Spill
+; CHECK-THUMB8BASE-NEXT:    lsls r2, r2, #24
 ; CHECK-THUMB8BASE-NEXT:    cmp r2, #0
 ; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #56] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #60] @ 4-byte Spill
-; CHECK-THUMB8BASE-NEXT:    beq .LBB40_1
+; CHECK-THUMB8BASE-NEXT:    bne .LBB40_1
 ; CHECK-THUMB8BASE-NEXT:    b .LBB40_8
 ; CHECK-THUMB8BASE-NEXT:  .LBB40_8: @ %atomicrmw.end
 ; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #12] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #16] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    add sp, #72
+; CHECK-THUMB8BASE-NEXT:    add sp, #88
 ; CHECK-THUMB8BASE-NEXT:    pop {r4, pc}
 entry:
   %0 = atomicrmw max ptr @atomic_i64, i64 1 monotonic
@@ -8756,8 +8765,8 @@ define i64 @test_min_i64() {
 ; CHECK-THUMB8BASE:       @ %bb.0: @ %entry
 ; CHECK-THUMB8BASE-NEXT:    .save {r4, lr}
 ; CHECK-THUMB8BASE-NEXT:    push {r4, lr}
-; CHECK-THUMB8BASE-NEXT:    .pad #72
-; CHECK-THUMB8BASE-NEXT:    sub sp, #72
+; CHECK-THUMB8BASE-NEXT:    .pad #88
+; CHECK-THUMB8BASE-NEXT:    sub sp, #88
 ; CHECK-THUMB8BASE-NEXT:    movw r1, :lower16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    movt r1, :upper16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [r1, #4]
@@ -8808,33 +8817,42 @@ define i64 @test_min_i64() {
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #24] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:  .LBB41_7: @ %atomicrmw.start
 ; CHECK-THUMB8BASE-NEXT:    @ in Loop: Header=BB41_1 Depth=1
-; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #20] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #48] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #36] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #20] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #36] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r4, [sp, #40] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #24] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    str r4, [sp, #64]
-; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #68]
+; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #24] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    str r4, [sp, #80]
+; CHECK-THUMB8BASE-NEXT:    str r3, [sp, #84]
+; CHECK-THUMB8BASE-NEXT:    str r2, [sp, #76]
+; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #72]
+; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #76]
+; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #72]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #4]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp]
 ; CHECK-THUMB8BASE-NEXT:    movw r0, :lower16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    movt r0, :upper16:atomic_i64
-; CHECK-THUMB8BASE-NEXT:    add r1, sp, #64
+; CHECK-THUMB8BASE-NEXT:    add r1, sp, #80
 ; CHECK-THUMB8BASE-NEXT:    bl __atomic_compare_exchange_8
 ; CHECK-THUMB8BASE-NEXT:    mov r2, r0
+; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #84]
+; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #68]
+; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #80]
+; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #64]
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #68]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #12] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #64]
 ; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #16] @ 4-byte Spill
+; CHECK-THUMB8BASE-NEXT:    lsls r2, r2, #24
 ; CHECK-THUMB8BASE-NEXT:    cmp r2, #0
 ; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #56] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #60] @ 4-byte Spill
-; CHECK-THUMB8BASE-NEXT:    beq .LBB41_1
+; CHECK-THUMB8BASE-NEXT:    bne .LBB41_1
 ; CHECK-THUMB8BASE-NEXT:    b .LBB41_8
 ; CHECK-THUMB8BASE-NEXT:  .LBB41_8: @ %atomicrmw.end
 ; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #12] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #16] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    add sp, #72
+; CHECK-THUMB8BASE-NEXT:    add sp, #88
 ; CHECK-THUMB8BASE-NEXT:    pop {r4, pc}
 entry:
   %0 = atomicrmw min ptr @atomic_i64, i64 1 monotonic
@@ -9060,8 +9078,8 @@ define i64 @test_umax_i64() {
 ; CHECK-THUMB8BASE:       @ %bb.0: @ %entry
 ; CHECK-THUMB8BASE-NEXT:    .save {r4, lr}
 ; CHECK-THUMB8BASE-NEXT:    push {r4, lr}
-; CHECK-THUMB8BASE-NEXT:    .pad #72
-; CHECK-THUMB8BASE-NEXT:    sub sp, #72
+; CHECK-THUMB8BASE-NEXT:    .pad #88
+; CHECK-THUMB8BASE-NEXT:    sub sp, #88
 ; CHECK-THUMB8BASE-NEXT:    movw r1, :lower16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    movt r1, :upper16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [r1, #4]
@@ -9112,33 +9130,42 @@ define i64 @test_umax_i64() {
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #24] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:  .LBB42_7: @ %atomicrmw.start
 ; CHECK-THUMB8BASE-NEXT:    @ in Loop: Header=BB42_1 Depth=1
-; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #20] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #44] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #36] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #20] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #36] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r4, [sp, #40] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #24] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    str r4, [sp, #64]
-; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #68]
+; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #24] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    str r4, [sp, #80]
+; CHECK-THUMB8BASE-NEXT:    str r3, [sp, #84]
+; CHECK-THUMB8BASE-NEXT:    str r2, [sp, #76]
+; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #72]
+; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #76]
+; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #72]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #4]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp]
 ; CHECK-THUMB8BASE-NEXT:    movw r0, :lower16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    movt r0, :upper16:atomic_i64
-; CHECK-THUMB8BASE-NEXT:    add r1, sp, #64
+; CHECK-THUMB8BASE-NEXT:    add r1, sp, #80
 ; CHECK-THUMB8BASE-NEXT:    bl __atomic_compare_exchange_8
 ; CHECK-THUMB8BASE-NEXT:    mov r2, r0
+; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #84]
+; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #68]
+; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #80]
+; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #64]
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #68]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #12] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #64]
 ; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #16] @ 4-byte Spill
+; CHECK-THUMB8BASE-NEXT:    lsls r2, r2, #24
 ; CHECK-THUMB8BASE-NEXT:    cmp r2, #0
 ; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #56] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #60] @ 4-byte Spill
-; CHECK-THUMB8BASE-NEXT:    beq .LBB42_1
+; CHECK-THUMB8BASE-NEXT:    bne .LBB42_1
 ; CHECK-THUMB8BASE-NEXT:    b .LBB42_8
 ; CHECK-THUMB8BASE-NEXT:  .LBB42_8: @ %atomicrmw.end
 ; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #12] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #16] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    add sp, #72
+; CHECK-THUMB8BASE-NEXT:    add sp, #88
 ; CHECK-THUMB8BASE-NEXT:    pop {r4, pc}
 entry:
   %0 = atomicrmw umax ptr @atomic_i64, i64 1 monotonic
@@ -9364,8 +9391,8 @@ define i64 @test_umin_i64() {
 ; CHECK-THUMB8BASE:       @ %bb.0: @ %entry
 ; CHECK-THUMB8BASE-NEXT:    .save {r4, lr}
 ; CHECK-THUMB8BASE-NEXT:    push {r4, lr}
-; CHECK-THUMB8BASE-NEXT:    .pad #72
-; CHECK-THUMB8BASE-NEXT:    sub sp, #72
+; CHECK-THUMB8BASE-NEXT:    .pad #88
+; CHECK-THUMB8BASE-NEXT:    sub sp, #88
 ; CHECK-THUMB8BASE-NEXT:    movw r1, :lower16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    movt r1, :upper16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [r1, #4]
@@ -9416,33 +9443,42 @@ define i64 @test_umin_i64() {
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #24] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:  .LBB43_7: @ %atomicrmw.start
 ; CHECK-THUMB8BASE-NEXT:    @ in Loop: Header=BB43_1 Depth=1
-; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #20] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #48] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #36] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #20] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #36] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r4, [sp, #40] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #24] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    str r4, [sp, #64]
-; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #68]
+; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #24] @ 4-byte Reload
+; CHECK-THUMB8BASE-NEXT:    str r4, [sp, #80]
+; CHECK-THUMB8BASE-NEXT:    str r3, [sp, #84]
+; CHECK-THUMB8BASE-NEXT:    str r2, [sp, #76]
+; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #72]
+; CHECK-THUMB8BASE-NEXT:    ldr r3, [sp, #76]
+; CHECK-THUMB8BASE-NEXT:    ldr r2, [sp, #72]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #4]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp]
 ; CHECK-THUMB8BASE-NEXT:    movw r0, :lower16:atomic_i64
 ; CHECK-THUMB8BASE-NEXT:    movt r0, :upper16:atomic_i64
-; CHECK-THUMB8BASE-NEXT:    add r1, sp, #64
+; CHECK-THUMB8BASE-NEXT:    add r1, sp, #80
 ; CHECK-THUMB8BASE-NEXT:    bl __atomic_compare_exchange_8
 ; CHECK-THUMB8BASE-NEXT:    mov r2, r0
+; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #84]
+; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #68]
+; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #80]
+; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #64]
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #68]
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #12] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #64]
 ; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #16] @ 4-byte Spill
+; CHECK-THUMB8BASE-NEXT:    lsls r2, r2, #24
 ; CHECK-THUMB8BASE-NEXT:    cmp r2, #0
 ; CHECK-THUMB8BASE-NEXT:    str r1, [sp, #56] @ 4-byte Spill
 ; CHECK-THUMB8BASE-NEXT:    str r0, [sp, #60] @ 4-byte Spill
-; CHECK-THUMB8BASE-NEXT:    beq .LBB43_1
+; CHECK-THUMB8BASE-NEXT:    bne .LBB43_1
 ; CHECK-THUMB8BASE-NEXT:    b .LBB43_8
 ; CHECK-THUMB8BASE-NEXT:  .LBB43_8: @ %atomicrmw.end
 ; CHECK-THUMB8BASE-NEXT:    ldr r1, [sp, #12] @ 4-byte Reload
 ; CHECK-THUMB8BASE-NEXT:    ldr r0, [sp, #16] @ 4-byte Reload
-; CHECK-THUMB8BASE-NEXT:    add sp, #72
+; CHECK-THUMB8BASE-NEXT:    add sp, #88
 ; CHECK-THUMB8BASE-NEXT:    pop {r4, pc}
 entry:
   %0 = atomicrmw umin ptr @atomic_i64, i64 1 monotonic

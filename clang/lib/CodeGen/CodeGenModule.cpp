@@ -333,18 +333,17 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
   return *TheTargetCodeGenInfo;
 }
 
-CodeGenModule::CodeGenModule(ASTContext &C,
-                             IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
-                             const HeaderSearchOptions &HSO,
-                             const PreprocessorOptions &PPO,
-                             const CodeGenOptions &CGO, llvm::Module &M,
-                             DiagnosticsEngine &diags,
-                             CoverageSourceInfo *CoverageInfo)
+CodeGenModule::CodeGenModule(
+    ASTContext &C, IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
+    const HeaderSearchOptions &HSO, const PreprocessorOptions &PPO,
+    const CodeGenOptions &CGO, llvm::Module &M, DiagnosticsEngine &diags,
+    llvm::TargetLibraryInfoImpl &TLII, const llvm::TargetLowering *TL,
+    CoverageSourceInfo *CoverageInfo)
     : Context(C), LangOpts(C.getLangOpts()), FS(FS), HeaderSearchOpts(HSO),
       PreprocessorOpts(PPO), CodeGenOpts(CGO), TheModule(M), Diags(diags),
       Target(C.getTargetInfo()), ABI(createCXXABI(*this)),
       VMContext(M.getContext()), Types(*this), VTables(*this),
-      SanitizerMD(new SanitizerMetadata(*this)) {
+      SanitizerMD(new SanitizerMetadata(*this)), TLII(TLII), TL(TL) {
 
   // Initialize the type cache.
   llvm::LLVMContext &LLVMContext = M.getContext();

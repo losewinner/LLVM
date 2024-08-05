@@ -67,20 +67,25 @@ define i8 @rmw8(ptr %p) {
 define i8 @cmpxchg8(ptr %p) {
 ; NO-ATOMIC32-LABEL: cmpxchg8:
 ; NO-ATOMIC32:       @ %bb.0:
-; NO-ATOMIC32-NEXT:    .save {r7, lr}
-; NO-ATOMIC32-NEXT:    push {r7, lr}
-; NO-ATOMIC32-NEXT:    .pad #8
-; NO-ATOMIC32-NEXT:    sub sp, #8
-; NO-ATOMIC32-NEXT:    add r1, sp, #4
-; NO-ATOMIC32-NEXT:    movs r2, #0
+; NO-ATOMIC32-NEXT:    .save {r4, lr}
+; NO-ATOMIC32-NEXT:    push {r4, lr}
+; NO-ATOMIC32-NEXT:    .pad #16
+; NO-ATOMIC32-NEXT:    sub sp, #16
+; NO-ATOMIC32-NEXT:    add r1, sp, #8
+; NO-ATOMIC32-NEXT:    movs r2, #1
 ; NO-ATOMIC32-NEXT:    strb r2, [r1]
+; NO-ATOMIC32-NEXT:    add r4, sp, #12
+; NO-ATOMIC32-NEXT:    movs r1, #0
+; NO-ATOMIC32-NEXT:    strb r1, [r4]
 ; NO-ATOMIC32-NEXT:    movs r3, #5
 ; NO-ATOMIC32-NEXT:    str r3, [sp]
-; NO-ATOMIC32-NEXT:    movs r2, #1
+; NO-ATOMIC32-NEXT:    mov r1, r4
 ; NO-ATOMIC32-NEXT:    bl __atomic_compare_exchange_1
-; NO-ATOMIC32-NEXT:    ldr r0, [sp, #4]
-; NO-ATOMIC32-NEXT:    add sp, #8
-; NO-ATOMIC32-NEXT:    pop {r7, pc}
+; NO-ATOMIC32-NEXT:    ldrb r0, [r4]
+; NO-ATOMIC32-NEXT:    add r1, sp, #4
+; NO-ATOMIC32-NEXT:    strb r0, [r1]
+; NO-ATOMIC32-NEXT:    add sp, #16
+; NO-ATOMIC32-NEXT:    pop {r4, pc}
 ;
 ; ATOMIC32-LABEL: cmpxchg8:
 ; ATOMIC32:       @ %bb.0:
@@ -162,20 +167,25 @@ define i16 @rmw16(ptr %p) {
 define i16 @cmpxchg16(ptr %p) {
 ; NO-ATOMIC32-LABEL: cmpxchg16:
 ; NO-ATOMIC32:       @ %bb.0:
-; NO-ATOMIC32-NEXT:    .save {r7, lr}
-; NO-ATOMIC32-NEXT:    push {r7, lr}
-; NO-ATOMIC32-NEXT:    .pad #8
-; NO-ATOMIC32-NEXT:    sub sp, #8
-; NO-ATOMIC32-NEXT:    add r1, sp, #4
-; NO-ATOMIC32-NEXT:    movs r2, #0
+; NO-ATOMIC32-NEXT:    .save {r4, lr}
+; NO-ATOMIC32-NEXT:    push {r4, lr}
+; NO-ATOMIC32-NEXT:    .pad #16
+; NO-ATOMIC32-NEXT:    sub sp, #16
+; NO-ATOMIC32-NEXT:    add r1, sp, #8
+; NO-ATOMIC32-NEXT:    movs r2, #1
 ; NO-ATOMIC32-NEXT:    strh r2, [r1]
+; NO-ATOMIC32-NEXT:    add r4, sp, #12
+; NO-ATOMIC32-NEXT:    movs r1, #0
+; NO-ATOMIC32-NEXT:    strh r1, [r4]
 ; NO-ATOMIC32-NEXT:    movs r3, #5
 ; NO-ATOMIC32-NEXT:    str r3, [sp]
-; NO-ATOMIC32-NEXT:    movs r2, #1
+; NO-ATOMIC32-NEXT:    mov r1, r4
 ; NO-ATOMIC32-NEXT:    bl __atomic_compare_exchange_2
-; NO-ATOMIC32-NEXT:    ldr r0, [sp, #4]
-; NO-ATOMIC32-NEXT:    add sp, #8
-; NO-ATOMIC32-NEXT:    pop {r7, pc}
+; NO-ATOMIC32-NEXT:    ldrh r0, [r4]
+; NO-ATOMIC32-NEXT:    add r1, sp, #4
+; NO-ATOMIC32-NEXT:    strh r0, [r1]
+; NO-ATOMIC32-NEXT:    add sp, #16
+; NO-ATOMIC32-NEXT:    pop {r4, pc}
 ;
 ; ATOMIC32-LABEL: cmpxchg16:
 ; ATOMIC32:       @ %bb.0:
@@ -259,17 +269,19 @@ define i32 @cmpxchg32(ptr %p) {
 ; NO-ATOMIC32:       @ %bb.0:
 ; NO-ATOMIC32-NEXT:    .save {r7, lr}
 ; NO-ATOMIC32-NEXT:    push {r7, lr}
-; NO-ATOMIC32-NEXT:    .pad #8
-; NO-ATOMIC32-NEXT:    sub sp, #8
+; NO-ATOMIC32-NEXT:    .pad #16
+; NO-ATOMIC32-NEXT:    sub sp, #16
+; NO-ATOMIC32-NEXT:    movs r2, #1
+; NO-ATOMIC32-NEXT:    str r2, [sp, #8]
 ; NO-ATOMIC32-NEXT:    movs r1, #0
-; NO-ATOMIC32-NEXT:    str r1, [sp, #4]
+; NO-ATOMIC32-NEXT:    str r1, [sp, #12]
 ; NO-ATOMIC32-NEXT:    movs r3, #5
 ; NO-ATOMIC32-NEXT:    str r3, [sp]
-; NO-ATOMIC32-NEXT:    add r1, sp, #4
-; NO-ATOMIC32-NEXT:    movs r2, #1
+; NO-ATOMIC32-NEXT:    add r1, sp, #12
 ; NO-ATOMIC32-NEXT:    bl __atomic_compare_exchange_4
-; NO-ATOMIC32-NEXT:    ldr r0, [sp, #4]
-; NO-ATOMIC32-NEXT:    add sp, #8
+; NO-ATOMIC32-NEXT:    ldr r0, [sp, #12]
+; NO-ATOMIC32-NEXT:    str r0, [sp, #4]
+; NO-ATOMIC32-NEXT:    add sp, #16
 ; NO-ATOMIC32-NEXT:    pop {r7, pc}
 ;
 ; ATOMIC32-LABEL: cmpxchg32:
@@ -340,20 +352,24 @@ define i64 @cmpxchg64(ptr %p) {
 ; CHECK:       @ %bb.0:
 ; CHECK-NEXT:    .save {r7, lr}
 ; CHECK-NEXT:    push {r7, lr}
-; CHECK-NEXT:    .pad #16
-; CHECK-NEXT:    sub sp, #16
+; CHECK-NEXT:    .pad #32
+; CHECK-NEXT:    sub sp, #32
 ; CHECK-NEXT:    movs r3, #0
-; CHECK-NEXT:    str r3, [sp, #12]
-; CHECK-NEXT:    str r3, [sp, #8]
+; CHECK-NEXT:    str r3, [sp, #20]
+; CHECK-NEXT:    movs r2, #1
+; CHECK-NEXT:    str r2, [sp, #16]
+; CHECK-NEXT:    str r3, [sp, #28]
+; CHECK-NEXT:    str r3, [sp, #24]
 ; CHECK-NEXT:    movs r1, #5
 ; CHECK-NEXT:    str r1, [sp]
 ; CHECK-NEXT:    str r1, [sp, #4]
-; CHECK-NEXT:    add r1, sp, #8
-; CHECK-NEXT:    movs r2, #1
+; CHECK-NEXT:    add r1, sp, #24
 ; CHECK-NEXT:    bl __atomic_compare_exchange_8
-; CHECK-NEXT:    ldr r1, [sp, #12]
-; CHECK-NEXT:    ldr r0, [sp, #8]
-; CHECK-NEXT:    add sp, #16
+; CHECK-NEXT:    ldr r1, [sp, #28]
+; CHECK-NEXT:    str r1, [sp, #12]
+; CHECK-NEXT:    ldr r0, [sp, #24]
+; CHECK-NEXT:    str r0, [sp, #8]
+; CHECK-NEXT:    add sp, #32
 ; CHECK-NEXT:    pop {r7, pc}
   %res = cmpxchg ptr %p, i64 0, i64 1 seq_cst seq_cst
   %res.0 = extractvalue { i64, i1 } %res, 0

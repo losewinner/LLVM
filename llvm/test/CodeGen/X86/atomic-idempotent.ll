@@ -176,66 +176,68 @@ define i128 @or128(ptr %p) {
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
 ;
-; X86-GENERIC-LABEL: or128:
-; X86-GENERIC:       # %bb.0:
-; X86-GENERIC-NEXT:    pushl %ebp
-; X86-GENERIC-NEXT:    .cfi_def_cfa_offset 8
-; X86-GENERIC-NEXT:    .cfi_offset %ebp, -8
-; X86-GENERIC-NEXT:    movl %esp, %ebp
-; X86-GENERIC-NEXT:    .cfi_def_cfa_register %ebp
-; X86-GENERIC-NEXT:    pushl %ebx
-; X86-GENERIC-NEXT:    pushl %edi
-; X86-GENERIC-NEXT:    pushl %esi
-; X86-GENERIC-NEXT:    andl $-16, %esp
-; X86-GENERIC-NEXT:    subl $48, %esp
-; X86-GENERIC-NEXT:    .cfi_offset %esi, -20
-; X86-GENERIC-NEXT:    .cfi_offset %edi, -16
-; X86-GENERIC-NEXT:    .cfi_offset %ebx, -12
-; X86-GENERIC-NEXT:    movl 12(%ebp), %edi
-; X86-GENERIC-NEXT:    movl 12(%edi), %ecx
-; X86-GENERIC-NEXT:    movl 8(%edi), %edx
-; X86-GENERIC-NEXT:    movl (%edi), %ebx
-; X86-GENERIC-NEXT:    movl 4(%edi), %esi
-; X86-GENERIC-NEXT:    .p2align 4, 0x90
-; X86-GENERIC-NEXT:  .LBB4_1: # %atomicrmw.start
-; X86-GENERIC-NEXT:    # =>This Inner Loop Header: Depth=1
-; X86-GENERIC-NEXT:    movl %ebx, (%esp)
-; X86-GENERIC-NEXT:    movl %esi, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %edx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %edx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %esi, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    pushl $0
-; X86-GENERIC-NEXT:    pushl $0
-; X86-GENERIC-NEXT:    leal {{[0-9]+}}(%esp), %eax
-; X86-GENERIC-NEXT:    pushl %eax
-; X86-GENERIC-NEXT:    leal {{[0-9]+}}(%esp), %eax
-; X86-GENERIC-NEXT:    pushl %eax
-; X86-GENERIC-NEXT:    pushl %edi
-; X86-GENERIC-NEXT:    pushl $16
-; X86-GENERIC-NEXT:    calll __atomic_compare_exchange@PLT
-; X86-GENERIC-NEXT:    addl $24, %esp
-; X86-GENERIC-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-GENERIC-NEXT:    movl {{[0-9]+}}(%esp), %edx
-; X86-GENERIC-NEXT:    movl (%esp), %ebx
-; X86-GENERIC-NEXT:    movl {{[0-9]+}}(%esp), %esi
-; X86-GENERIC-NEXT:    testb %al, %al
-; X86-GENERIC-NEXT:    je .LBB4_1
-; X86-GENERIC-NEXT:  # %bb.2: # %atomicrmw.end
-; X86-GENERIC-NEXT:    movl 8(%ebp), %eax
-; X86-GENERIC-NEXT:    movl %ebx, (%eax)
-; X86-GENERIC-NEXT:    movl %esi, 4(%eax)
-; X86-GENERIC-NEXT:    movl %edx, 8(%eax)
-; X86-GENERIC-NEXT:    movl %ecx, 12(%eax)
-; X86-GENERIC-NEXT:    leal -12(%ebp), %esp
-; X86-GENERIC-NEXT:    popl %esi
-; X86-GENERIC-NEXT:    popl %edi
-; X86-GENERIC-NEXT:    popl %ebx
-; X86-GENERIC-NEXT:    popl %ebp
-; X86-GENERIC-NEXT:    .cfi_def_cfa %esp, 4
-; X86-GENERIC-NEXT:    retl $4
+; X86-SSE2-LABEL: or128:
+; X86-SSE2:       # %bb.0:
+; X86-SSE2-NEXT:    pushl %ebp
+; X86-SSE2-NEXT:    .cfi_def_cfa_offset 8
+; X86-SSE2-NEXT:    .cfi_offset %ebp, -8
+; X86-SSE2-NEXT:    movl %esp, %ebp
+; X86-SSE2-NEXT:    .cfi_def_cfa_register %ebp
+; X86-SSE2-NEXT:    pushl %ebx
+; X86-SSE2-NEXT:    pushl %edi
+; X86-SSE2-NEXT:    pushl %esi
+; X86-SSE2-NEXT:    andl $-16, %esp
+; X86-SSE2-NEXT:    subl $64, %esp
+; X86-SSE2-NEXT:    .cfi_offset %esi, -20
+; X86-SSE2-NEXT:    .cfi_offset %edi, -16
+; X86-SSE2-NEXT:    .cfi_offset %ebx, -12
+; X86-SSE2-NEXT:    movl 12(%ebp), %edi
+; X86-SSE2-NEXT:    movl 12(%edi), %ecx
+; X86-SSE2-NEXT:    movl 8(%edi), %edx
+; X86-SSE2-NEXT:    movl (%edi), %ebx
+; X86-SSE2-NEXT:    movl 4(%edi), %esi
+; X86-SSE2-NEXT:    .p2align 4, 0x90
+; X86-SSE2-NEXT:  .LBB4_1: # %atomicrmw.start
+; X86-SSE2-NEXT:    # =>This Inner Loop Header: Depth=1
+; X86-SSE2-NEXT:    movl %ebx, (%esp)
+; X86-SSE2-NEXT:    movl %esi, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %edx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %esi, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %edx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    pushl $0
+; X86-SSE2-NEXT:    pushl $0
+; X86-SSE2-NEXT:    leal {{[0-9]+}}(%esp), %eax
+; X86-SSE2-NEXT:    pushl %eax
+; X86-SSE2-NEXT:    leal {{[0-9]+}}(%esp), %eax
+; X86-SSE2-NEXT:    pushl %eax
+; X86-SSE2-NEXT:    pushl %edi
+; X86-SSE2-NEXT:    pushl $16
+; X86-SSE2-NEXT:    calll __atomic_compare_exchange@PLT
+; X86-SSE2-NEXT:    addl $24, %esp
+; X86-SSE2-NEXT:    movaps (%esp), %xmm0
+; X86-SSE2-NEXT:    movaps %xmm0, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %edx
+; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %ebx
+; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %esi
+; X86-SSE2-NEXT:    testb %al, %al
+; X86-SSE2-NEXT:    jne .LBB4_1
+; X86-SSE2-NEXT:  # %bb.2: # %atomicrmw.end
+; X86-SSE2-NEXT:    movl 8(%ebp), %eax
+; X86-SSE2-NEXT:    movl %ebx, (%eax)
+; X86-SSE2-NEXT:    movl %esi, 4(%eax)
+; X86-SSE2-NEXT:    movl %edx, 8(%eax)
+; X86-SSE2-NEXT:    movl %ecx, 12(%eax)
+; X86-SSE2-NEXT:    leal -12(%ebp), %esp
+; X86-SSE2-NEXT:    popl %esi
+; X86-SSE2-NEXT:    popl %edi
+; X86-SSE2-NEXT:    popl %ebx
+; X86-SSE2-NEXT:    popl %ebp
+; X86-SSE2-NEXT:    .cfi_def_cfa %esp, 4
+; X86-SSE2-NEXT:    retl $4
 ;
 ; X86-ATOM-LABEL: or128:
 ; X86-ATOM:       # %bb.0:
@@ -264,10 +266,10 @@ define i128 @or128(ptr %p) {
 ; X86-ATOM-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    movl %edx, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X86-ATOM-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X86-ATOM-NEXT:    movl %edx, {{[0-9]+}}(%esp)
-; X86-ATOM-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    movl %esi, {{[0-9]+}}(%esp)
+; X86-ATOM-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
+; X86-ATOM-NEXT:    movl %edx, {{[0-9]+}}(%esp)
+; X86-ATOM-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    pushl $0
 ; X86-ATOM-NEXT:    pushl $0
 ; X86-ATOM-NEXT:    leal {{[0-9]+}}(%esp), %eax
@@ -278,12 +280,14 @@ define i128 @or128(ptr %p) {
 ; X86-ATOM-NEXT:    pushl $16
 ; X86-ATOM-NEXT:    calll __atomic_compare_exchange@PLT
 ; X86-ATOM-NEXT:    leal {{[0-9]+}}(%esp), %esp
+; X86-ATOM-NEXT:    movaps (%esp), %xmm0
+; X86-ATOM-NEXT:    testb %al, %al
+; X86-ATOM-NEXT:    movaps %xmm0, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-ATOM-NEXT:    movl {{[0-9]+}}(%esp), %edx
-; X86-ATOM-NEXT:    testb %al, %al
-; X86-ATOM-NEXT:    movl (%esp), %esi
+; X86-ATOM-NEXT:    movl {{[0-9]+}}(%esp), %esi
 ; X86-ATOM-NEXT:    movl {{[0-9]+}}(%esp), %ebx
-; X86-ATOM-NEXT:    je .LBB4_1
+; X86-ATOM-NEXT:    jne .LBB4_1
 ; X86-ATOM-NEXT:  # %bb.2: # %atomicrmw.end
 ; X86-ATOM-NEXT:    movl 8(%ebp), %eax
 ; X86-ATOM-NEXT:    movl %esi, (%eax)
@@ -526,61 +530,63 @@ define void @or128_nouse_seq_cst(ptr %p) {
 ; X64-NEXT:    .cfi_def_cfa_offset 8
 ; X64-NEXT:    retq
 ;
-; X86-GENERIC-LABEL: or128_nouse_seq_cst:
-; X86-GENERIC:       # %bb.0:
-; X86-GENERIC-NEXT:    pushl %ebp
-; X86-GENERIC-NEXT:    .cfi_def_cfa_offset 8
-; X86-GENERIC-NEXT:    .cfi_offset %ebp, -8
-; X86-GENERIC-NEXT:    movl %esp, %ebp
-; X86-GENERIC-NEXT:    .cfi_def_cfa_register %ebp
-; X86-GENERIC-NEXT:    pushl %ebx
-; X86-GENERIC-NEXT:    pushl %edi
-; X86-GENERIC-NEXT:    pushl %esi
-; X86-GENERIC-NEXT:    andl $-16, %esp
-; X86-GENERIC-NEXT:    subl $48, %esp
-; X86-GENERIC-NEXT:    .cfi_offset %esi, -20
-; X86-GENERIC-NEXT:    .cfi_offset %edi, -16
-; X86-GENERIC-NEXT:    .cfi_offset %ebx, -12
-; X86-GENERIC-NEXT:    movl 8(%ebp), %esi
-; X86-GENERIC-NEXT:    movl 12(%esi), %ecx
-; X86-GENERIC-NEXT:    movl 8(%esi), %edi
-; X86-GENERIC-NEXT:    movl (%esi), %edx
-; X86-GENERIC-NEXT:    movl 4(%esi), %ebx
-; X86-GENERIC-NEXT:    .p2align 4, 0x90
-; X86-GENERIC-NEXT:  .LBB12_1: # %atomicrmw.start
-; X86-GENERIC-NEXT:    # =>This Inner Loop Header: Depth=1
-; X86-GENERIC-NEXT:    movl %edx, (%esp)
-; X86-GENERIC-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %edi, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %edi, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    movl %edx, {{[0-9]+}}(%esp)
-; X86-GENERIC-NEXT:    pushl $5
-; X86-GENERIC-NEXT:    pushl $5
-; X86-GENERIC-NEXT:    leal {{[0-9]+}}(%esp), %eax
-; X86-GENERIC-NEXT:    pushl %eax
-; X86-GENERIC-NEXT:    leal {{[0-9]+}}(%esp), %eax
-; X86-GENERIC-NEXT:    pushl %eax
-; X86-GENERIC-NEXT:    pushl %esi
-; X86-GENERIC-NEXT:    pushl $16
-; X86-GENERIC-NEXT:    calll __atomic_compare_exchange@PLT
-; X86-GENERIC-NEXT:    addl $24, %esp
-; X86-GENERIC-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-GENERIC-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X86-GENERIC-NEXT:    movl (%esp), %edx
-; X86-GENERIC-NEXT:    movl {{[0-9]+}}(%esp), %ebx
-; X86-GENERIC-NEXT:    testb %al, %al
-; X86-GENERIC-NEXT:    je .LBB12_1
-; X86-GENERIC-NEXT:  # %bb.2: # %atomicrmw.end
-; X86-GENERIC-NEXT:    leal -12(%ebp), %esp
-; X86-GENERIC-NEXT:    popl %esi
-; X86-GENERIC-NEXT:    popl %edi
-; X86-GENERIC-NEXT:    popl %ebx
-; X86-GENERIC-NEXT:    popl %ebp
-; X86-GENERIC-NEXT:    .cfi_def_cfa %esp, 4
-; X86-GENERIC-NEXT:    retl
+; X86-SSE2-LABEL: or128_nouse_seq_cst:
+; X86-SSE2:       # %bb.0:
+; X86-SSE2-NEXT:    pushl %ebp
+; X86-SSE2-NEXT:    .cfi_def_cfa_offset 8
+; X86-SSE2-NEXT:    .cfi_offset %ebp, -8
+; X86-SSE2-NEXT:    movl %esp, %ebp
+; X86-SSE2-NEXT:    .cfi_def_cfa_register %ebp
+; X86-SSE2-NEXT:    pushl %ebx
+; X86-SSE2-NEXT:    pushl %edi
+; X86-SSE2-NEXT:    pushl %esi
+; X86-SSE2-NEXT:    andl $-16, %esp
+; X86-SSE2-NEXT:    subl $64, %esp
+; X86-SSE2-NEXT:    .cfi_offset %esi, -20
+; X86-SSE2-NEXT:    .cfi_offset %edi, -16
+; X86-SSE2-NEXT:    .cfi_offset %ebx, -12
+; X86-SSE2-NEXT:    movl 8(%ebp), %esi
+; X86-SSE2-NEXT:    movl 12(%esi), %ecx
+; X86-SSE2-NEXT:    movl 8(%esi), %edx
+; X86-SSE2-NEXT:    movl (%esi), %edi
+; X86-SSE2-NEXT:    movl 4(%esi), %ebx
+; X86-SSE2-NEXT:    .p2align 4, 0x90
+; X86-SSE2-NEXT:  .LBB12_1: # %atomicrmw.start
+; X86-SSE2-NEXT:    # =>This Inner Loop Header: Depth=1
+; X86-SSE2-NEXT:    movl %edi, (%esp)
+; X86-SSE2-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %edx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %edi, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %ebx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %edx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    pushl $5
+; X86-SSE2-NEXT:    pushl $5
+; X86-SSE2-NEXT:    leal {{[0-9]+}}(%esp), %eax
+; X86-SSE2-NEXT:    pushl %eax
+; X86-SSE2-NEXT:    leal {{[0-9]+}}(%esp), %eax
+; X86-SSE2-NEXT:    pushl %eax
+; X86-SSE2-NEXT:    pushl %esi
+; X86-SSE2-NEXT:    pushl $16
+; X86-SSE2-NEXT:    calll __atomic_compare_exchange@PLT
+; X86-SSE2-NEXT:    addl $24, %esp
+; X86-SSE2-NEXT:    movaps (%esp), %xmm0
+; X86-SSE2-NEXT:    movaps %xmm0, {{[0-9]+}}(%esp)
+; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %edx
+; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %edi
+; X86-SSE2-NEXT:    movl {{[0-9]+}}(%esp), %ebx
+; X86-SSE2-NEXT:    testb %al, %al
+; X86-SSE2-NEXT:    jne .LBB12_1
+; X86-SSE2-NEXT:  # %bb.2: # %atomicrmw.end
+; X86-SSE2-NEXT:    leal -12(%ebp), %esp
+; X86-SSE2-NEXT:    popl %esi
+; X86-SSE2-NEXT:    popl %edi
+; X86-SSE2-NEXT:    popl %ebx
+; X86-SSE2-NEXT:    popl %ebp
+; X86-SSE2-NEXT:    .cfi_def_cfa %esp, 4
+; X86-SSE2-NEXT:    retl
 ;
 ; X86-ATOM-LABEL: or128_nouse_seq_cst:
 ; X86-ATOM:       # %bb.0:
@@ -610,10 +616,10 @@ define void @or128_nouse_seq_cst(ptr %p) {
 ; X86-ATOM-NEXT:    movl %edi, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    movl %edx, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X86-ATOM-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
-; X86-ATOM-NEXT:    movl %edx, {{[0-9]+}}(%esp)
-; X86-ATOM-NEXT:    movl %edi, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    movl %eax, {{[0-9]+}}(%esp)
+; X86-ATOM-NEXT:    movl %edi, {{[0-9]+}}(%esp)
+; X86-ATOM-NEXT:    movl %edx, {{[0-9]+}}(%esp)
+; X86-ATOM-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    pushl $5
 ; X86-ATOM-NEXT:    pushl $5
 ; X86-ATOM-NEXT:    leal {{[0-9]+}}(%esp), %eax
@@ -623,12 +629,14 @@ define void @or128_nouse_seq_cst(ptr %p) {
 ; X86-ATOM-NEXT:    pushl $16
 ; X86-ATOM-NEXT:    calll __atomic_compare_exchange@PLT
 ; X86-ATOM-NEXT:    leal {{[0-9]+}}(%esp), %esp
+; X86-ATOM-NEXT:    movaps (%esp), %xmm0
 ; X86-ATOM-NEXT:    testb %al, %al
+; X86-ATOM-NEXT:    movaps %xmm0, {{[0-9]+}}(%esp)
 ; X86-ATOM-NEXT:    movl {{[0-9]+}}(%esp), %ecx
 ; X86-ATOM-NEXT:    movl {{[0-9]+}}(%esp), %edx
-; X86-ATOM-NEXT:    movl (%esp), %eax
+; X86-ATOM-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; X86-ATOM-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X86-ATOM-NEXT:    je .LBB12_1
+; X86-ATOM-NEXT:    jne .LBB12_1
 ; X86-ATOM-NEXT:  # %bb.2: # %atomicrmw.end
 ; X86-ATOM-NEXT:    leal -12(%ebp), %esp
 ; X86-ATOM-NEXT:    popl %esi

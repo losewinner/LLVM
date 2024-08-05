@@ -33,10 +33,12 @@ define void @t1(ptr nocapture %p) nounwind ssp {
 ; I486-NEXT:    pushl %ebp
 ; I486-NEXT:    movl %esp, %ebp
 ; I486-NEXT:    andl $-8, %esp
-; I486-NEXT:    subl $8, %esp
+; I486-NEXT:    subl $24, %esp
 ; I486-NEXT:    movl 8(%ebp), %eax
 ; I486-NEXT:    movl $0, {{[0-9]+}}(%esp)
 ; I486-NEXT:    movl $0, (%esp)
+; I486-NEXT:    movl $0, {{[0-9]+}}(%esp)
+; I486-NEXT:    movl $1, {{[0-9]+}}(%esp)
 ; I486-NEXT:    movl %esp, %ecx
 ; I486-NEXT:    pushl $5
 ; I486-NEXT:    pushl $5
@@ -46,6 +48,10 @@ define void @t1(ptr nocapture %p) nounwind ssp {
 ; I486-NEXT:    pushl %eax
 ; I486-NEXT:    calll __atomic_compare_exchange_8@PLT
 ; I486-NEXT:    addl $24, %esp
+; I486-NEXT:    movl (%esp), %eax
+; I486-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; I486-NEXT:    movl %eax, {{[0-9]+}}(%esp)
+; I486-NEXT:    movl %ecx, {{[0-9]+}}(%esp)
 ; I486-NEXT:    movl %ebp, %esp
 ; I486-NEXT:    popl %ebp
 ; I486-NEXT:    retl

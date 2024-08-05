@@ -60,6 +60,7 @@ std::string VecDesc::getVectorFunctionABIVariantString() const {
 enum FuncArgTypeID : char {
   Void = 0, // Must be zero.
   Bool,     // 8 bits on all targets
+  Int8,
   Int16,
   Int32,
   Int,
@@ -70,6 +71,7 @@ enum FuncArgTypeID : char {
   LLong,    // 64 bits on all targets.
   SizeT,    // size_t.
   SSizeT,   // POSIX ssize_t.
+  Int128,
   Flt,      // IEEE float.
   Dbl,      // IEEE double.
   LDbl,     // Any floating type (TODO: tighten this up).
@@ -202,6 +204,11 @@ static void initializeLibCalls(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.disableAllFunctions();
     TLI.setAvailable(llvm::LibFunc___kmpc_alloc_shared);
     TLI.setAvailable(llvm::LibFunc___kmpc_free_shared);
+
+    // FIXME: Some regression tests require this function, even though it is not
+    // supported.
+    TLI.setAvailable(llvm::LibFunc_atomic_compare_exchange);
+
     return;
   }
 
@@ -1004,6 +1011,7 @@ static bool matchType(FuncArgTypeID ArgTy, const Type *Ty, unsigned IntBits,
   case Void:
     return Ty->isVoidTy();
   case Bool:
+  case Int8:
     return Ty->isIntegerTy(8);
   case Int16:
     return Ty->isIntegerTy(16);
@@ -1025,6 +1033,8 @@ static bool matchType(FuncArgTypeID ArgTy, const Type *Ty, unsigned IntBits,
   case SizeT:
   case SSizeT:
     return Ty->isIntegerTy(SizeTBits);
+  case Int128:
+    return Ty->isIntegerTy(128);
   case Flt:
     return Ty->isFloatTy();
   case Dbl:

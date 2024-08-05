@@ -11,17 +11,26 @@
 // CHECK-NEXT:    [[A_ADDR:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[B_ADDR:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[C_ADDR:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[ATOMIC_TEMP:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[ATOMIC_TEMP1:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[ATOMIC_TEMP2:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    store i32 [[A:%.*]], ptr [[A_ADDR]], align 4
 // CHECK-NEXT:    store i32 [[B:%.*]], ptr [[B_ADDR]], align 4
 // CHECK-NEXT:    store i32 [[C:%.*]], ptr [[C_ADDR]], align 4
 // CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[B_ADDR]], align 4
 // CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[C_ADDR]], align 4
-// CHECK-NEXT:    [[TMP2:%.*]] = cmpxchg weak volatile ptr [[A_ADDR]], i32 [[TMP0]], i32 [[TMP1]] monotonic monotonic, align 4
-// CHECK-NEXT:    [[TMP3:%.*]] = extractvalue { i32, i1 } [[TMP2]], 0
-// CHECK-NEXT:    [[TMP4:%.*]] = extractvalue { i32, i1 } [[TMP2]], 1
-// CHECK-NEXT:    store i32 [[TMP3]], ptr [[B_ADDR]], align 4
-// CHECK-NEXT:    [[TMP5:%.*]] = zext i1 [[TMP4]] to i32
-// CHECK-NEXT:    ret i32 [[TMP5]]
+// CHECK-NEXT:    store volatile i32 [[TMP0]], ptr [[ATOMIC_TEMP]], align 4
+// CHECK-NEXT:    store volatile i32 [[TMP1]], ptr [[ATOMIC_TEMP1]], align 4
+// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i32, ptr [[ATOMIC_TEMP]], align 4
+// CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i32, ptr [[ATOMIC_TEMP1]], align 4
+// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg weak volatile ptr [[A_ADDR]], i32 [[CMPXCHG_EXPECTED]], i32 [[CMPXCHG_DESIRED]] monotonic monotonic, align 4
+// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 0
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i32, i1 } [[CMPXCHG_PAIR]], 1
+// CHECK-NEXT:    store i32 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP2]], align 4
+// CHECK-NEXT:    [[TMP2:%.*]] = load volatile i32, ptr [[ATOMIC_TEMP2]], align 4
+// CHECK-NEXT:    store i32 [[TMP2]], ptr [[B_ADDR]], align 4
+// CHECK-NEXT:    [[TMP3:%.*]] = zext i1 [[CMPXCHG_SUCCESS]] to i32
+// CHECK-NEXT:    ret i32 [[TMP3]]
 //
 int test_builtin_ppc_compare_and_swap(int a, int b, int c) {
   return __compare_and_swap(&a, &b, c);
@@ -33,17 +42,26 @@ int test_builtin_ppc_compare_and_swap(int a, int b, int c) {
 // CHECK-NEXT:    [[A_ADDR:%.*]] = alloca i64, align 8
 // CHECK-NEXT:    [[B_ADDR:%.*]] = alloca i64, align 8
 // CHECK-NEXT:    [[C_ADDR:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[ATOMIC_TEMP:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[ATOMIC_TEMP1:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[ATOMIC_TEMP2:%.*]] = alloca i64, align 8
 // CHECK-NEXT:    store i64 [[A:%.*]], ptr [[A_ADDR]], align 8
 // CHECK-NEXT:    store i64 [[B:%.*]], ptr [[B_ADDR]], align 8
 // CHECK-NEXT:    store i64 [[C:%.*]], ptr [[C_ADDR]], align 8
 // CHECK-NEXT:    [[TMP0:%.*]] = load i64, ptr [[B_ADDR]], align 8
 // CHECK-NEXT:    [[TMP1:%.*]] = load i64, ptr [[C_ADDR]], align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = cmpxchg weak volatile ptr [[A_ADDR]], i64 [[TMP0]], i64 [[TMP1]] monotonic monotonic, align 8
-// CHECK-NEXT:    [[TMP3:%.*]] = extractvalue { i64, i1 } [[TMP2]], 0
-// CHECK-NEXT:    [[TMP4:%.*]] = extractvalue { i64, i1 } [[TMP2]], 1
-// CHECK-NEXT:    store i64 [[TMP3]], ptr [[B_ADDR]], align 8
-// CHECK-NEXT:    [[TMP5:%.*]] = zext i1 [[TMP4]] to i32
-// CHECK-NEXT:    ret i32 [[TMP5]]
+// CHECK-NEXT:    store volatile i64 [[TMP0]], ptr [[ATOMIC_TEMP]], align 8
+// CHECK-NEXT:    store volatile i64 [[TMP1]], ptr [[ATOMIC_TEMP1]], align 8
+// CHECK-NEXT:    [[CMPXCHG_EXPECTED:%.*]] = load i64, ptr [[ATOMIC_TEMP]], align 8
+// CHECK-NEXT:    [[CMPXCHG_DESIRED:%.*]] = load i64, ptr [[ATOMIC_TEMP1]], align 8
+// CHECK-NEXT:    [[CMPXCHG_PAIR:%.*]] = cmpxchg weak volatile ptr [[A_ADDR]], i64 [[CMPXCHG_EXPECTED]], i64 [[CMPXCHG_DESIRED]] monotonic monotonic, align 8
+// CHECK-NEXT:    [[CMPXCHG_PREV:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 0
+// CHECK-NEXT:    [[CMPXCHG_SUCCESS:%.*]] = extractvalue { i64, i1 } [[CMPXCHG_PAIR]], 1
+// CHECK-NEXT:    store i64 [[CMPXCHG_PREV]], ptr [[ATOMIC_TEMP2]], align 8
+// CHECK-NEXT:    [[TMP2:%.*]] = load volatile i64, ptr [[ATOMIC_TEMP2]], align 8
+// CHECK-NEXT:    store i64 [[TMP2]], ptr [[B_ADDR]], align 8
+// CHECK-NEXT:    [[TMP3:%.*]] = zext i1 [[CMPXCHG_SUCCESS]] to i32
+// CHECK-NEXT:    ret i32 [[TMP3]]
 //
 int test_builtin_ppc_compare_and_swaplp(long a, long b, long c) {
   return __compare_and_swaplp(&a, &b, c);
