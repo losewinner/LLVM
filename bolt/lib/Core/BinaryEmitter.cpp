@@ -54,6 +54,12 @@ FunctionPadSpec("pad-funcs",
   cl::Hidden,
   cl::cat(BoltCategory));
 
+static cl::list<std::string> FunctionPadBeforeSpec(
+    "pad-funcs-before", cl::CommaSeparated,
+    cl::desc("list of functions to pad with amount of bytes"),
+    cl::value_desc("func1:pad1,func2:pad2,func3:pad3,..."), cl::Hidden,
+    cl::cat(BoltCategory));
+
 static cl::opt<bool> MarkFuncs(
     "mark-funcs",
     cl::desc("mark function boundaries with break instruction to make "
@@ -75,6 +81,30 @@ size_t padFunction(const BinaryFunction &Function) {
 
   if (FunctionPadding.empty() && !FunctionPadSpec.empty()) {
     for (std::string &Spec : FunctionPadSpec) {
+      size_t N = Spec.find(':');
+      if (N == std::string::npos)
+        continue;
+      std::string Name = Spec.substr(0, N);
+      size_t Padding = std::stoull(Spec.substr(N + 1));
+      FunctionPadding[Name] = Padding;
+    }
+  }
+
+  for (auto &FPI : FunctionPadding) {
+    std::string Name = FPI.first;
+    size_t Padding = FPI.second;
+    if (Function.hasNameRegex(Name))
+      return Padding;
+  }
+
+  return 0;
+}
+
+size_t padFunctionBefore(const BinaryFunction &Function) {
+  static std::map<std::string, size_t> FunctionPadding;
+
+  if (FunctionPadding.empty() && !FunctionPadBeforeSpec.empty()) {
+    for (std::string &Spec : FunctionPadBeforeSpec) {
       size_t N = Spec.find(':');
       if (N == std::string::npos)
         continue;
@@ -317,6 +347,36 @@ bool BinaryEmitter::emitFunction(BinaryFunction &Function,
       Streamer.emitCodeAlignment(Function.getAlign(), &*BC.STI, MaxAlignBytes);
   } else {
     Streamer.emitCodeAlignment(Function.getAlign(), &*BC.STI);
+  }
+
+  if (size_t Padding = opts::padFunctionBefore(Function)) {
+    // Handle padFuncsBefore after the above alignment logic but before
+    // symbol addresses are decided; with the intent that the nops are
+    // not executed and the original alignment logic is preserved.
+    if (!BC.HasRelocations) {
+      errs() << "BOLT-ERROR: -pad-before-funcs is not supported in "
+             << "non-relocation mode\n";
+      exit(1);
+    }
+
+    // Preserve Function.getMinAlign().
+    if (!isAligned(Function.getMinAlign(), Padding)) {
+      errs() << "BOLT-ERROR: User-requested " << Padding
+             << " padding bytes before function " << Function
+             << " is not a multiple of the minimum function alignment ("
+             << Function.getMinAlign().value() << ").\n";
+      exit(1);
+    }
+
+    LLVM_DEBUG(dbgs() << "BOLT-DEBUG: padding function " << Function << " with "
+                      << Padding << " bytes\n");
+
+    // Since the padding is not executed, it can be null bytes.
+    Streamer.emitFill(Padding, 0);
+
+    Function.setMaxSize(Function.getMaxSize() + Padding);
+    Function.setSize(Function.getSize() + Padding);
+    Function.setImageSize(Function.getImageSize() + Padding);
   }
 
   MCContext &Context = Streamer.getContext();
