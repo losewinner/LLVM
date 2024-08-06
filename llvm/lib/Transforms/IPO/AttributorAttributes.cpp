@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/Transforms/IPO/Attributor.h"
 
 #include "llvm/ADT/APInt.h"
@@ -850,7 +852,12 @@ struct AA::PointerInfo::State : public AbstractState {
   ChangeStatus addAccess(Attributor &A, const AAPointerInfo::RangeList &Ranges,
                          Instruction &I, std::optional<Value *> Content,
                          AAPointerInfo::AccessKind Kind, Type *Ty,
+                         AAPointerInfo::OffsetInfoMapTy &OffsetInfoMap,
                          Instruction *RemoteI = nullptr);
+
+  AAPointerInfo::AccessPathSetTy *
+  findAllAccessPaths(AAPointerInfo::OffsetInfoMapTy &OffsetInfoMap,
+                     Instruction *LocalI);
 
   AAPointerInfo::const_bin_iterator begin() const { return OffsetBins.begin(); }
   AAPointerInfo::const_bin_iterator end() const { return OffsetBins.end(); }
@@ -926,10 +933,95 @@ private:
   BooleanState BS;
 };
 
+AAPointerInfo::AccessPathSetTy *AA::PointerInfo::State::findAllAccessPaths(
+    AAPointerInfo::OffsetInfoMapTy &OffsetInfoMap, Instruction *LocalI) {
+  AAPointerInfo::AccessPathSetTy *AccessPathsSet =
+      new AAPointerInfo::AccessPathSetTy();
+
+  // Store the instruction and its storage (i.e, which path it belongs to)
+  // on the stack.
+  // We also store the visited map on the stack.
+  // Since we want to find new paths, we want to make sure an instruction is
+  // not visited twice on the same path. However, we can visit the same
+  // instruction more that once if it exists on different paths.
+  using VisitedTy = SmallPtrSet<Value *, 4>;
+  using StackElementTy =
+      std::tuple<Value *, AAPointerInfo::AccessPathTy *, VisitedTy>;
+
+  SmallVector<StackElementTy, 16> Stack;
+
+  // Populate the stack with elements.
+  for (auto *It = LocalI->op_begin(); It != LocalI->op_end(); It++) {
+    Value *V = cast<Value>(It);
+    if (!OffsetInfoMap.contains(V))
+      continue;
+
+    SmallPtrSet<Value *, 4> LocalVisitedMap;
+    AAPointerInfo::AccessPathTy *NewPath = new AAPointerInfo::AccessPathTy();
+    AccessPathsSet->insert(NewPath);
+    NewPath->push_back(LocalI);
+    Stack.push_back(std::make_tuple(V, NewPath, LocalVisitedMap));
+  }
+
+  while (!Stack.empty()) {
+    auto Entry = Stack.pop_back_val();
+    Value *Top = std::get<0>(Entry);
+    AAPointerInfo::AccessPathTy *CurrentChain = std::get<1>(Entry);
+    auto &Visited = std::get<2>(Entry);
+
+    if (!OffsetInfoMap.contains(Top))
+      continue;
+
+    if (!Visited.insert(Top).second)
+      continue;
+
+    CurrentChain->push_back(Top);
+    auto OI = OffsetInfoMap.lookup(Top);
+    auto &Origins = OI.Origins;
+
+    SmallPtrSet<Value *, 16> Successors;
+    for (auto &Origin : Origins) {
+      for (auto *Val : Origin) {
+        // Since we store depth 1 predecessors in our Origins map
+        // We can be sure that we hit termination condition if the
+        // Successor is the current instruction.
+        if (Val != Top)
+          Successors.insert(Val);
+      }
+    }
+
+    if (Successors.empty())
+      continue;
+
+    // Create new paths to be forked
+    SmallVector<AAPointerInfo::AccessPathTy *> NewPaths;
+    NewPaths.push_back(CurrentChain);
+    for (size_t Index = 1; Index < Successors.size(); Index++) {
+      AAPointerInfo::AccessPathTy *NewPath = new AAPointerInfo::AccessPathTy(
+          CurrentChain->begin(), CurrentChain->end());
+      NewPaths.push_back(NewPath);
+    }
+
+    int Index = 0;
+    // Traverse the successors
+    for (auto *Successor : Successors) {
+      AAPointerInfo::AccessPathTy *NextChain = NewPaths[Index];
+      AccessPathsSet->insert(NextChain);
+      // Push successors to traverse and their corresponding storage on
+      // stack.
+      VisitedTy NewVisitedSet(Visited.begin(), Visited.end());
+      Stack.push_back(std::make_tuple(Successor, NextChain, NewVisitedSet));
+      Index++;
+    }
+  }
+
+  return AccessPathsSet;
+}
+
 ChangeStatus AA::PointerInfo::State::addAccess(
     Attributor &A, const AAPointerInfo::RangeList &Ranges, Instruction &I,
     std::optional<Value *> Content, AAPointerInfo::AccessKind Kind, Type *Ty,
-    Instruction *RemoteI) {
+    AAPointerInfo::OffsetInfoMapTy &OffsetInfoMap, Instruction *RemoteI) {
   RemoteI = RemoteI ? RemoteI : &I;
 
   // Check if we have an access for this instruction, if not, simply add it.
@@ -956,7 +1048,11 @@ ChangeStatus AA::PointerInfo::State::addAccess(
   };
 
   if (!AccExists) {
-    AccessList.emplace_back(&I, RemoteI, Ranges, Content, Kind, Ty);
+    AAPointerInfo::AccessPathSetTy *AccessPaths =
+        AA::PointerInfo::State::findAllAccessPaths(OffsetInfoMap, &I);
+    AccessList.emplace_back(&I, RemoteI, Ranges, Content, Kind, Ty,
+                            AccessPaths);
+
     assert((AccessList.size() == AccIndex + 1) &&
            "New Access should have been at AccIndex");
     LocalList.push_back(AccIndex);
@@ -966,13 +1062,18 @@ ChangeStatus AA::PointerInfo::State::addAccess(
 
   // Combine the new Access with the existing Access, and then update the
   // mapping in the offset bins.
-  AAPointerInfo::Access Acc(&I, RemoteI, Ranges, Content, Kind, Ty);
+  AAPointerInfo::AccessPathSetTy *AccessPaths =
+      AA::PointerInfo::State::findAllAccessPaths(OffsetInfoMap, &I);
+  AAPointerInfo::Access Acc(&I, RemoteI, Ranges, Content, Kind, Ty,
+                            AccessPaths);
   auto &Current = AccessList[AccIndex];
   auto Before = Current;
   Current &= Acc;
   if (Current == Before)
     return ChangeStatus::UNCHANGED;
 
+  // Merge the newly generated access paths with the old access paths.
+  Before.mergeAccessPaths(Acc.getAccessChain());
   auto &ExistingRanges = Before.getRanges();
   auto &NewRanges = Current.getRanges();
 
@@ -1002,60 +1103,19 @@ ChangeStatus AA::PointerInfo::State::addAccess(
 
 namespace {
 
-/// A helper containing a list of offsets computed for a Use. Ideally this
-/// list should be strictly ascending, but we ensure that only when we
-/// actually translate the list of offsets to a RangeList.
-struct OffsetInfo {
-  using VecTy = SmallVector<int64_t>;
-  using const_iterator = VecTy::const_iterator;
-  VecTy Offsets;
-
-  const_iterator begin() const { return Offsets.begin(); }
-  const_iterator end() const { return Offsets.end(); }
-
-  bool operator==(const OffsetInfo &RHS) const {
-    return Offsets == RHS.Offsets;
-  }
-
-  bool operator!=(const OffsetInfo &RHS) const { return !(*this == RHS); }
-
-  void insert(int64_t Offset) { Offsets.push_back(Offset); }
-  bool isUnassigned() const { return Offsets.size() == 0; }
-
-  bool isUnknown() const {
-    if (isUnassigned())
-      return false;
-    if (Offsets.size() == 1)
-      return Offsets.front() == AA::RangeTy::Unknown;
-    return false;
-  }
-
-  void setUnknown() {
-    Offsets.clear();
-    Offsets.push_back(AA::RangeTy::Unknown);
-  }
-
-  void addToAll(int64_t Inc) {
-    for (auto &Offset : Offsets) {
-      Offset += Inc;
-    }
-  }
-
-  /// Copy offsets from \p R into the current list.
-  ///
-  /// Ideally all lists should be strictly ascending, but we defer that to the
-  /// actual use of the list. So we just blindly append here.
-  void merge(const OffsetInfo &R) { Offsets.append(R.Offsets); }
-};
-
 #ifndef NDEBUG
-static raw_ostream &operator<<(raw_ostream &OS, const OffsetInfo &OI) {
+static raw_ostream &operator<<(raw_ostream &OS,
+                               const AAPointerInfo::OffsetInfo &OI) {
   ListSeparator LS;
-  OS << "[";
+  int I = 0;
   for (auto Offset : OI) {
-    OS << LS << Offset;
+    OS << LS << "[Offset, Size]: " << Offset << "\n";
+    auto &Origin = OI.Origins[I];
+    for (auto *Val : Origin)
+      OS << "Origin: " << *Val << "\n";
   }
-  OS << "]";
+  OS << "\n";
+
   return OS;
 }
 #endif // NDEBUG
@@ -1082,6 +1142,15 @@ struct AAPointerInfoImpl
   virtual const_bin_iterator end() const override { return State::end(); }
   virtual int64_t numOffsetBins() const override {
     return State::numOffsetBins();
+  }
+
+  virtual const Access &getBinAccess(unsigned Index) const override {
+    return getAccess(Index);
+  }
+
+  virtual const DenseMap<Value *, OffsetInfo> &
+  getOffsetInfoMap() const override {
+    return OffsetInfoMap;
   }
 
   bool forallInterferingAccesses(
@@ -1365,7 +1434,8 @@ struct AAPointerInfoImpl
 
   ChangeStatus translateAndAddStateFromCallee(Attributor &A,
                                               const AAPointerInfo &OtherAA,
-                                              CallBase &CB) {
+                                              CallBase &CB,
+                                              OffsetInfoMapTy &OffsetInfoMap) {
     using namespace AA::PointerInfo;
     if (!OtherAA.getState().isValidState() || !isValidState())
       return indicatePessimisticFixpoint();
@@ -1388,15 +1458,16 @@ struct AAPointerInfoImpl
         AK = AccessKind(AK & (IsByval ? AccessKind::AK_R : AccessKind::AK_RW));
         AK = AccessKind(AK | (RAcc.isMayAccess() ? AK_MAY : AK_MUST));
 
-        Changed |= addAccess(A, RAcc.getRanges(), CB, Content, AK,
-                             RAcc.getType(), RAcc.getRemoteInst());
+        Changed |=
+            addAccess(A, RAcc.getRanges(), CB, Content, AK, RAcc.getType(),
+                      OffsetInfoMap, RAcc.getRemoteInst());
       }
     }
     return Changed;
   }
 
   ChangeStatus translateAndAddState(Attributor &A, const AAPointerInfo &OtherAA,
-                                    const OffsetInfo &Offsets, CallBase &CB) {
+                                    const OffsetInfo &Ranges, CallBase &CB) {
     using namespace AA::PointerInfo;
     if (!OtherAA.getState().isValidState() || !isValidState())
       return indicatePessimisticFixpoint();
@@ -1409,28 +1480,31 @@ struct AAPointerInfoImpl
     for (const auto &It : State) {
       for (auto Index : It.getSecond()) {
         const auto &RAcc = State.getAccess(Index);
-        for (auto Offset : Offsets) {
-          auto NewRanges = Offset == AA::RangeTy::Unknown
+        for (auto Range : Ranges) {
+          auto NewRanges = Range.Offset == AA::RangeTy::Unknown
                                ? AA::RangeTy::getUnknown()
                                : RAcc.getRanges();
           if (!NewRanges.isUnknown()) {
-            NewRanges.addToAllOffsets(Offset);
+            NewRanges.addToAllOffsets(Range.Offset);
           }
           Changed |=
               addAccess(A, NewRanges, CB, RAcc.getContent(), RAcc.getKind(),
-                        RAcc.getType(), RAcc.getRemoteInst());
+                        RAcc.getType(), OffsetInfoMap, RAcc.getRemoteInst());
         }
       }
     }
     return Changed;
   }
 
+  // /// Offsets Info Map
+  // DenseMap<Value *, OffsetInfo> OffsetInfoMap;
+
   /// Statistic tracking for all AAPointerInfo implementations.
   /// See AbstractAttribute::trackStatistics().
   void trackPointerInfoStatistics(const IRPosition &IRP) const {}
 
   /// Dump the state into \p O.
-  void dumpState(raw_ostream &O) {
+  virtual void dumpState(raw_ostream &O) const override {
     for (auto &It : OffsetBins) {
       O << "[" << It.first.Offset << "-" << It.first.Offset + It.first.Size
         << "] : " << It.getSecond().size() << "\n";
@@ -1449,9 +1523,11 @@ struct AAPointerInfoImpl
           else
             O << "       - c: <unknown>\n";
         }
+        Acc.dumpAccessPaths(O);
       }
     }
   }
+  OffsetInfoMapTy OffsetInfoMap;
 };
 
 struct AAPointerInfoFloating : public AAPointerInfoImpl {
@@ -1462,8 +1538,8 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
   /// Deal with an access and signal if it was handled successfully.
   bool handleAccess(Attributor &A, Instruction &I,
                     std::optional<Value *> Content, AccessKind Kind,
-                    SmallVectorImpl<int64_t> &Offsets, ChangeStatus &Changed,
-                    Type &Ty) {
+                    OffsetInfo &OI, ChangeStatus &Changed, Type &Ty,
+                    OffsetInfoMapTy &OffsetInfoMap) {
     using namespace AA::PointerInfo;
     auto Size = AA::RangeTy::Unknown;
     const DataLayout &DL = A.getDataLayout();
@@ -1472,16 +1548,23 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
       Size = AccessSize.getFixedValue();
 
     // Make a strictly ascending list of offsets as required by addAccess()
-    llvm::sort(Offsets);
-    auto *Last = llvm::unique(Offsets);
-    Offsets.erase(Last, Offsets.end());
+    auto Ranges = OI.Ranges;
+    auto Origins = OI.Origins;
+
+    llvm::sort(Ranges);
+    auto *Last = llvm::unique(Ranges);
+    Ranges.erase(Last, Ranges.end());
+
+    SmallVector<int64_t> OffsetsOnly;
+    OI.getOnlyOffsets(OffsetsOnly);
 
     VectorType *VT = dyn_cast<VectorType>(&Ty);
     if (!VT || VT->getElementCount().isScalable() ||
         !Content.value_or(nullptr) || !isa<Constant>(*Content) ||
         (*Content)->getType() != VT ||
         DL.getTypeStoreSize(VT->getElementType()).isScalable()) {
-      Changed = Changed | addAccess(A, {Offsets, Size}, I, Content, Kind, &Ty);
+      Changed = Changed | addAccess(A, {OffsetsOnly, Size}, I, Content, Kind,
+                                    &Ty, OffsetInfoMap);
     } else {
       // Handle vector stores with constant content element-wise.
       // TODO: We could look for the elements or create instructions
@@ -1493,7 +1576,8 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
       int64_t ElementSize = DL.getTypeStoreSize(ElementType).getFixedValue();
       auto *ConstContent = cast<Constant>(*Content);
       Type *Int32Ty = Type::getInt32Ty(ElementType->getContext());
-      SmallVector<int64_t> ElementOffsets(Offsets.begin(), Offsets.end());
+      SmallVector<int64_t> ElementOffsets;
+      OI.getOnlyOffsets(ElementOffsets);
 
       for (int i = 0, e = VT->getElementCount().getFixedValue(); i != e; ++i) {
         Value *ElementContent = ConstantExpr::getExtractElement(
@@ -1501,7 +1585,8 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
 
         // Add the element access.
         Changed = Changed | addAccess(A, {ElementOffsets, ElementSize}, I,
-                                      ElementContent, Kind, ElementType);
+                                      ElementContent, Kind, ElementType,
+                                      OffsetInfoMap);
 
         // Advance the offsets for the next element.
         for (auto &ElementOffset : ElementOffsets)
@@ -1520,7 +1605,7 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
   /// \return true iff \p UsrOI is updated.
   bool collectConstantsForGEP(Attributor &A, const DataLayout &DL,
                               OffsetInfo &UsrOI, const OffsetInfo &PtrOI,
-                              const GEPOperator *GEP);
+                              GEPOperator *GEP, Value *CurPtr);
 
   /// See AbstractAttribute::trackStatistics()
   void trackStatistics() const override {
@@ -1528,11 +1613,9 @@ struct AAPointerInfoFloating : public AAPointerInfoImpl {
   }
 };
 
-bool AAPointerInfoFloating::collectConstantsForGEP(Attributor &A,
-                                                   const DataLayout &DL,
-                                                   OffsetInfo &UsrOI,
-                                                   const OffsetInfo &PtrOI,
-                                                   const GEPOperator *GEP) {
+bool AAPointerInfoFloating::collectConstantsForGEP(
+    Attributor &A, const DataLayout &DL, OffsetInfo &UsrOI,
+    const OffsetInfo &PtrOI, GEPOperator *GEP, Value *CurPtr) {
   unsigned BitWidth = DL.getIndexTypeSizeInBits(GEP->getType());
   MapVector<Value *, APInt> VariableOffsets;
   APInt ConstantOffset(BitWidth, 0);
@@ -1542,7 +1625,7 @@ bool AAPointerInfoFloating::collectConstantsForGEP(Attributor &A,
          "determined to be unknown.");
 
   if (!GEP->collectOffset(DL, BitWidth, VariableOffsets, ConstantOffset)) {
-    UsrOI.setUnknown();
+    UsrOI.setUnknown(*CurPtr);
     return true;
   }
 
@@ -1551,7 +1634,9 @@ bool AAPointerInfoFloating::collectConstantsForGEP(Attributor &A,
                     << *GEP << "\n");
 
   auto Union = PtrOI;
-  Union.addToAll(ConstantOffset.getSExtValue());
+  // clear the origins since we just want to keep only one predecessor.
+  Union.Origins.clear();
+  Union.addToAll(ConstantOffset.getSExtValue(), *CurPtr);
 
   // Each VI in VariableOffsets has a set of potential constant values. Every
   // combination of elements, picked one each from these sets, is separately
@@ -1560,7 +1645,7 @@ bool AAPointerInfoFloating::collectConstantsForGEP(Attributor &A,
     auto *PotentialConstantsAA = A.getAAFor<AAPotentialConstantValues>(
         *this, IRPosition::value(*VI.first), DepClassTy::OPTIONAL);
     if (!PotentialConstantsAA || !PotentialConstantsAA->isValidState()) {
-      UsrOI.setUnknown();
+      UsrOI.setUnknown(*CurPtr);
       return true;
     }
 
@@ -1579,14 +1664,16 @@ bool AAPointerInfoFloating::collectConstantsForGEP(Attributor &A,
     OffsetInfo Product;
     for (const auto &ConstOffset : AssumedSet) {
       auto CopyPerOffset = Union;
-      CopyPerOffset.addToAll(ConstOffset.getSExtValue() *
-                             VI.second.getZExtValue());
+      CopyPerOffset.addToAll(
+          ConstOffset.getSExtValue() * VI.second.getZExtValue(), *CurPtr);
       Product.merge(CopyPerOffset);
     }
     Union = Product;
   }
 
   UsrOI = std::move(Union);
+  TypeSize Size = DL.getTypeAllocSize(GEP->getResultElementType());
+  UsrOI.setSizeAll(Size);
   return true;
 }
 
@@ -1595,9 +1682,27 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
   ChangeStatus Changed = ChangeStatus::UNCHANGED;
   const DataLayout &DL = A.getDataLayout();
   Value &AssociatedValue = getAssociatedValue();
+  OffsetInfoMap.clear();
 
-  DenseMap<Value *, OffsetInfo> OffsetInfoMap;
-  OffsetInfoMap[&AssociatedValue].insert(0);
+  uint64_t Size;
+  Function *F = getAssociatedFunction();
+  TargetLibraryInfo *TLI = nullptr;
+  if (F)
+    TLI = A.getInfoCache().getTargetLibraryInfoForFunction(*F);
+
+  if (TLI && getObjectSize(&AssociatedValue, Size, DL, TLI)) {
+    OffsetInfoMap[&AssociatedValue].insert(AA::RangeTy(0, Size),
+                                           AssociatedValue);
+  } else if (isa<GlobalVariable>(AssociatedValue)) {
+    auto &Glob = cast<GlobalVariable>(AssociatedValue);
+    TypeSize SizeOfType = DL.getTypeAllocSize(Glob.getValueType());
+    OffsetInfoMap[&AssociatedValue].insert(AA::RangeTy(0, SizeOfType),
+                                           AssociatedValue);
+  } else {
+    TypeSize SizeOfType = DL.getTypeAllocSize(AssociatedValue.getType());
+    OffsetInfoMap[&AssociatedValue].insert(AA::RangeTy(0, SizeOfType),
+                                           AssociatedValue);
+  }
 
   auto HandlePassthroughUser = [&](Value *Usr, Value *CurPtr, bool &Follow) {
     // One does not simply walk into a map and assign a reference to a possibly
@@ -1616,7 +1721,13 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
     auto &PtrOI = OffsetInfoMap[CurPtr];
     assert(!PtrOI.isUnassigned() &&
            "Cannot pass through if the input Ptr was not visited!");
-    UsrOI.merge(PtrOI);
+    if (isa<PHINode>(Usr) || isa<SelectInst>(Usr)) {
+      UsrOI.mergeWithOffset(PtrOI, *CurPtr);
+    } else {
+      UsrOI = PtrOI;
+      UsrOI.Origins.clear();
+      UsrOI.addToAll(0, *CurPtr);
+    }
     Follow = true;
     return true;
   };
@@ -1649,11 +1760,11 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
 
       if (PtrOI.isUnknown()) {
         Follow = true;
-        UsrOI.setUnknown();
+        UsrOI.setUnknown(*GEP);
         return true;
       }
 
-      Follow = collectConstantsForGEP(A, DL, UsrOI, PtrOI, GEP);
+      Follow = collectConstantsForGEP(A, DL, UsrOI, PtrOI, GEP, CurPtr);
       return true;
     }
     if (isa<PtrToIntInst>(Usr))
@@ -1677,7 +1788,7 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
         LLVM_DEBUG(dbgs() << "[AAPointerInfo] PHI operand offset unknown "
                           << *CurPtr << " in " << *PHI << "\n");
         Follow = !UsrOI.isUnknown();
-        UsrOI.setUnknown();
+        UsrOI.setUnknown(*CurPtr);
         return true;
       }
 
@@ -1688,7 +1799,6 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
         LLVM_DEBUG(dbgs() << "[AAPointerInfo] PHI is invariant (so far)");
         return true;
       }
-
       // Check if the PHI operand can be traced back to AssociatedValue.
       APInt Offset(
           DL.getIndexSizeInBits(CurPtr->getType()->getPointerAddressSpace()),
@@ -1700,7 +1810,7 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
         LLVM_DEBUG(dbgs() << "[AAPointerInfo] PHI operand is too complex "
                           << *CurPtr << " in " << *PHI
                           << " (base: " << *CurPtrBase << ")\n");
-        UsrOI.setUnknown();
+        UsrOI.setUnknown(*CurPtr);
         Follow = true;
         return true;
       }
@@ -1717,7 +1827,7 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
               *PHI->getFunction());
       if (mayBeInCycle(CI, cast<Instruction>(Usr), /* HeaderOnly */ true)) {
         auto BaseOI = It->getSecond();
-        BaseOI.addToAll(Offset.getZExtValue());
+        BaseOI.addToAll(Offset.getZExtValue(), *CurPtr);
         if (IsFirstPHIUser || BaseOI == UsrOI) {
           LLVM_DEBUG(dbgs() << "[AAPointerInfo] PHI is invariant " << *CurPtr
                             << " in " << *Usr << "\n");
@@ -1727,12 +1837,12 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
         LLVM_DEBUG(
             dbgs() << "[AAPointerInfo] PHI operand pointer offset mismatch "
                    << *CurPtr << " in " << *PHI << "\n");
-        UsrOI.setUnknown();
+        UsrOI.setUnknown(*CurPtr);
         Follow = true;
         return true;
       }
 
-      UsrOI.merge(PtrOI);
+      UsrOI.mergeWithOffset(PtrOI, *CurPtr);
       Follow = true;
       return true;
     }
@@ -1746,8 +1856,8 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
       else
         AK = AccessKind(AK | AccessKind::AK_MAY);
       if (!handleAccess(A, *LoadI, /* Content */ nullptr, AK,
-                        OffsetInfoMap[CurPtr].Offsets, Changed,
-                        *LoadI->getType()))
+                        OffsetInfoMap[CurPtr], Changed, *LoadI->getType(),
+                        OffsetInfoMap))
         return false;
 
       auto IsAssumption = [](Instruction &I) {
@@ -1831,9 +1941,9 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
         Content =
             A.getAssumedSimplified(*Assumption.first, *this,
                                    UsedAssumedInformation, AA::Interprocedural);
-      return handleAccess(
-          A, *Assumption.second, Content, AccessKind::AK_ASSUMPTION,
-          OffsetInfoMap[CurPtr].Offsets, Changed, *LoadI->getType());
+      return handleAccess(A, *Assumption.second, Content,
+                          AccessKind::AK_ASSUMPTION, OffsetInfoMap[CurPtr],
+                          Changed, *LoadI->getType(), OffsetInfoMap);
     }
 
     auto HandleStoreLike = [&](Instruction &I, Value *ValueOp, Type &ValueTy,
@@ -1859,8 +1969,8 @@ ChangeStatus AAPointerInfoFloating::updateImpl(Attributor &A) {
       if (ValueOp)
         Content = A.getAssumedSimplified(
             *ValueOp, *this, UsedAssumedInformation, AA::Interprocedural);
-      return handleAccess(A, I, Content, AK, OffsetInfoMap[CurPtr].Offsets,
-                          Changed, ValueTy);
+      return handleAccess(A, I, Content, AK, OffsetInfoMap[CurPtr], Changed,
+                          ValueTy, OffsetInfoMap);
     };
 
     if (auto *StoreI = dyn_cast<StoreInst>(Usr))
@@ -1983,8 +2093,8 @@ struct AAPointerInfoCallSiteArgument final : AAPointerInfoFloating {
       } else {
         auto Kind =
             ArgNo == 0 ? AccessKind::AK_MUST_WRITE : AccessKind::AK_MUST_READ;
-        Changed =
-            Changed | addAccess(A, {0, LengthVal}, *MI, nullptr, Kind, nullptr);
+        Changed = Changed | addAccess(A, {0, LengthVal}, *MI, nullptr, Kind,
+                                      nullptr, OffsetInfoMap);
       }
       LLVM_DEBUG({
         dbgs() << "Accesses by bin after update:\n";
@@ -2004,8 +2114,8 @@ struct AAPointerInfoCallSiteArgument final : AAPointerInfoFloating {
       auto *ArgAA =
           A.getAAFor<AAPointerInfo>(*this, ArgPos, DepClassTy::REQUIRED);
       if (ArgAA && ArgAA->getState().isValidState())
-        return translateAndAddStateFromCallee(A, *ArgAA,
-                                              *cast<CallBase>(getCtxI()));
+        return translateAndAddStateFromCallee(
+            A, *ArgAA, *cast<CallBase>(getCtxI()), OffsetInfoMap);
       if (!Arg->getParent()->isDeclaration())
         return indicatePessimisticFixpoint();
     }
@@ -2022,7 +2132,7 @@ struct AAPointerInfoCallSiteArgument final : AAPointerInfoFloating {
     auto Kind =
         ReadOnly ? AccessKind::AK_MAY_READ : AccessKind::AK_MAY_READ_WRITE;
     return addAccess(A, AA::RangeTy::getUnknown(), *getCtxI(), nullptr, Kind,
-                     nullptr);
+                     nullptr, OffsetInfoMap);
   }
 
   /// See AbstractAttribute::trackStatistics()
@@ -12679,6 +12789,11 @@ struct AAAllocationInfoImpl : public AAAllocationInfo {
     return AssumedAllocatedSize;
   }
 
+  const NewOffsetsTy &getNewOffsets() const override {
+    assert(isValidState() && "the AA is invalid");
+    return NewComputedOffsets;
+  }
+
   std::optional<TypeSize> findInitialAllocationSize(Instruction *I,
                                                     const DataLayout &DL) {
 
@@ -12723,40 +12838,51 @@ struct AAAllocationInfoImpl : public AAAllocationInfo {
     if (!AllocationSize)
       return indicatePessimisticFixpoint();
 
-    // For zero sized allocations, we give up.
-    // Since we can't reduce further
+    // For zero sized allocations, we give up
+    // because we cannot reduce them any further.
     if (*AllocationSize == 0)
       return indicatePessimisticFixpoint();
 
-    int64_t BinSize = PI->numOffsetBins();
-
-    // TODO: implement for multiple bins
-    if (BinSize > 1)
-      return indicatePessimisticFixpoint();
-
-    if (BinSize == 0) {
+    int64_t NumBins = PI->numOffsetBins();
+    if (NumBins == 0) {
       auto NewAllocationSize = std::optional<TypeSize>(TypeSize(0, false));
       if (!changeAllocationSize(NewAllocationSize))
         return ChangeStatus::UNCHANGED;
       return ChangeStatus::CHANGED;
     }
 
-    // TODO: refactor this to be part of multiple bin case
-    const auto &It = PI->begin();
+    // For each access bin we compute its new start offset
+    // and store the results in a new map (NewOffsetBins).
+    // NewOffsetsBins is a Map from AA::RangeTy OldRange to AA::RangeTy
+    // NewRange.
+    unsigned long PrevBinEndOffset = 0;
+    bool ChangedOffsets = false;
+    for (AAPointerInfo::OffsetBinsTy::const_iterator It = PI->begin();
+         It != PI->end(); It++) {
+      const AA::RangeTy &OldRange = It->getFirst();
 
-    // TODO: handle if Offset is not zero
-    if (It->first.Offset != 0)
-      return indicatePessimisticFixpoint();
+      // If any byte range has an unknown offset or size, we should leave the
+      // original allocation unmodified.
+      if (OldRange.offsetOrSizeAreUnknown())
+        return indicatePessimisticFixpoint();
 
-    uint64_t SizeOfBin = It->first.Offset + It->first.Size;
+      unsigned long NewStartOffset = PrevBinEndOffset;
+      unsigned long NewEndOffset = NewStartOffset + OldRange.Size;
+      PrevBinEndOffset = NewEndOffset;
 
-    if (SizeOfBin >= *AllocationSize)
-      return indicatePessimisticFixpoint();
+      ChangedOffsets |= setNewOffsets(OldRange, OldRange.Offset, NewStartOffset,
+                                      OldRange.Size);
+    }
 
+    // Set the new size of the allocation. The new size of the Allocation should
+    // be the size of PrevBinEndOffset * 8 in bits.
     auto NewAllocationSize =
-        std::optional<TypeSize>(TypeSize(SizeOfBin * 8, false));
+        std::optional<TypeSize>(TypeSize(PrevBinEndOffset * 8, false));
 
     if (!changeAllocationSize(NewAllocationSize))
+      return ChangeStatus::UNCHANGED;
+
+    if (!ChangedOffsets)
       return ChangeStatus::UNCHANGED;
 
     return ChangeStatus::CHANGED;
@@ -12768,39 +12894,314 @@ struct AAAllocationInfoImpl : public AAAllocationInfo {
     assert(isValidState() &&
            "Manifest should only be called if the state is valid.");
 
-    Instruction *I = getIRPosition().getCtxI();
+    bool Changed = false;
+    const IRPosition &IRP = getIRPosition();
+    Instruction *I = IRP.getCtxI();
 
-    auto FixedAllocatedSizeInBits = getAllocatedSize()->getFixedValue();
+    // Check if simplified values exist.
+    if (checkIfSimplifiedValuesExists(A, I))
+      return ChangeStatus::UNCHANGED;
 
+    if (getAllocatedSize() == HasNoAllocationSize)
+      return ChangeStatus::UNCHANGED;
+
+    const AAPointerInfo *PI =
+        A.getOrCreateAAFor<AAPointerInfo>(IRP, *this, DepClassTy::REQUIRED);
+
+    if (!PI)
+      return ChangeStatus::UNCHANGED;
+
+    assert(PI->getState().isValidState() &&
+           "[AAAllocationinfo]: AAPointerinfo was not in valid state!");
+
+    // Store a map where each instruction is mapped to a map containing
+    // old bins accessed by that instruction to the corresponding new
+    // bins in the allocation.
+    DenseMap<Instruction *, DenseMap<AA::RangeTy, AA::RangeTy>>
+        AccessedInstructionsToBinsMap;
+
+    auto AddBins =
+        [](DenseMap<Instruction *, DenseMap<AA::RangeTy, AA::RangeTy>> &Map,
+           Instruction *LocalInst, const AA::RangeTy &OldRange,
+           const AA::RangeTy &NewRange) {
+          DenseMap<AA::RangeTy, AA::RangeTy> &NewBinsForInstruction =
+              Map.getOrInsertDefault(LocalInst);
+
+          NewBinsForInstruction.insert(std::make_pair(OldRange, NewRange));
+        };
+
+    const auto &NewOffsetsMap = getNewOffsets();
+    const auto &OffsetInfoMap = PI->getOffsetInfoMap();
+
+    // Map access causing instructions to a tuple of (Old, New) bins.
+    // The access causing instruction contains the pointer operand
+    // which comes from the allocation we may want to backtrack that
+    // pointer operand, there are 2 cases that may arise.
+    // A) A GEP exists that calculates the pointer operand from the original
+    // allocation instruction: I
+    // B) A GEP does not exists in which case we need to insert a GEP just
+    // before the access causing instruction with the shift value from the
+    // original offset.
+    for (AAPointerInfo::OffsetBinsTy::const_iterator It = PI->begin();
+         It != PI->end(); It++) {
+      const auto &OldOffsetRange = It->getFirst();
+      // If the OldOffsetRange is not in the map, offsets for that bin did not
+      // change. We should just continue and skip changing the offsets in that
+      // case.
+      if (!NewOffsetsMap.contains(OldOffsetRange))
+        continue;
+
+      const auto &NewOffsetRange = NewOffsetsMap.lookup(OldOffsetRange);
+      for (const auto AccIndex : It->getSecond()) {
+        const auto &AccessInstruction = PI->getBinAccess(AccIndex);
+        Instruction *LocalInst = AccessInstruction.getLocalInst();
+
+        if (checkIfSimplifiedValuesExists(A, LocalInst))
+          return ChangeStatus::UNCHANGED;
+
+        if (checkIfAccessChainUsesMultipleBins(A, LocalInst, OffsetInfoMap))
+          return ChangeStatus::UNCHANGED;
+
+        // Check if we can backtrack the access causing instruction to a GEP
+        // from the original allocation, if yes, then we prefer to change the
+        // GEP rather than inserting a new one just before the access causing
+        // instruction.
+        switch (LocalInst->getOpcode()) {
+        case Instruction::Call: {
+          CallInst *CallInstruction = cast<CallInst>(LocalInst);
+          for (auto *It = CallInstruction->op_begin();
+               It != CallInstruction->op_end(); It++) {
+            if (Instruction *OperandInstruction = dyn_cast<Instruction>(It)) {
+              // Operand does not cause an access in the current byte range.
+              if (!OffsetInfoMap.contains(OperandInstruction))
+                continue;
+
+              // Find the old offset and the corresponding new offset for the
+              // call argument.
+              auto OffsetsVecArg =
+                  OffsetInfoMap.lookup(OperandInstruction).Ranges;
+              int64_t OldOffsetArg = OffsetsVecArg.front().Offset;
+              int NewOffsetArg = 0;
+              for (auto OldToNewRange : NewOffsetsMap) {
+                auto Old = OldToNewRange.getFirst();
+                if (Old.Offset == OldOffsetArg)
+                  NewOffsetArg = OldToNewRange.getSecond().Offset;
+              }
+
+              // If the offsets did not change, continue.
+              if (NewOffsetArg == OldOffsetArg)
+                continue;
+
+              // We don't have access to the size of the offset here but it is
+              // ok since we do not need it here.
+              AA::RangeTy &CallArgOldRange = OffsetsVecArg.front();
+              AA::RangeTy CallArgNewRange =
+                  AA::RangeTy(NewOffsetArg, CallArgOldRange.Size);
+
+              // Find the chain the call instruction is part of
+              const AAPointerInfo::AccessPathSetTy *AccessPaths =
+                  AccessInstruction.getAccessChain();
+
+              const AAPointerInfo::AccessPathTy *ChainWithArg = nullptr;
+              for (auto *Chain : *AccessPaths) {
+
+                if (std::find(Chain->begin(), Chain->end(),
+                              OperandInstruction) != Chain->end()) {
+                  ChainWithArg = Chain;
+                }
+              }
+
+              bool BackTrackInstructionToGEP = false;
+              if (ChainWithArg) {
+                bool Exists = false;
+                for (auto *V : *ChainWithArg) {
+
+                  GetElementPtrInst *GepI = dyn_cast<GetElementPtrInst>(V);
+
+                  if (!GepI)
+                    continue;
+
+                  if (AccessedInstructionsToBinsMap.contains(GepI)) {
+                    Exists = true;
+                    continue;
+                  }
+
+                  // check if its a GEP and weather the GEP accesses the
+                  // Allocation
+                  if (GepI->getPointerOperand() == I) {
+                    if (checkIfSimplifiedValuesExists(A, GepI))
+                      return ChangeStatus::UNCHANGED;
+
+                    AddBins(AccessedInstructionsToBinsMap, GepI,
+                            CallArgOldRange, CallArgNewRange);
+                    BackTrackInstructionToGEP = true;
+                  }
+                }
+
+                if (Exists)
+                  continue;
+              }
+
+              if (!BackTrackInstructionToGEP) {
+                AddBins(AccessedInstructionsToBinsMap, OperandInstruction,
+                        CallArgOldRange, CallArgNewRange);
+                continue;
+              }
+            }
+          }
+          break;
+        }
+        default: {
+
+          bool BackTrackInstructionToGEP = false;
+          bool Exists = false;
+          const AAPointerInfo::AccessPathSetTy *AccessPaths =
+              AccessInstruction.getAccessChain();
+          for (auto *Chain : *AccessPaths) {
+            for (auto *V : *Chain) {
+
+              GetElementPtrInst *GepI = dyn_cast<GetElementPtrInst>(V);
+
+              if (!GepI)
+                continue;
+
+              if (AccessedInstructionsToBinsMap.contains(GepI)) {
+                Exists = true;
+                continue;
+              }
+
+              // check if its a GEP and weather the GEP accesses the Allocation
+              if (GepI->getPointerOperand() == I) {
+                if (checkIfSimplifiedValuesExists(A, GepI))
+                  return ChangeStatus::UNCHANGED;
+
+                AddBins(AccessedInstructionsToBinsMap, GepI, OldOffsetRange,
+                        NewOffsetRange);
+                BackTrackInstructionToGEP = true;
+              }
+            }
+          }
+
+          if (Exists)
+            continue;
+
+          if (!BackTrackInstructionToGEP)
+            AddBins(AccessedInstructionsToBinsMap, LocalInst, OldOffsetRange,
+                    NewOffsetRange);
+
+          break;
+        }
+        }
+      }
+    }
+
+    unsigned long FixedAllocatedSizeInBits =
+        getAllocatedSize()->getFixedValue();
     unsigned long NumBytesToAllocate = (FixedAllocatedSizeInBits + 7) / 8;
-
+    Type *NewAllocationType = nullptr;
     switch (I->getOpcode()) {
     // TODO: add case for malloc like calls
     case Instruction::Alloca: {
+      AllocaInst *OldAllocaInst = cast<AllocaInst>(I);
+      const DataLayout &DL = A.getDataLayout();
+      auto OriginalAllocationSize = OldAllocaInst->getAllocationSizeInBits(DL);
 
-      AllocaInst *AI = cast<AllocaInst>(I);
+      if (*OriginalAllocationSize <= FixedAllocatedSizeInBits)
+        return ChangeStatus::UNCHANGED;
 
       Type *CharType = Type::getInt8Ty(I->getContext());
+      Type *CharArrayType = ArrayType::get(CharType, NumBytesToAllocate);
+      NewAllocationType = CharArrayType;
+      BasicBlock::iterator InsertPt = OldAllocaInst->getIterator();
+      InsertPt = std::next(InsertPt);
+      Instruction *NewAllocationInstruction =
+          new AllocaInst(CharArrayType, OldAllocaInst->getAddressSpace(),
+                         OldAllocaInst->getName(), InsertPt);
 
-      auto *NumBytesToValue =
-          ConstantInt::get(I->getContext(), APInt(32, NumBytesToAllocate));
-
-      BasicBlock::iterator insertPt = AI->getIterator();
-      insertPt = std::next(insertPt);
-      AllocaInst *NewAllocaInst =
-          new AllocaInst(CharType, AI->getAddressSpace(), NumBytesToValue,
-                         AI->getAlign(), AI->getName(), insertPt);
-
-      if (A.changeAfterManifest(IRPosition::inst(*AI), *NewAllocaInst))
-        return ChangeStatus::CHANGED;
-
+      Changed |= A.changeAfterManifest(IRPosition::inst(*I),
+                                       *NewAllocationInstruction);
+      A.deleteAfterManifest(*I);
       break;
     }
     default:
       break;
     }
 
-    return ChangeStatus::UNCHANGED;
+    for (auto &It : AccessedInstructionsToBinsMap) {
+      Instruction *LocalInst = It.first;
+      // Get a hold of a map, mapping old to new bins.
+      DenseMap<AA::RangeTy, AA::RangeTy> &OldToNewBins = It.second;
+      IntegerType *Int64TyInteger =
+          IntegerType::get(LocalInst->getContext(), 64);
+      switch (LocalInst->getOpcode()) {
+      case Instruction::Load: {
+        // The number of bytes to shift the load/store by.
+        int64_t OffsetOld = OldToNewBins.begin()->getFirst().Offset;
+        int64_t OffsetNew = OldToNewBins.begin()->getSecond().Offset;
+        LoadInst *OldLoadInst = cast<LoadInst>(LocalInst);
+        Instruction *PointerOperand =
+            cast<Instruction>(OldLoadInst->getPointerOperand());
+        Type *PointeeTy = OldLoadInst->getPointerOperandType();
+        int64_t ShiftValue = OffsetNew - OffsetOld;
+        Value *IndexList[1] = {ConstantInt::get(Int64TyInteger, ShiftValue)};
+        Value *GepToNewAddress = GetElementPtrInst::Create(
+            PointeeTy, PointerOperand, IndexList, "NewGep", OldLoadInst);
+
+        LoadInst *NewLoadInst = new LoadInst(
+            OldLoadInst->getType(), GepToNewAddress, OldLoadInst->getName(),
+            false, OldLoadInst->getAlign(), OldLoadInst);
+
+        Changed |=
+            A.changeAfterManifest(IRPosition::inst(*OldLoadInst), *NewLoadInst);
+
+        A.deleteAfterManifest(*OldLoadInst);
+        break;
+      }
+      case Instruction::Store: {
+        // The number of bytes to shift the load/store by.
+        int64_t OffsetOld = OldToNewBins.begin()->getFirst().Offset;
+        int64_t OffsetNew = OldToNewBins.begin()->getSecond().Offset;
+        int64_t ShiftValue = OffsetNew - OffsetOld;
+        StoreInst *OldStoreInst = cast<StoreInst>(LocalInst);
+        Instruction *PointerOperand =
+            cast<Instruction>(OldStoreInst->getPointerOperand());
+        Type *PointeeTy = OldStoreInst->getPointerOperandType();
+        Value *IndexList[1] = {ConstantInt::get(Int64TyInteger, ShiftValue)};
+        Value *GepToNewAddress = GetElementPtrInst::Create(
+            PointeeTy, PointerOperand, IndexList, "NewGep", OldStoreInst);
+
+        StoreInst *NewStoreInst =
+            new StoreInst(OldStoreInst->getValueOperand(), GepToNewAddress,
+                          false, OldStoreInst->getAlign(), OldStoreInst);
+
+        Changed |= A.changeAfterManifest(IRPosition::inst(*OldStoreInst),
+                                         *NewStoreInst);
+
+        A.deleteAfterManifest(*OldStoreInst);
+        break;
+      }
+      case Instruction::GetElementPtr: {
+        GetElementPtrInst *OldGEP = cast<GetElementPtrInst>(LocalInst);
+        int64_t OffsetNew = OldToNewBins.begin()->getSecond().Offset;
+        Value *IndexList[1] = {ConstantInt::get(Int64TyInteger, OffsetNew)};
+        Value *OldPointerOperand = OldGEP->getPointerOperand();
+        Value *GepToNewAddress = GetElementPtrInst::Create(
+            NewAllocationType, OldPointerOperand, IndexList, "NewGep", OldGEP);
+
+        Changed |=
+            A.changeAfterManifest(IRPosition::inst(*OldGEP), *GepToNewAddress);
+
+        A.deleteAfterManifest(*OldGEP);
+        break;
+      }
+      default:
+        break;
+      }
+    }
+
+    if (!Changed)
+      return ChangeStatus::UNCHANGED;
+    return ChangeStatus::CHANGED;
   }
 
   /// See AbstractAttribute::getAsStr().
@@ -12814,8 +13215,28 @@ struct AAAllocationInfoImpl : public AAAllocationInfo {
            ")";
   }
 
+  void dumpNewOffsetBins(raw_ostream &O) {
+
+    O << "Printing Map from [OldOffsetsRange] : [NewOffsetsRange] if the "
+         "offsets changed."
+      << "\n";
+    const auto &NewOffsetsMap = getNewOffsets();
+    for (auto It = NewOffsetsMap.begin(); It != NewOffsetsMap.end(); It++) {
+
+      const auto &OldRange = It->getFirst();
+      const auto &NewRange = It->getSecond();
+
+      O << "[" << OldRange.Offset << "," << OldRange.Offset + OldRange.Size
+        << "] : ";
+      O << "[" << NewRange.Offset << "," << NewRange.Offset + NewRange.Size
+        << "]";
+      O << "\n";
+    }
+  }
+
 private:
   std::optional<TypeSize> AssumedAllocatedSize = HasNoAllocationSize;
+  NewOffsetsTy NewComputedOffsets;
 
   // Maintain the computed allocation size of the object.
   // Returns (bool) weather the size of the allocation was modified or not.
@@ -12825,6 +13246,80 @@ private:
       AssumedAllocatedSize = Size;
       return true;
     }
+    return false;
+  }
+
+  // Maps an old byte range to its new offset range in the new allocation.
+  // Returns (bool) weather the old byte range's offsets changed or not.
+  bool setNewOffsets(const AA::RangeTy &OldRange, int64_t OldOffset,
+                     int64_t NewComputedOffset, int64_t Size) {
+
+    if (OldOffset == NewComputedOffset)
+      return false;
+
+    AA::RangeTy &NewRange = NewComputedOffsets.getOrInsertDefault(OldRange);
+    NewRange.Offset = NewComputedOffset;
+    NewRange.Size = Size;
+
+    return true;
+  }
+
+  // A helper function to check if simplified values exists for the current
+  // instruction.
+  // Right now we don't change the value and give up
+  // on modifying the size and offsets of the allocation
+  // but this may be sub-optimal.
+  // TODO: handle case for a similified value
+  bool checkIfSimplifiedValuesExists(Attributor &A, Instruction *LocalInst) {
+
+    // If there are potential values that replace the accessed instruction, we
+    // should use those values instead.
+    bool UsedAssumedInformation = false;
+    SmallVector<AA::ValueAndContext> Values;
+    if (A.getAssumedSimplifiedValues(IRPosition::inst(*LocalInst), *this,
+                                     Values, AA::AnyScope,
+                                     UsedAssumedInformation))
+
+      for (auto &ValAndContext : Values)
+        // Don't modify the instruction if any simplified value exists.
+        if (ValAndContext.getValue() && ValAndContext.getValue() != LocalInst)
+          return true;
+
+    return false;
+  }
+
+  bool checkIfAccessChainUsesMultipleBins(
+      Attributor &A, Instruction *LocalInst,
+      const DenseMap<Value *, AAPointerInfo::OffsetInfo> &OffsetInfoMap) {
+
+    // BackTrack and check if any instruction in the access causing chain
+    // accessed multiple byte ranges. If they do, we currently give up.
+    SmallVector<Instruction *> ReadyList;
+    DenseMap<Instruction *, bool> Visited;
+    ReadyList.push_back(LocalInst);
+    while (!ReadyList.empty()) {
+      Instruction *GetBack = ReadyList.back();
+      ReadyList.pop_back();
+
+      if (!Visited.insert(std::make_pair(GetBack, true)).second)
+        continue;
+
+      // Check if the Instruction has multiple bins, if so give up
+      // for calls it is okay to have multiple bins since they may
+      // come from different call arguments and we can address them
+      // seperately.
+      // TODO: handle when one instruction has multiple bins
+      auto OffsetsVecArg = OffsetInfoMap.lookup(GetBack).Ranges;
+      if (GetBack->getOpcode() != Instruction::Call && OffsetsVecArg.size() > 1)
+        return true;
+
+      for (auto *It = GetBack->op_begin(); It != GetBack->op_end(); It++) {
+        if (Instruction *Ins = dyn_cast<Instruction>(*It)) {
+          ReadyList.push_back(Ins);
+        }
+      }
+    }
+
     return false;
   }
 };
