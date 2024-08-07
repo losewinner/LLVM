@@ -110,6 +110,9 @@ C2y Feature Support
 C23 Feature Support
 ^^^^^^^^^^^^^^^^^^^
 
+- Clang now diagnoses `N3006 Underspecified object declarations`
+  <https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3006.htm>`_.
+
 New Compiler Flags
 ------------------
 
