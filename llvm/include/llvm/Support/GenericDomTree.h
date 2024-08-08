@@ -899,6 +899,7 @@ public:
     RootNode = nullptr;
     Parent = nullptr;
     DFSInfoValid = false;
+    NodeAllocator.DestroyAll();
     SlowQueries = 0;
   }
 
