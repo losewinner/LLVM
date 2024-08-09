@@ -39,7 +39,7 @@ int test_amdgcn_target_tid_threads_simd() {
 // CHECK-NEXT:    [[I_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[I]] to ptr
 // CHECK-NEXT:    store ptr [[DYN_PTR]], ptr [[DYN_PTR_ADDR_ASCAST]], align 8
 // CHECK-NEXT:    store ptr [[ARR]], ptr [[ARR_ADDR_ASCAST]], align 8
-// CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[ARR_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[ARR_ADDR_ASCAST]], align 8, !nonnull [[META9:![0-9]+]], !align [[META10:![0-9]+]]
 // CHECK-NEXT:    [[TMP1:%.*]] = call i32 @__kmpc_target_init(ptr addrspacecast (ptr addrspace(1) @{{__omp_offloading_[0-9a-z]+_[0-9a-z]+}}__Z30test_amdgcn_target_tid_threadsv_l14_kernel_environment to ptr), ptr [[DYN_PTR]])
 // CHECK-NEXT:    [[EXEC_USER_CODE:%.*]] = icmp eq i32 [[TMP1]], -1
 // CHECK-NEXT:    br i1 [[EXEC_USER_CODE]], label [[USER_CODE_ENTRY:%.*]], label [[WORKER_EXIT:%.*]]
@@ -60,7 +60,7 @@ int test_amdgcn_target_tid_threads_simd() {
 // CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[I_ASCAST]], align 4
 // CHECK-NEXT:    [[INC:%.*]] = add nsw i32 [[TMP4]], 1
 // CHECK-NEXT:    store i32 [[INC]], ptr [[I_ASCAST]], align 4
-// CHECK-NEXT:    br label [[FOR_COND]], !llvm.loop [[LOOP9:![0-9]+]]
+// CHECK-NEXT:    br label [[FOR_COND]], !llvm.loop [[LOOP11:![0-9]+]]
 // CHECK:       worker.exit:
 // CHECK-NEXT:    ret void
 // CHECK:       for.end:
@@ -83,7 +83,7 @@ int test_amdgcn_target_tid_threads_simd() {
 // CHECK-NEXT:    [[I_ASCAST:%.*]] = addrspacecast ptr addrspace(5) [[I]] to ptr
 // CHECK-NEXT:    store ptr [[DYN_PTR]], ptr [[DYN_PTR_ADDR_ASCAST]], align 8
 // CHECK-NEXT:    store ptr [[ARR]], ptr [[ARR_ADDR_ASCAST]], align 8
-// CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[ARR_ADDR_ASCAST]], align 8
+// CHECK-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[ARR_ADDR_ASCAST]], align 8, !nonnull [[META9]], !align [[META10]]
 // CHECK-NEXT:    [[TMP1:%.*]] = call i32 @__kmpc_target_init(ptr addrspacecast (ptr addrspace(1) @{{__omp_offloading_[0-9a-z]+_[0-9a-z]+}}__Z35test_amdgcn_target_tid_threads_simdv_l23_kernel_environment to ptr), ptr [[DYN_PTR]])
 // CHECK-NEXT:    [[EXEC_USER_CODE:%.*]] = icmp eq i32 [[TMP1]], -1
 // CHECK-NEXT:    br i1 [[EXEC_USER_CODE]], label [[USER_CODE_ENTRY:%.*]], label [[WORKER_EXIT:%.*]]
@@ -91,26 +91,26 @@ int test_amdgcn_target_tid_threads_simd() {
 // CHECK-NEXT:    store i32 0, ptr [[DOTOMP_IV_ASCAST]], align 4
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_COND:%.*]]
 // CHECK:       omp.inner.for.cond:
-// CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[DOTOMP_IV_ASCAST]], align 4, !llvm.access.group [[ACC_GRP11:![0-9]+]]
+// CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[DOTOMP_IV_ASCAST]], align 4, !llvm.access.group [[ACC_GRP13:![0-9]+]]
 // CHECK-NEXT:    [[CMP:%.*]] = icmp slt i32 [[TMP2]], 1000
 // CHECK-NEXT:    br i1 [[CMP]], label [[OMP_INNER_FOR_BODY:%.*]], label [[OMP_INNER_FOR_END:%.*]]
 // CHECK:       omp.inner.for.body:
-// CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[DOTOMP_IV_ASCAST]], align 4, !llvm.access.group [[ACC_GRP11]]
+// CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[DOTOMP_IV_ASCAST]], align 4, !llvm.access.group [[ACC_GRP13]]
 // CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[TMP3]], 1
 // CHECK-NEXT:    [[ADD:%.*]] = add nsw i32 0, [[MUL]]
-// CHECK-NEXT:    store i32 [[ADD]], ptr [[I_ASCAST]], align 4, !llvm.access.group [[ACC_GRP11]]
-// CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[I_ASCAST]], align 4, !llvm.access.group [[ACC_GRP11]]
+// CHECK-NEXT:    store i32 [[ADD]], ptr [[I_ASCAST]], align 4, !llvm.access.group [[ACC_GRP13]]
+// CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[I_ASCAST]], align 4, !llvm.access.group [[ACC_GRP13]]
 // CHECK-NEXT:    [[IDXPROM:%.*]] = sext i32 [[TMP4]] to i64
 // CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [1000 x i32], ptr [[TMP0]], i64 0, i64 [[IDXPROM]]
-// CHECK-NEXT:    store i32 1, ptr [[ARRAYIDX]], align 4, !llvm.access.group [[ACC_GRP11]]
+// CHECK-NEXT:    store i32 1, ptr [[ARRAYIDX]], align 4, !llvm.access.group [[ACC_GRP13]]
 // CHECK-NEXT:    br label [[OMP_BODY_CONTINUE:%.*]]
 // CHECK:       omp.body.continue:
 // CHECK-NEXT:    br label [[OMP_INNER_FOR_INC:%.*]]
 // CHECK:       omp.inner.for.inc:
-// CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[DOTOMP_IV_ASCAST]], align 4, !llvm.access.group [[ACC_GRP11]]
+// CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[DOTOMP_IV_ASCAST]], align 4, !llvm.access.group [[ACC_GRP13]]
 // CHECK-NEXT:    [[ADD1:%.*]] = add nsw i32 [[TMP5]], 1
-// CHECK-NEXT:    store i32 [[ADD1]], ptr [[DOTOMP_IV_ASCAST]], align 4, !llvm.access.group [[ACC_GRP11]]
-// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND]], !llvm.loop [[LOOP12:![0-9]+]]
+// CHECK-NEXT:    store i32 [[ADD1]], ptr [[DOTOMP_IV_ASCAST]], align 4, !llvm.access.group [[ACC_GRP13]]
+// CHECK-NEXT:    br label [[OMP_INNER_FOR_COND]], !llvm.loop [[LOOP14:![0-9]+]]
 // CHECK:       worker.exit:
 // CHECK-NEXT:    ret void
 // CHECK:       omp.inner.for.end:
