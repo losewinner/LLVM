@@ -3615,7 +3615,7 @@ VarCreationState Compiler<Emitter>::visitDecl(const VarDecl *VD) {
 
   auto R = this->visitVarDecl(VD, /*Toplevel=*/true);
 
-  if (R.notCreated())
+  if (R.notCreated() || R.dummyCreated())
     return R;
 
   if (R)
@@ -3707,7 +3707,7 @@ VarCreationState Compiler<Emitter>::visitVarDecl(const VarDecl *VD, bool Topleve
   // This case is EvalEmitter-only. If we won't create any instructions for the
   // initializer anyway, don't bother creating the variable in the first place.
   if (!this->isActive())
-    return VarCreationState::NotCreated();
+    return VarCreationState::NotCreated;
 
   const Expr *Init = VD->getInit();
   std::optional<PrimType> VarT = classify(VD->getType());
@@ -3757,12 +3757,16 @@ VarCreationState Compiler<Emitter>::visitVarDecl(const VarDecl *VD, bool Topleve
       return Init && checkDecl() && initGlobal(*GlobalIndex);
     }
 
-    std::optional<unsigned> GlobalIndex = P.createGlobal(VD, Init);
+    if (std::optional<unsigned> GlobalIndex = P.createGlobal(VD, Init))
+      return !Init || (checkDecl() && initGlobal(*GlobalIndex));
 
-    if (!GlobalIndex)
-      return false;
+    if (std::optional<unsigned> I = P.getOrCreateDummy(VD)) {
+      if (!this->emitGetPtrGlobal(*I, VD))
+        return false;
+      return VarCreationState::DummyCreated;
+    }
 
-    return !Init || (checkDecl() && initGlobal(*GlobalIndex));
+    return false;
   } else {
     InitLinkScope<Emitter> ILS(this, InitLink::Decl(VD));
 
@@ -5254,7 +5258,7 @@ bool Compiler<Emitter>::visitDeclRef(const ValueDecl *D, const Expr *E) {
   auto revisit = [&](const VarDecl *VD) -> bool {
     auto VarState = this->visitDecl(VD);
 
-    if (VarState.notCreated())
+    if (VarState.notCreated() || VarState.dummyCreated())
       return true;
     if (!VarState)
       return false;
