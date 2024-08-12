@@ -55,7 +55,7 @@ struct B {
   void operator delete[](void*) volatile; //expected-error {{static member function cannot have 'volatile' qualifier}}
 };
 
-struct C {
+struct GH102422 {
   void* operator new(size_t bytes) &;  //expected-error {{static member function cannot have '&' qualifier}}
   void* operator new[](size_t bytes) &;  //expected-error {{static member function cannot have '&' qualifier}}
 
