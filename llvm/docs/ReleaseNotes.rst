@@ -163,6 +163,10 @@ Changes to the Debug Info
 Changes to the LLVM tools
 ---------------------------------
 
+* llvm-config gained a new flag --quote-paths which quotes and escapes paths
+  emitted on stdout, to account for spaces or other special characters in path.
+  (`#97305 <https://github.com/llvm/llvm-project/pull/97305>`_).
+
 Changes to LLDB
 ---------------------------------
 
