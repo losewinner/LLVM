@@ -82,6 +82,10 @@ Changes to the AMDGPU Backend
   ``llvm.amdgcn.global.atomic.fadd`` intrinsics. Users should use the
   :ref:`atomicrmw <i_atomicrmw>` instruction with `fadd` and
   addrspace(0) or addrspace(1) instead.
+* Removed ``llvm.amdgcn.atomic.cond.sub.u32`` and
+  ``llvm.amdgcn.atomic.csub.u32`` intrinsics. Users should use the
+  :ref:`atomicrmw <i_atomicrmw>` instruction with ``usub_cond`` and
+  ``usub_sat`` instead.
 
 Changes to the ARM Backend
 --------------------------
