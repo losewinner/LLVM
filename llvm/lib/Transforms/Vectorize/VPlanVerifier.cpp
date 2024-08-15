@@ -71,11 +71,11 @@ bool VPlanVerifier::verifyPhiRecipes(const VPBasicBlock *VPBB) {
   const VPRegionBlock *ParentR = VPBB->getParent();
   bool IsHeaderVPBB = ParentR && !ParentR->isReplicator() &&
                       ParentR->getEntryBasicBlock() == VPBB;
-  while (RecipeI != End && RecipeI->isPhi()) {
+  while (RecipeI != End && vputils::isPhi(*RecipeI)) {
     if (isa<VPActiveLaneMaskPHIRecipe>(RecipeI))
       NumActiveLaneMaskPhiRecipes++;
 
-    if (IsHeaderVPBB && !isa<VPHeaderPHIRecipe, VPWidenPHIRecipe>(*RecipeI)) {
+    if (IsHeaderVPBB && !vputils::isHeaderPhi(*RecipeI)) {
       errs() << "Found non-header PHI recipe in header VPBB";
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       errs() << ": ";
@@ -102,7 +102,7 @@ bool VPlanVerifier::verifyPhiRecipes(const VPBasicBlock *VPBB) {
   }
 
   while (RecipeI != End) {
-    if (RecipeI->isPhi() && !isa<VPBlendRecipe>(&*RecipeI)) {
+    if (vputils::isPhi(*RecipeI) && !isa<VPBlendRecipe>(&*RecipeI)) {
       errs() << "Found phi-like recipe after non-phi recipe";
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
