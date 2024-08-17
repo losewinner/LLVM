@@ -13,6 +13,7 @@
 #include <__algorithm/copy.h>
 #include <__algorithm/for_each.h>
 #include <__config>
+#include <__iterator/distance.h>
 #include <__iterator/iterator_traits.h>
 #include <__iterator/move_iterator.h>
 #include <__iterator/next.h>
@@ -299,7 +300,7 @@ __radix_sort_impl(_RandomAccessIterator1 __first,
   difference_type __maximums[traits::radix_count]                            = {0};
   const auto __is_sorted = __collect(__first, __last, __map, __radix, __counters, __maximums);
   if (not __is_sorted) {
-    const auto __range_size = distance(__first, __last);
+    const auto __range_size = std::distance(__first, __last);
     auto __buffer_end       = __buffer_begin + __range_size;
     for (size_t __radix_number = 0; __radix_number < traits::radix_count; __radix_number += 2) {
       const auto __n0th_is_single = __maximums[__radix_number] == __range_size;
