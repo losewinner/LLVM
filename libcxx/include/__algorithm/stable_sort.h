@@ -204,7 +204,7 @@ struct __radix_sort_min_switch {
 };
 
 template <class _Int8>
-struct __radix_sort_min_switch<_Int8, enable_if_t<is_integral_v<_Int8> && sizeof(_Int8) == 1>> {
+struct __radix_sort_min_switch<_Int8, enable_if_t<is_integral<_Int8>::value && sizeof(_Int8) == 1> > {
   static const unsigned value = (1 << 8);
 };
 
@@ -214,7 +214,7 @@ struct __radix_sort_max_switch {
 };
 
 template <class _Int64>
-struct __radix_sort_max_switch<_Int64, enable_if_t<is_integral_v<_Int64> && sizeof(_Int64) == 8>> {
+struct __radix_sort_max_switch<_Int64, enable_if_t<is_integral<_Int64>::value && sizeof(_Int64) == 8> > {
   static const unsigned value = (1 << 15);
 };
 
@@ -276,7 +276,7 @@ inline _LIBCPP_HIDE_FROM_ABI void __stable_sort_impl(
     _RandomAccessIterator __first,
     _RandomAccessIterator __last,
     _Compare& __comp,
-    _BoolConstant<_EnableRadixSort> __rs = _BoolConstant<false>{}) {
+    _BoolConstant<_EnableRadixSort> __rs = _BoolConstant<false>()) {
   using value_type      = typename iterator_traits<_RandomAccessIterator>::value_type;
   using difference_type = typename iterator_traits<_RandomAccessIterator>::difference_type;
 
