@@ -78,8 +78,9 @@ template <typename _Integer>
 constexpr _Integer __intlog2(_Integer __integer) {
   static_assert(is_integral<_Integer>::value, "Must be an integral type");
 
-  return __integer > 0 ? __intlog2_impl(__integer)
-                       : throw domain_error("The binary logarithm is not defined on non-positive numbers");
+  return __integer > 0
+           ? __intlog2_impl(__integer)
+           : (__throw_domain_error("The binary logarithm is not defined on non-positive numbers"), _Integer{0});
 }
 
 template <typename _InputIterator, typename _OutputIterator>
