@@ -22,6 +22,7 @@
 #include <__memory/destruct_n.h>
 #include <__memory/unique_ptr.h>
 #include <__memory/unique_temporary_buffer.h>
+#include <__type_traits/enable_if.h>
 #include <__type_traits/integral_constant.h>
 #include <__type_traits/is_integral.h>
 #include <__type_traits/is_same.h>
@@ -204,7 +205,7 @@ struct __radix_sort_min_switch {
 };
 
 template <class _Int8>
-struct __radix_sort_min_switch<_Int8, enable_if_t<is_integral<_Int8>::value && sizeof(_Int8) == 1> > {
+struct __radix_sort_min_switch<_Int8, __enable_if_t<is_integral<_Int8>::value && sizeof(_Int8) == 1> > {
   static const unsigned value = (1 << 8);
 };
 
@@ -214,7 +215,7 @@ struct __radix_sort_max_switch {
 };
 
 template <class _Int64>
-struct __radix_sort_max_switch<_Int64, enable_if_t<is_integral<_Int64>::value && sizeof(_Int64) == 8> > {
+struct __radix_sort_max_switch<_Int64, __enable_if_t<is_integral<_Int64>::value && sizeof(_Int64) == 8> > {
   static const unsigned value = (1 << 15);
 };
 
