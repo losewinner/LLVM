@@ -398,8 +398,9 @@ bool __radix_sort(_RandomAccessIterator1, _RandomAccessIterator1, _RandomAccessI
 
 #else // _LIBCPP_STD_VER > 14
 
-template <typename _RandomAccessIterator1, typename _RandomAccessIterator2, bool _B>
-bool __radix_sort(_RandomAccessIterator1, _RandomAccessIterator1, _RandomAccessIterator2, _BoolConstant<_B>) {
+template <typename _RandomAccessIterator1, typename _RandomAccessIterator2, bool _EnableRadixSort>
+bool __radix_sort(
+    _RandomAccessIterator1, _RandomAccessIterator1, _RandomAccessIterator2, _BoolConstant<_EnableRadixSort>) {
   return false;
 }
 
