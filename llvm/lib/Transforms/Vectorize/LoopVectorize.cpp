@@ -7455,9 +7455,17 @@ InstructionCost LoopVectorizationPlanner::cost(VPlan &Plan,
 /// not have corresponding recipes in \p Plan and are not marked to be ignored
 /// in \p CostCtx. This means the VPlan contains simplification that the legacy
 /// cost-model did not account for.
-static bool planContainsAdditionalSimplifications(VPlan &Plan,
-                                                  VPCostContext &CostCtx,
-                                                  Loop *TheLoop) {
+static bool
+planContainsAdditionalSimplifications(VPlan &Plan, VPCostContext &CostCtx,
+                                      Loop *TheLoop,
+                                      LoopVectorizationLegality &Legal) {
+  // CSA cost is more complicated since there is significant overhead in the
+  // preheader and middle block. It also contains recipes that are not backed by
+  // underlying instructions in the original loop. This makes it difficult to
+  // model in the legacy cost model.
+  if (!Legal.getCSAs().empty())
+    return true;
+
   // First collect all instructions for the recipes in Plan.
   auto GetInstructionForCost = [](const VPRecipeBase *R) -> Instruction * {
     if (auto *S = dyn_cast<VPSingleDefRecipe>(R))
@@ -7564,9 +7572,9 @@ VectorizationFactor LoopVectorizationPlanner::computeBestVF() {
   precomputeCosts(BestPlan, BestFactor.Width, CostCtx);
   assert((BestFactor.Width == LegacyVF.Width ||
           planContainsAdditionalSimplifications(getPlanFor(BestFactor.Width),
-                                                CostCtx, OrigLoop) ||
+                                                CostCtx, OrigLoop, *Legal) ||
           planContainsAdditionalSimplifications(getPlanFor(LegacyVF.Width),
-                                                CostCtx, OrigLoop)) &&
+                                                CostCtx, OrigLoop, *Legal)) &&
          " VPlan cost model and legacy cost model disagreed");
   assert((BestFactor.Width.isScalar() || BestFactor.ScalarCost > 0) &&
          "when vectorizing, the scalar cost must be computed.");

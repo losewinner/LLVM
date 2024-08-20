@@ -2497,6 +2497,24 @@ void VPCSAHeaderPHIRecipe::execute(VPTransformState &State) {
     State.set(this, DataPhi, Part);
 }
 
+InstructionCost VPCSAHeaderPHIRecipe::computeCost(ElementCount VF,
+                                                  VPCostContext &Ctx) const {
+  if (VF.isScalar())
+    return 0;
+
+  InstructionCost C = 0;
+  auto *VTy = VectorType::get(getUnderlyingValue()->getType(), VF);
+  const TargetTransformInfo &TTI = Ctx.TTI;
+
+  // FIXME: These costs should be moved into VPInstruction::computeCost. We put
+  // them here for now since there is no VPInstruction::computeCost support.
+  // CSAInitMask
+  C += TTI.getShuffleCost(TargetTransformInfo::SK_Broadcast, VTy);
+  // CSAInitData
+  C += TTI.getShuffleCost(TargetTransformInfo::SK_Broadcast, VTy);
+  return C;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPCSADataUpdateRecipe::print(raw_ostream &O, const Twine &Indent,
                                   VPSlotTracker &SlotTracker) const {
@@ -2523,6 +2541,34 @@ void VPCSADataUpdateRecipe::execute(VPTransformState &State) {
       DataPhi->addIncoming(DataSel, State.CFG.PrevBB);
     State.set(this, DataSel, Part);
   }
+}
+
+InstructionCost VPCSADataUpdateRecipe::computeCost(ElementCount VF,
+                                                   VPCostContext &Ctx) const {
+  if (VF.isScalar())
+    return 0;
+
+  InstructionCost C = 0;
+  auto *VTy = VectorType::get(getUnderlyingValue()->getType(), VF);
+  auto *MaskTy = VectorType::get(IntegerType::getInt1Ty(VTy->getContext()), VF);
+  constexpr TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+  const TargetTransformInfo &TTI = Ctx.TTI;
+
+  // Data Update
+  C += TTI.getArithmeticInstrCost(Instruction::Select, VTy, CostKind);
+
+  // FIXME: These costs should be moved into VPInstruction::computeCost. We put
+  // them here for now since they are related to updating the data and there is
+  // no VPInstruction::computeCost support at the moment. CSAInitMask AnyActive
+  C += TTI.getArithmeticInstrCost(Instruction::Select, VTy, CostKind);
+  // vp.reduce.or
+  C += TTI.getArithmeticReductionCost(Instruction::Or, VTy, std::nullopt,
+                                      CostKind);
+  // VPVLSel
+  C += TTI.getArithmeticInstrCost(Instruction::Select, VTy, CostKind);
+  // MaskUpdate
+  C += TTI.getArithmeticInstrCost(Instruction::Select, MaskTy, CostKind);
+  return C;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -2583,6 +2629,60 @@ void VPCSAExtractScalarRecipe::execute(VPTransformState &State) {
   Value *ChooseFromVecOrInit =
       State.Builder.CreateSelect(LastIdxGEZero, ExtractFromVec, InitScalar);
   State.set(this, ChooseFromVecOrInit, 0, /*IsScalar=*/true);
+}
+
+InstructionCost
+VPCSAExtractScalarRecipe::computeCost(ElementCount VF,
+                                      VPCostContext &Ctx) const {
+  if (VF.isScalar())
+    return 0;
+
+  InstructionCost C = 0;
+  auto *VTy = VectorType::get(getUnderlyingValue()->getType(), VF);
+  auto *Int32VTy =
+      VectorType::get(IntegerType::getInt32Ty(VTy->getContext()), VF);
+  auto *MaskTy = VectorType::get(IntegerType::getInt1Ty(VTy->getContext()), VF);
+  constexpr TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
+  const TargetTransformInfo &TTI = Ctx.TTI;
+
+  // StepVector
+  ArrayRef<Value *> Args;
+  IntrinsicCostAttributes CostAttrs(Intrinsic::stepvector, Int32VTy, Args);
+  C += TTI.getIntrinsicInstrCost(CostAttrs, CostKind);
+  // NegOneSplat
+  C += TTI.getShuffleCost(TargetTransformInfo::SK_Broadcast, Int32VTy);
+  // LastIdx
+  if (usesEVL()) {
+    C += TTI.getMinMaxReductionCost(Intrinsic::smax, Int32VTy, FastMathFlags(),
+                                    CostKind);
+  } else {
+    // ActiveLaneIdxs
+    C += TTI.getArithmeticInstrCost(Instruction::Select,
+                                    MaskTy->getScalarType(), CostKind);
+    // MaybeLastIdx
+    C += TTI.getMinMaxReductionCost(Intrinsic::smax, Int32VTy, FastMathFlags(),
+                                    CostKind);
+    // IsLaneZeroActive
+    C += TTI.getArithmeticInstrCost(Instruction::ExtractElement, MaskTy,
+                                    CostKind);
+    // MaybeLastIdxEQZero
+    C += TTI.getArithmeticInstrCost(Instruction::ICmp, MaskTy->getScalarType(),
+                                    CostKind);
+    // And
+    C += TTI.getArithmeticInstrCost(Instruction::And, MaskTy->getScalarType(),
+                                    CostKind);
+    // LastIdx
+    C += TTI.getArithmeticInstrCost(Instruction::Select, VTy->getScalarType(),
+                                    CostKind);
+  }
+  // ExtractFromVec
+  C += TTI.getArithmeticInstrCost(Instruction::ExtractElement, VTy, CostKind);
+  // LastIdxGeZero
+  C += TTI.getArithmeticInstrCost(Instruction::ICmp, Int32VTy, CostKind);
+  // ChooseFromVecOrInit
+  C += TTI.getArithmeticInstrCost(Instruction::Select, VTy->getScalarType(),
+                                  CostKind);
+  return C;
 }
 
 void VPBranchOnMaskRecipe::execute(VPTransformState &State) {

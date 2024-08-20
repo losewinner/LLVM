@@ -2858,6 +2858,9 @@ public:
 
   void execute(VPTransformState &State) override;
 
+  InstructionCost computeCost(ElementCount VF,
+                              VPCostContext &Ctx) const override;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent,
@@ -2888,6 +2891,9 @@ public:
   }
 
   void execute(VPTransformState &State) override;
+
+  InstructionCost computeCost(ElementCount VF,
+                              VPCostContext &Ctx) const override;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
@@ -2935,6 +2941,9 @@ public:
 
   void execute(VPTransformState &State) override;
 
+  InstructionCost computeCost(ElementCount VF,
+                              VPCostContext &Ctx) const override;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the recipe.
   void print(raw_ostream &O, const Twine &Indent,
@@ -2945,7 +2954,7 @@ public:
   VPValue *getVPMaskSel() const { return getOperand(1); }
   VPValue *getVPDataSel() const { return getOperand(2); }
   VPValue *getVPCSAVLSel() const { return getOperand(3); }
-  bool usesEVL() { return getNumOperands() == 4; }
+  bool usesEVL() const { return getNumOperands() == 4; }
 };
 
 /// VPPredInstPHIRecipe is a recipe for generating the phi nodes needed when
