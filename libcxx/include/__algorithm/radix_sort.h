@@ -47,13 +47,13 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 inline _LIBCPP_HIDE_FROM_ABI void __variadic_expansion_dummy(initializer_list<int>) {}
 
-#  define EXPAND_VARIADIC(expression) __variadic_expansion_dummy({(expression, 0)...})
+#  define EXPAND_VARIADIC(expression) std::__variadic_expansion_dummy({(expression, 0)...})
 
 template <typename _Iterator>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __move_assign_please(_Iterator __i)
     -> enable_if_t<is_move_assignable<typename iterator_traits<_Iterator>::value_type>::value,
                    move_iterator<_Iterator> > {
-  return make_move_iterator(std::move(__i));
+  return std::make_move_iterator(std::move(__i));
 }
 
 template <typename _Iterator>
@@ -78,7 +78,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr _Integer __intlog2(_Integer __integer) {
   static_assert(is_integral<_Integer>::value, "Must be an integral type");
 
   if (__integer > 0) {
-    return __intlog2_impl(__integer);
+    return std::__intlog2_impl(__integer);
   }
 
   return 0;
@@ -114,7 +114,7 @@ struct __radix_sort_traits {
   static_assert(is_integral<radix_type>::value, "");
 
   constexpr static auto radix_value_range = numeric_limits<radix_type>::max() + 1;
-  constexpr static auto radix_size        = __intlog2<uint64_t>(radix_value_range);
+  constexpr static auto radix_size        = std::__intlog2<uint64_t>(radix_value_range);
   constexpr static auto radix_count       = sizeof(image_type) * CHAR_BIT / radix_size;
 };
 
@@ -125,7 +125,7 @@ struct __counting_sort_traits {
   static_assert(is_unsigned<image_type>::value, "");
 
   constexpr static const auto value_range = numeric_limits<image_type>::max() + 1;
-  constexpr static auto radix_size        = __intlog2<uint64_t>(value_range);
+  constexpr static auto radix_size        = std::__intlog2<uint64_t>(value_range);
 };
 
 template <typename _Radix>
@@ -152,10 +152,10 @@ __collect(_ForwardIterator __first, _ForwardIterator __last, _Map __map, _Random
   using value_type = typename iterator_traits<_ForwardIterator>::value_type;
   using traits     = __counting_sort_traits<value_type, _Map>;
 
-  __count(__first, __last, __map, __counters);
+  std::__count(__first, __last, __map, __counters);
 
   const auto __counters_end = __counters + traits::value_range;
-  partial_sum(__counters, __counters_end, __counters);
+  std::partial_sum(__counters, __counters_end, __counters);
 }
 
 template <typename _ForwardIterator, typename _RandomAccessIterator1, typename _Map, typename _RandomAccessIterator2>
@@ -208,17 +208,17 @@ _LIBCPP_HIDE_FROM_ABI bool __collect_impl(
 
   auto __previous  = numeric_limits<invoke_result_t<_Map, value_type> >::min();
   auto __is_sorted = true;
-  for_each(__first, __last, [&__counters, &__map, &__radix, &__previous, &__is_sorted](const auto& value) {
+  std::for_each(__first, __last, [&__counters, &__map, &__radix, &__previous, &__is_sorted](const auto& value) {
     auto __current = __map(value);
     __is_sorted &= (__current >= __previous);
     __previous = __current;
 
-    EXPAND_VARIADIC(++__counters[_Radices][__nth_radix(_Radices, __radix)(__current)]);
+    EXPAND_VARIADIC(++__counters[_Radices][std::__nth_radix(_Radices, __radix)(__current)]);
   });
 
   EXPAND_VARIADIC(
       __maximums[_Radices] =
-          __partial_sum_max(__counters[_Radices], __counters[_Radices] + __radix_value_range, __counters[_Radices])
+          std::__partial_sum_max(__counters[_Radices], __counters[_Radices] + __radix_value_range, __counters[_Radices])
               .second);
 
   return __is_sorted;
@@ -238,7 +238,8 @@ __collect(_ForwardIterator __first,
           _RandomAccessIterator2 __maximums) {
   using value_type             = typename iterator_traits<_ForwardIterator>::value_type;
   constexpr auto __radix_count = __radix_sort_traits<value_type, _Map, _Radix>::radix_count;
-  return __collect_impl(__first, __last, __map, __radix, __counters, __maximums, make_index_sequence<__radix_count>());
+  return std::__collect_impl(
+      __first, __last, __map, __radix, __counters, __maximums, make_index_sequence<__radix_count>());
 }
 
 template <typename _BidirectionalIterator,
@@ -268,8 +269,8 @@ __counting_sort_impl(_ForwardIterator __first, _ForwardIterator __last, _RandomA
   using difference_type = typename iterator_traits<_RandomAccessIterator>::difference_type;
   difference_type __counters[traits::value_range + 1] = {0};
 
-  __collect(__first, __last, __map, next(std::begin(__counters)));
-  __dispose(__first, __last, __result, __map, std::begin(__counters));
+  std::__collect(__first, __last, __map, std::next(std::begin(__counters)));
+  std::__dispose(__first, __last, __result, __map, std::begin(__counters));
 
   return __result + __counters[traits::value_range];
 }
@@ -283,12 +284,13 @@ __radix_sort_impl(_RandomAccessIterator1 __first,
                   _RandomAccessIterator2 buffer,
                   _Map __map,
                   _Radix __radix) {
-  auto __buffer_end = __counting_sort_impl(
-      __move_assign_please(__first), __move_assign_please(__last), buffer, [&__map, &__radix](const auto& value) {
-        return __radix(__map(value));
-      });
+  auto __buffer_end = std::__counting_sort_impl(
+      std::__move_assign_please(__first),
+      std::__move_assign_please(__last),
+      buffer,
+      [&__map, &__radix](const auto& value) { return __radix(__map(value)); });
 
-  std::copy(__move_assign_please(buffer), __move_assign_please(__buffer_end), __first);
+  std::copy(std::__move_assign_please(buffer), std::__move_assign_please(__buffer_end), __first);
 }
 
 template <typename _RandomAccessIterator1, typename _RandomAccessIterator2, typename _Map, typename _Radix>
@@ -307,7 +309,7 @@ __radix_sort_impl(_RandomAccessIterator1 __first,
   using difference_type = typename iterator_traits<_RandomAccessIterator1>::difference_type;
   difference_type __counters[traits::radix_count][traits::radix_value_range] = {{0}};
   difference_type __maximums[traits::radix_count]                            = {0};
-  const auto __is_sorted = __collect(__first, __last, __map, __radix, __counters, __maximums);
+  const auto __is_sorted = std::__collect(__first, __last, __map, __radix, __counters, __maximums);
   if (not __is_sorted) {
     const auto __range_size = std::distance(__first, __last);
     auto __buffer_end       = __buffer_begin + __range_size;
@@ -320,28 +322,28 @@ __radix_sort_impl(_RandomAccessIterator1 __first,
       }
 
       if (__n0th_is_single) {
-        copy(__move_assign_please(__first), __move_assign_please(__last), __buffer_begin);
+        std::copy(std::__move_assign_please(__first), std::__move_assign_please(__last), __buffer_begin);
       } else {
         auto __n0th = [__radix_number, &__map, &__radix](const auto& __v) {
-          return __nth_radix(__radix_number, __radix)(__map(__v));
+          return std::__nth_radix(__radix_number, __radix)(__map(__v));
         };
-        __dispose_backward(
-            __move_assign_please(__first),
-            __move_assign_please(__last),
+        std::__dispose_backward(
+            std::__move_assign_please(__first),
+            std::__move_assign_please(__last),
             __buffer_begin,
             __n0th,
             __counters[__radix_number]);
       }
 
       if (__n1th_is_single) {
-        copy(__move_assign_please(__buffer_begin), __move_assign_please(__buffer_end), __first);
+        std::copy(std::__move_assign_please(__buffer_begin), std::__move_assign_please(__buffer_end), __first);
       } else {
         auto __n1th = [__radix_number, &__map, &__radix](const auto& __v) {
-          return __nth_radix(__radix_number + 1, __radix)(__map(__v));
+          return std::__nth_radix(__radix_number + 1, __radix)(__map(__v));
         };
-        __dispose_backward(
-            __move_assign_please(__buffer_begin),
-            __move_assign_please(__buffer_end),
+        std::__dispose_backward(
+            std::__move_assign_please(__buffer_begin),
+            std::__move_assign_please(__buffer_end),
             __first,
             __n1th,
             __counters[__radix_number + 1]);
@@ -382,20 +384,20 @@ __radix_sort(_RandomAccessIterator1 __first,
              _RandomAccessIterator2 buffer,
              _Map __map,
              _Radix __radix) {
-  auto __map_to_unsigned = [__map = std::move(__map)](const auto& x) { return __to_unsigned(__map(x)); };
-  __radix_sort_impl(__first, __last, buffer, __map_to_unsigned, __radix);
+  auto __map_to_unsigned = [__map = std::move(__map)](const auto& x) { return std::__to_unsigned(__map(x)); };
+  std::__radix_sort_impl(__first, __last, buffer, __map_to_unsigned, __radix);
 }
 
 template <typename _RandomAccessIterator1, typename _RandomAccessIterator2>
 _LIBCPP_HIDE_FROM_ABI void
 __radix_sort(_RandomAccessIterator1 __first, _RandomAccessIterator1 __last, _RandomAccessIterator2 buffer) {
-  __radix_sort(__first, __last, buffer, __identity_fn{}, __low_byte_fn{});
+  std::__radix_sort(__first, __last, buffer, __identity_fn{}, __low_byte_fn{});
 }
 
 template <typename _RandomAccessIterator1, typename _RandomAccessIterator2>
 _LIBCPP_HIDE_FROM_ABI bool __radix_sort(
     _RandomAccessIterator1 __first, _RandomAccessIterator1 __last, _RandomAccessIterator2 buffer, _BoolConstant<true>) {
-  __radix_sort(__first, __last, buffer, __identity_fn{}, __low_byte_fn{});
+  std::__radix_sort(__first, __last, buffer, __identity_fn{}, __low_byte_fn{});
   return true;
 }
 
