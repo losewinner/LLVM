@@ -17,6 +17,7 @@
 #include <__iterator/iterator_traits.h>
 #include <__iterator/move_iterator.h>
 #include <__iterator/next.h>
+#include <__iterator/reverse_iterator.h>
 #include <__numeric/partial_sum.h>
 #include <__type_traits/decay.h>
 #include <__type_traits/enable_if.h>
