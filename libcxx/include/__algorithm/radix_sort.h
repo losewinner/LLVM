@@ -51,16 +51,15 @@ inline _LIBCPP_HIDE_FROM_ABI void __variadic_expansion_dummy(initializer_list<in
 
 #  define _EXPAND_VARIADIC(expression) std::__variadic_expansion_dummy({(expression, 0)...})
 
-template <class _Iterator>
-_LIBCPP_HIDE_FROM_ABI constexpr auto __move_assign_please(_Iterator __i)
-    -> enable_if_t<is_move_assignable<typename iterator_traits<_Iterator>::value_type>::value,
-                   move_iterator<_Iterator> > {
+template <class _Iterator,
+          enable_if_t<is_move_assignable<typename iterator_traits<_Iterator>::value_type>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI constexpr move_iterator<_Iterator> __move_assign_please(_Iterator __i) {
   return std::make_move_iterator(std::move(__i));
 }
 
-template <class _Iterator>
-_LIBCPP_HIDE_FROM_ABI constexpr auto __move_assign_please(_Iterator __i)
-    -> enable_if_t<not is_move_assignable<typename iterator_traits<_Iterator>::value_type>::value, _Iterator> {
+template <class _Iterator,
+          enable_if_t<!is_move_assignable<typename iterator_traits<_Iterator>::value_type>::value, int> = 0>
+_LIBCPP_HIDE_FROM_ABI constexpr _Iterator __move_assign_please(_Iterator __i) {
   return __i;
 }
 
