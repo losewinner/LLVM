@@ -125,17 +125,11 @@ _LIBCPP_HIDE_FROM_ABI auto __nth_radix(size_t __radix_number, _Radix __radix) {
 
 template <class _ForwardIterator, class _Map, class _RandomAccessIterator>
 _LIBCPP_HIDE_FROM_ABI void
-__count(_ForwardIterator __first, _ForwardIterator __last, _Map __map, _RandomAccessIterator __counters) {
-  std::for_each(__first, __last, [&__counters, &__map](const auto& __preimage) { ++__counters[__map(__preimage)]; });
-}
-
-template <class _ForwardIterator, class _Map, class _RandomAccessIterator>
-_LIBCPP_HIDE_FROM_ABI void
 __collect(_ForwardIterator __first, _ForwardIterator __last, _Map __map, _RandomAccessIterator __counters) {
   using value_type = typename iterator_traits<_ForwardIterator>::value_type;
   using traits     = __counting_sort_traits<value_type, _Map>;
 
-  std::__count(__first, __last, __map, __counters);
+  std::for_each(__first, __last, [&__counters, &__map](const auto& __preimage) { ++__counters[__map(__preimage)]; });
 
   const auto __counters_end = __counters + traits::__value_range;
   std::partial_sum(__counters, __counters_end, __counters);
