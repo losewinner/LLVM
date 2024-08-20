@@ -148,21 +148,6 @@ __dispose(_ForwardIterator __first,
   });
 }
 
-template <class _BidirectionalIterator, class _RandomAccessIterator1, class _Map, class _RandomAccessIterator2>
-_LIBCPP_HIDE_FROM_ABI void dispose_backward(
-    _BidirectionalIterator __first,
-    _BidirectionalIterator __last,
-    _RandomAccessIterator1 __result,
-    _Map __map,
-    _RandomAccessIterator2 __counters) {
-  std::for_each(std::make_reverse_iterator(__last),
-                std::make_reverse_iterator(__first),
-                [&__result, &__counters, &__map](auto&& __preimage) {
-                  auto __index      = --__counters[__map(__preimage)];
-                  __result[__index] = std::forward<decltype(__preimage)>(__preimage);
-                });
-}
-
 template <class _ForwardIterator,
           class _Map,
           class _Radix,
@@ -221,9 +206,9 @@ _LIBCPP_HIDE_FROM_ABI void __dispose_backward(
     _RandomAccessIterator2 __counters) {
   std::for_each(std::make_reverse_iterator(__last),
                 std::make_reverse_iterator(__first),
-                [&__result, &__counters, &__map](auto&& preimage) {
-                  auto __index      = --__counters[__map(preimage)];
-                  __result[__index] = std::forward<decltype(preimage)>(preimage);
+                [&__result, &__counters, &__map](auto&& __preimage) {
+                  auto __index      = --__counters[__map(__preimage)];
+                  __result[__index] = std::forward<decltype(__preimage)>(__preimage);
                 });
 }
 
