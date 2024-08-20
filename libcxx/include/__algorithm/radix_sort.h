@@ -49,7 +49,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 inline _LIBCPP_HIDE_FROM_ABI void __variadic_expansion_dummy(initializer_list<int>) {}
 
-#  define EXPAND_VARIADIC(expression) std::__variadic_expansion_dummy({(expression, 0)...})
+#  define _EXPAND_VARIADIC(expression) std::__variadic_expansion_dummy({(expression, 0)...})
 
 template <typename _Iterator>
 _LIBCPP_HIDE_FROM_ABI constexpr auto __move_assign_please(_Iterator __i)
@@ -201,10 +201,10 @@ _LIBCPP_HIDE_FROM_ABI bool __collect_impl(
     __is_sorted &= (__current >= __previous);
     __previous = __current;
 
-    EXPAND_VARIADIC(++__counters[_Radices][std::__nth_radix(_Radices, __radix)(__current)]);
+    _EXPAND_VARIADIC(++__counters[_Radices][std::__nth_radix(_Radices, __radix)(__current)]);
   });
 
-  EXPAND_VARIADIC(
+  _EXPAND_VARIADIC(
       __maximums[_Radices] =
           std::__partial_sum_max(__counters[_Radices], __counters[_Radices] + __radix_value_range, __counters[_Radices])
               .second);
@@ -395,7 +395,7 @@ __radix_sort(_RandomAccessIterator1, _RandomAccessIterator1, _RandomAccessIterat
   return false;
 }
 
-#  undef EXPAND_VARIADIC
+#  undef _EXPAND_VARIADIC
 
 #else // _LIBCPP_STD_VER > 14
 
