@@ -43,7 +43,7 @@ _LIBCPP_PUSH_MACROS
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#if _LIBCPP_STD_VER > 14
+#if _LIBCPP_STD_VER >= 14
 
 inline void __variadic_expansion_dummy(initializer_list<int>) {}
 
