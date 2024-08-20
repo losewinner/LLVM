@@ -65,8 +65,7 @@ _LIBCPP_HIDE_FROM_ABI constexpr _Iterator __move_assign_please(_Iterator __i) {
 
 template <class _UnsignedInteger>
 _LIBCPP_HIDE_FROM_ABI constexpr _UnsignedInteger __intlog2(_UnsignedInteger __n) {
-  static_assert(is_integral<_UnsignedInteger>::value, "Must be an integral type");
-  static_assert(is_unsigned<_UnsignedInteger>::value, "Must be unsigned");
+  static_assert(is_unsigned<_UnsignedInteger>::value, "Must be unsigned integral");
 
   return numeric_limits<_UnsignedInteger>::digits - 1 - std::__countl_zero(__n);
 }
@@ -94,7 +93,6 @@ __partial_sum_max(_InputIterator __first, _InputIterator __last, _OutputIterator
 template <class _Value, class _Map, class _Radix>
 struct __radix_sort_traits {
   using image_type = decay_t<invoke_result_t<_Map, _Value> >;
-  static_assert(is_integral<image_type>::value, "");
   static_assert(is_unsigned<image_type>::value, "");
 
   using radix_type = decay_t<invoke_result_t<_Radix, image_type> >;
@@ -108,7 +106,6 @@ struct __radix_sort_traits {
 template <class _Value, class _Map>
 struct __counting_sort_traits {
   using image_type = decay_t<invoke_result_t<_Map, _Value> >;
-  static_assert(is_integral<image_type>::value, "");
   static_assert(is_unsigned<image_type>::value, "");
 
   constexpr static const auto __value_range = numeric_limits<image_type>::max() + 1;
@@ -119,7 +116,6 @@ template <class _Radix>
 _LIBCPP_HIDE_FROM_ABI auto __nth_radix(size_t __radix_number, _Radix __radix) {
   return [__radix_number, __radix = std::move(__radix)](auto __n) {
     using value_type = decltype(__n);
-    static_assert(is_integral<value_type>::value, "");
     static_assert(is_unsigned<value_type>::value, "");
     using traits = __counting_sort_traits<value_type, _Radix>;
 
@@ -348,7 +344,6 @@ struct __identity_fn {
 struct __low_byte_fn {
   template <class _Ip>
   _LIBCPP_HIDE_FROM_ABI constexpr uint8_t operator()(_Ip __integer) const {
-    static_assert(is_integral<_Ip>::value, "");
     static_assert(is_unsigned<_Ip>::value, "");
 
     return static_cast<uint8_t>(__integer & 0xff);
