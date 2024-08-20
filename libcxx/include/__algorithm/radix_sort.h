@@ -12,6 +12,7 @@
 
 #include <__algorithm/copy.h>
 #include <__algorithm/for_each.h>
+#include <__bit/countl.h>
 #include <__config>
 #include <__iterator/distance.h>
 #include <__iterator/iterator_traits.h>
@@ -63,26 +64,12 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __move_assign_please(_Iterator __i)
   return __i;
 }
 
-template <typename _Integer>
-_LIBCPP_HIDE_FROM_ABI constexpr _Integer __intlog2_impl(_Integer __integer) {
-  auto __degree = _Integer{0};
+template <typename _UnsignedInteger>
+_LIBCPP_HIDE_FROM_ABI constexpr _UnsignedInteger __intlog2(_UnsignedInteger __n) {
+  static_assert(is_integral<_UnsignedInteger>::value, "Must be an integral type");
+  static_assert(is_unsigned<_UnsignedInteger>::value, "Must be unsigned");
 
-  while ((__integer >>= 1) > 0) {
-    ++__degree;
-  }
-
-  return __degree;
-}
-
-template <typename _Integer>
-_LIBCPP_HIDE_FROM_ABI constexpr _Integer __intlog2(_Integer __integer) {
-  static_assert(is_integral<_Integer>::value, "Must be an integral type");
-
-  if (__integer > 0) {
-    return std::__intlog2_impl(__integer);
-  }
-
-  return 0;
+  return numeric_limits<_UnsignedInteger>::digits - 1 - std::__countl_zero(__n);
 }
 
 template <typename _InputIterator, typename _OutputIterator>
