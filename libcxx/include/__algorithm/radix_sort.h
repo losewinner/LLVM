@@ -14,6 +14,7 @@
 #include <__algorithm/for_each.h>
 #include <__bit/countl.h>
 #include <__config>
+#include <__functional/identity.h>
 #include <__iterator/distance.h>
 #include <__iterator/iterator_traits.h>
 #include <__iterator/move_iterator.h>
@@ -313,13 +314,6 @@ _LIBCPP_HIDE_FROM_ABI constexpr auto __to_unsigned(_Ip __n) {
   return static_cast<make_unsigned_t<_Ip> >(__n ^ __min_value);
 }
 
-struct __identity_fn {
-  template <class _Tp>
-  _LIBCPP_HIDE_FROM_ABI constexpr decltype(auto) operator()(_Tp&& __value) const {
-    return std::forward<_Tp>(__value);
-  }
-};
-
 struct __low_byte_fn {
   template <class _Ip>
   _LIBCPP_HIDE_FROM_ABI constexpr uint8_t operator()(_Ip __integer) const {
@@ -343,13 +337,13 @@ __radix_sort(_RandomAccessIterator1 __first,
 template <class _RandomAccessIterator1, class _RandomAccessIterator2>
 _LIBCPP_HIDE_FROM_ABI void
 __radix_sort(_RandomAccessIterator1 __first, _RandomAccessIterator1 __last, _RandomAccessIterator2 buffer) {
-  std::__radix_sort(__first, __last, buffer, __identity_fn{}, __low_byte_fn{});
+  std::__radix_sort(__first, __last, buffer, __identity{}, __low_byte_fn{});
 }
 
 template <class _RandomAccessIterator1, class _RandomAccessIterator2>
 _LIBCPP_HIDE_FROM_ABI bool __radix_sort(
     _RandomAccessIterator1 __first, _RandomAccessIterator1 __last, _RandomAccessIterator2 buffer, _BoolConstant<true>) {
-  std::__radix_sort(__first, __last, buffer, __identity_fn{}, __low_byte_fn{});
+  std::__radix_sort(__first, __last, buffer, __identity{}, __low_byte_fn{});
   return true;
 }
 
