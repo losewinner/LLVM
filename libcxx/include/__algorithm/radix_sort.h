@@ -87,23 +87,23 @@ __partial_sum_max(_InputIterator __first, _InputIterator __last, _OutputIterator
 
 template <class _Value, class _Map, class _Radix>
 struct __radix_sort_traits {
-  using image_type = decay_t<invoke_result_t<_Map, _Value> >;
-  static_assert(is_unsigned<image_type>::value, "");
+  using __image_type = decay_t<invoke_result_t<_Map, _Value> >;
+  static_assert(is_unsigned<__image_type>::value, "");
 
-  using radix_type = decay_t<invoke_result_t<_Radix, image_type> >;
-  static_assert(is_integral<radix_type>::value, "");
+  using __radix_type = decay_t<invoke_result_t<_Radix, __image_type> >;
+  static_assert(is_integral<__radix_type>::value, "");
 
-  constexpr static auto __radix_value_range = numeric_limits<radix_type>::max() + 1;
+  constexpr static auto __radix_value_range = numeric_limits<__radix_type>::max() + 1;
   constexpr static auto __radix_size        = std::__intlog2<uint64_t>(__radix_value_range);
-  constexpr static auto __radix_count       = sizeof(image_type) * CHAR_BIT / __radix_size;
+  constexpr static auto __radix_count       = sizeof(__image_type) * CHAR_BIT / __radix_size;
 };
 
 template <class _Value, class _Map>
 struct __counting_sort_traits {
-  using image_type = decay_t<invoke_result_t<_Map, _Value> >;
-  static_assert(is_unsigned<image_type>::value, "");
+  using __image_type = decay_t<invoke_result_t<_Map, _Value> >;
+  static_assert(is_unsigned<__image_type>::value, "");
 
-  constexpr static const auto __value_range = numeric_limits<image_type>::max() + 1;
+  constexpr static const auto __value_range = numeric_limits<__image_type>::max() + 1;
   constexpr static auto __radix_size        = std::__intlog2<uint64_t>(__value_range);
 };
 
