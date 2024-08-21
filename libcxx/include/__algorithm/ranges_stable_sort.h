@@ -24,8 +24,8 @@
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/dangling.h>
+#include <__type_traits/desugars_to.h>
 #include <__type_traits/is_integral.h>
-#include <__type_traits/is_same.h>
 #include <__utility/forward.h>
 #include <__utility/move.h>
 
@@ -47,7 +47,8 @@ struct __stable_sort {
     auto __last_iter = ranges::next(__first, __last);
 
     auto&& __projected_comp = std::__make_projected(__comp, __proj);
-    constexpr auto __default_comp        = is_same_v<_Comp, ranges::less>;
+    constexpr auto __default_comp =
+        __desugars_to_v<__totally_ordered_less_tag, _Comp, iter_value_t<_Iter>, iter_value_t<_Iter> >;
     constexpr auto __default_proj        = __is_identity<_Proj>::value;
     constexpr auto __integral_value      = is_integral_v<iter_value_t<_Iter>>;
     constexpr auto __integral_projection = __default_proj && __integral_value;
