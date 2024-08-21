@@ -218,15 +218,18 @@ __counting_sort_impl(_ForwardIterator __first, _ForwardIterator __last, _RandomA
   return __result + __counters[traits::__value_range];
 }
 
-template <class _RandomAccessIterator1, class _RandomAccessIterator2, class _Map, class _Radix>
-_LIBCPP_HIDE_FROM_ABI
-typename enable_if< __radix_sort_traits<__iter_value_type<_RandomAccessIterator1>, _Map, _Radix>::__radix_count == 1,
-                    void>::type
-__radix_sort_impl(_RandomAccessIterator1 __first,
-                  _RandomAccessIterator1 __last,
-                  _RandomAccessIterator2 buffer,
-                  _Map __map,
-                  _Radix __radix) {
+template <class _RandomAccessIterator1,
+          class _RandomAccessIterator2,
+          class _Map,
+          class _Radix,
+          enable_if_t< __radix_sort_traits<__iter_value_type<_RandomAccessIterator1>, _Map, _Radix>::__radix_count == 1,
+                       int> = 0>
+_LIBCPP_HIDE_FROM_ABI void __radix_sort_impl(
+    _RandomAccessIterator1 __first,
+    _RandomAccessIterator1 __last,
+    _RandomAccessIterator2 buffer,
+    _Map __map,
+    _Radix __radix) {
   auto __buffer_end = std::__counting_sort_impl(
       std::__move_assign_please(__first),
       std::__move_assign_please(__last),
@@ -236,15 +239,19 @@ __radix_sort_impl(_RandomAccessIterator1 __first,
   std::copy(std::__move_assign_please(buffer), std::__move_assign_please(__buffer_end), __first);
 }
 
-template <class _RandomAccessIterator1, class _RandomAccessIterator2, class _Map, class _Radix>
-_LIBCPP_HIDE_FROM_ABI typename enable_if<
-    __radix_sort_traits<__iter_value_type<_RandomAccessIterator1>, _Map, _Radix>::__radix_count % 2 == 0,
-    void>::type
-__radix_sort_impl(_RandomAccessIterator1 __first,
-                  _RandomAccessIterator1 __last,
-                  _RandomAccessIterator2 __buffer_begin,
-                  _Map __map,
-                  _Radix __radix) {
+template <
+    class _RandomAccessIterator1,
+    class _RandomAccessIterator2,
+    class _Map,
+    class _Radix,
+    enable_if_t< __radix_sort_traits<__iter_value_type<_RandomAccessIterator1>, _Map, _Radix>::__radix_count % 2 == 0,
+                 int> = 0 >
+_LIBCPP_HIDE_FROM_ABI void __radix_sort_impl(
+    _RandomAccessIterator1 __first,
+    _RandomAccessIterator1 __last,
+    _RandomAccessIterator2 __buffer_begin,
+    _Map __map,
+    _Radix __radix) {
   using value_type = __iter_value_type<_RandomAccessIterator1>;
   using traits     = __radix_sort_traits<value_type, _Map, _Radix>;
 
