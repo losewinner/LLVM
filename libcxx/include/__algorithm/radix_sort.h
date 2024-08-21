@@ -107,15 +107,12 @@ struct __counting_sort_traits {
   constexpr static auto __radix_size        = std::__intlog2<uint64_t>(__value_range);
 };
 
-template <class _Radix>
-_LIBCPP_HIDE_FROM_ABI auto __nth_radix(size_t __radix_number, _Radix __radix) {
-  return [__radix_number, __radix = std::move(__radix)](auto __n) {
-    using value_type = decltype(__n);
-    static_assert(is_unsigned<value_type>::value, "");
-    using traits = __counting_sort_traits<value_type, _Radix>;
+template <class _Radix, class _Integer>
+_LIBCPP_HIDE_FROM_ABI auto __nth_radix(size_t __radix_number, _Radix __radix, _Integer __n) {
+  static_assert(is_unsigned<_Integer>::value, "");
+  using traits = __counting_sort_traits<_Integer, _Radix>;
 
-    return __radix(static_cast<value_type>(__n >> traits::__radix_size * __radix_number));
-  };
+  return __radix(static_cast<_Integer>(__n >> traits::__radix_size * __radix_number));
 }
 
 template <class _ForwardIterator, class _Map, class _RandomAccessIterator>
@@ -167,7 +164,7 @@ _LIBCPP_HIDE_FROM_ABI bool __collect_impl(
     __is_sorted &= (__current >= __previous);
     __previous = __current;
 
-    (++__counters[_Radices][std::__nth_radix(_Radices, __radix)(__current)], ...);
+    (++__counters[_Radices][std::__nth_radix(_Radices, __radix, __current)], ...);
   });
 
   ((__maximums[_Radices] =
@@ -269,7 +266,7 @@ __radix_sort_impl(_RandomAccessIterator1 __first,
         std::copy(std::__move_assign_please(__first), std::__move_assign_please(__last), __buffer_begin);
       } else {
         auto __n0th = [__radix_number, &__map, &__radix](const auto& __v) {
-          return std::__nth_radix(__radix_number, __radix)(__map(__v));
+          return std::__nth_radix(__radix_number, __radix, __map(__v));
         };
         std::__dispose_backward(
             std::__move_assign_please(__first),
@@ -283,7 +280,7 @@ __radix_sort_impl(_RandomAccessIterator1 __first,
         std::copy(std::__move_assign_please(__buffer_begin), std::__move_assign_please(__buffer_end), __first);
       } else {
         auto __n1th = [__radix_number, &__map, &__radix](const auto& __v) {
-          return std::__nth_radix(__radix_number + 1, __radix)(__map(__v));
+          return std::__nth_radix(__radix_number + 1, __radix, __map(__v));
         };
         std::__dispose_backward(
             std::__move_assign_please(__buffer_begin),
