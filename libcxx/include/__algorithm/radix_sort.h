@@ -213,8 +213,7 @@ __counting_sort_impl(_ForwardIterator __first, _ForwardIterator __last, _RandomA
   using value_type = __iter_value_type<_ForwardIterator>;
   using traits     = __counting_sort_traits<value_type, _Map>;
 
-  using difference_type = typename iterator_traits<_RandomAccessIterator>::difference_type;
-  difference_type __counters[traits::__value_range + 1] = {0};
+  __iter_diff_t<_RandomAccessIterator> __counters[traits::__value_range + 1] = {0};
 
   std::__collect(__first, __last, __map, std::next(std::begin(__counters)));
   std::__dispose(__first, __last, __result, __map, std::begin(__counters));
@@ -252,9 +251,8 @@ __radix_sort_impl(_RandomAccessIterator1 __first,
   using value_type = __iter_value_type<_RandomAccessIterator1>;
   using traits     = __radix_sort_traits<value_type, _Map, _Radix>;
 
-  using difference_type = typename iterator_traits<_RandomAccessIterator1>::difference_type;
-  difference_type __counters[traits::__radix_count][traits::__radix_value_range] = {{0}};
-  difference_type __maximums[traits::__radix_count]                              = {0};
+  __iter_diff_t<_RandomAccessIterator1> __counters[traits::__radix_count][traits::__radix_value_range] = {{0}};
+  __iter_diff_t<_RandomAccessIterator1> __maximums[traits::__radix_count]                              = {0};
   const auto __is_sorted = std::__collect(__first, __last, __map, __radix, __counters, __maximums);
   if (not __is_sorted) {
     const auto __range_size = std::distance(__first, __last);
