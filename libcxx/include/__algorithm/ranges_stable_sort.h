@@ -48,7 +48,7 @@ struct __stable_sort {
 
     auto&& __projected_comp = std::__make_projected(__comp, __proj);
     constexpr auto __default_comp        = is_same_v<_Comp, ranges::less>;
-    constexpr auto __default_proj        = is_same_v<_Proj, identity>;
+    constexpr auto __default_proj        = __is_identity<_Proj>::value;
     constexpr auto __integral_value      = is_integral_v<iter_value_t<_Iter>>;
     constexpr auto __integral_projection = __default_proj && __integral_value;
     // constexpr auto __integral_projection = is_integral_v<remove_reference_t<invoke_result_t<_Proj&,
