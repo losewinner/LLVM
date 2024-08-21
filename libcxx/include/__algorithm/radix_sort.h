@@ -227,16 +227,16 @@ template <class _RandomAccessIterator1,
 _LIBCPP_HIDE_FROM_ABI void __radix_sort_impl(
     _RandomAccessIterator1 __first,
     _RandomAccessIterator1 __last,
-    _RandomAccessIterator2 buffer,
+    _RandomAccessIterator2 __buffer,
     _Map __map,
     _Radix __radix) {
   auto __buffer_end = std::__counting_sort_impl(
       std::__move_assign_please(__first),
       std::__move_assign_please(__last),
-      buffer,
+      __buffer,
       [&__map, &__radix](const auto& value) { return __radix(__map(value)); });
 
-  std::copy(std::__move_assign_please(buffer), std::__move_assign_please(__buffer_end), __first);
+  std::copy(std::__move_assign_please(__buffer), std::__move_assign_please(__buffer_end), __first);
 }
 
 template <
@@ -321,23 +321,26 @@ template <class _RandomAccessIterator1, class _RandomAccessIterator2, class _Map
 _LIBCPP_HIDE_FROM_ABI void
 __radix_sort(_RandomAccessIterator1 __first,
              _RandomAccessIterator1 __last,
-             _RandomAccessIterator2 buffer,
+             _RandomAccessIterator2 __buffer,
              _Map __map,
              _Radix __radix) {
   auto __map_to_unsigned = [__map = std::move(__map)](const auto& x) { return std::__to_unsigned(__map(x)); };
-  std::__radix_sort_impl(__first, __last, buffer, __map_to_unsigned, __radix);
+  std::__radix_sort_impl(__first, __last, __buffer, __map_to_unsigned, __radix);
 }
 
 template <class _RandomAccessIterator1, class _RandomAccessIterator2>
 _LIBCPP_HIDE_FROM_ABI void
-__radix_sort(_RandomAccessIterator1 __first, _RandomAccessIterator1 __last, _RandomAccessIterator2 buffer) {
-  std::__radix_sort(__first, __last, buffer, __identity{}, __low_byte_fn{});
+__radix_sort(_RandomAccessIterator1 __first, _RandomAccessIterator1 __last, _RandomAccessIterator2 __buffer) {
+  std::__radix_sort(__first, __last, __buffer, __identity{}, __low_byte_fn{});
 }
 
 template <class _RandomAccessIterator1, class _RandomAccessIterator2>
-_LIBCPP_HIDE_FROM_ABI bool __radix_sort(
-    _RandomAccessIterator1 __first, _RandomAccessIterator1 __last, _RandomAccessIterator2 buffer, _BoolConstant<true>) {
-  std::__radix_sort(__first, __last, buffer, __identity{}, __low_byte_fn{});
+_LIBCPP_HIDE_FROM_ABI bool
+__radix_sort(_RandomAccessIterator1 __first,
+             _RandomAccessIterator1 __last,
+             _RandomAccessIterator2 __buffer,
+             _BoolConstant<true>) {
+  std::__radix_sort(__first, __last, __buffer, __identity{}, __low_byte_fn{});
   return true;
 }
 
