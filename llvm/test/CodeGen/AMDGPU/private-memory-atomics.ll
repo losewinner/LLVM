@@ -634,12 +634,11 @@ define i32 @atomicrmw_dec_private_i32(ptr addrspace(5) %ptr) {
 }
 
 define i32 @atomicrmw_usub_cond_private_i32(ptr addrspace(5) %ptr) {
-; IR-LABEL: define i32 @atomicrmw_usub_cond_private_i32(
-; IR-SAME: ptr addrspace(5) [[PTR:%.*]]) #[[ATTR0]] {
-; IR-NEXT:    [[TMP1:%.*]] = load i32, ptr addrspace(5) [[PTR]], align 4
+; IR-LABEL: @atomicrmw_usub_cond_private_i32(
+; IR-NEXT:    [[TMP1:%.*]] = load i32, ptr addrspace(5) [[PTR:%.*]], align 4
 ; IR-NEXT:    [[TMP2:%.*]] = icmp uge i32 [[TMP1]], 4
 ; IR-NEXT:    [[TMP3:%.*]] = sub i32 [[TMP1]], 4
-; IR-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i32 [[TMP3]], i32 4
+; IR-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i32 [[TMP3]], i32 [[TMP1]]
 ; IR-NEXT:    store i32 [[NEW]], ptr addrspace(5) [[PTR]], align 4
 ; IR-NEXT:    ret i32 [[TMP1]]
 ;
@@ -650,7 +649,7 @@ define i32 @atomicrmw_usub_cond_private_i32(ptr addrspace(5) %ptr) {
 ; GCN-NEXT:    s_waitcnt vmcnt(0)
 ; GCN-NEXT:    v_add_i32_e32 v2, vcc, -4, v1
 ; GCN-NEXT:    v_cmp_lt_u32_e32 vcc, 3, v1
-; GCN-NEXT:    v_cndmask_b32_e32 v2, 4, v2, vcc
+; GCN-NEXT:    v_cndmask_b32_e32 v2, v1, v2, vcc
 ; GCN-NEXT:    buffer_store_dword v2, v0, s[0:3], 0 offen
 ; GCN-NEXT:    v_mov_b32_e32 v0, v1
 ; GCN-NEXT:    s_waitcnt vmcnt(0) expcnt(0)
@@ -660,12 +659,9 @@ define i32 @atomicrmw_usub_cond_private_i32(ptr addrspace(5) %ptr) {
 }
 
 define i32 @atomicrmw_usub_sat_private_i32(ptr addrspace(5) %ptr) {
-; IR-LABEL: define i32 @atomicrmw_usub_sat_private_i32(
-; IR-SAME: ptr addrspace(5) [[PTR:%.*]]) #[[ATTR0]] {
-; IR-NEXT:    [[TMP1:%.*]] = load i32, ptr addrspace(5) [[PTR]], align 4
-; IR-NEXT:    [[TMP2:%.*]] = icmp uge i32 [[TMP1]], 4
-; IR-NEXT:    [[TMP3:%.*]] = sub i32 [[TMP1]], 4
-; IR-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i32 [[TMP3]], i32 0
+; IR-LABEL: @atomicrmw_usub_sat_private_i32(
+; IR-NEXT:    [[TMP1:%.*]] = load i32, ptr addrspace(5) [[PTR:%.*]], align 4
+; IR-NEXT:    [[NEW:%.*]] = call i32 @llvm.usub.sat.i32(i32 [[TMP1]], i32 4)
 ; IR-NEXT:    store i32 [[NEW]], ptr addrspace(5) [[PTR]], align 4
 ; IR-NEXT:    ret i32 [[TMP1]]
 ;
@@ -674,9 +670,8 @@ define i32 @atomicrmw_usub_sat_private_i32(ptr addrspace(5) %ptr) {
 ; GCN-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
 ; GCN-NEXT:    buffer_load_dword v1, v0, s[0:3], 0 offen
 ; GCN-NEXT:    s_waitcnt vmcnt(0)
-; GCN-NEXT:    v_add_i32_e32 v2, vcc, -4, v1
-; GCN-NEXT:    v_cmp_lt_u32_e32 vcc, 3, v1
-; GCN-NEXT:    v_cndmask_b32_e32 v2, 0, v2, vcc
+; GCN-NEXT:    v_max_u32_e32 v2, 4, v1
+; GCN-NEXT:    v_add_i32_e32 v2, vcc, -4, v2
 ; GCN-NEXT:    buffer_store_dword v2, v0, s[0:3], 0 offen
 ; GCN-NEXT:    v_mov_b32_e32 v0, v1
 ; GCN-NEXT:    s_waitcnt vmcnt(0) expcnt(0)

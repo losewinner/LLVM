@@ -1728,9 +1728,9 @@ define i8 @test_atomicrmw_usub_cond_i8_global_agent(ptr addrspace(1) %ptr, i8 %v
 ; GCN-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; GCN-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; GCN-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; GCN-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; GCN-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; GCN-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; GCN-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; GCN-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -1757,9 +1757,9 @@ define i8 @test_atomicrmw_usub_cond_i8_global_agent(ptr addrspace(1) %ptr, i8 %v
 ; R600-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; R600-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; R600-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; R600-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; R600-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; R600-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; R600-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; R600-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; R600-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; R600-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -1792,9 +1792,9 @@ define i8 @test_atomicrmw_usub_cond_i8_global_agent_align2(ptr addrspace(1) %ptr
 ; GCN-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; GCN-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; GCN-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; GCN-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; GCN-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; GCN-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; GCN-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; GCN-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -1821,9 +1821,9 @@ define i8 @test_atomicrmw_usub_cond_i8_global_agent_align2(ptr addrspace(1) %ptr
 ; R600-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; R600-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; R600-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; R600-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; R600-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; R600-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; R600-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; R600-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; R600-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; R600-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -1848,9 +1848,9 @@ define i8 @test_atomicrmw_usub_cond_i8_global_agent_align4(ptr addrspace(1) %ptr
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[LOADED]] to i8
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP3]], i8 [[TMP5]], i8 [[VALUE]]
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i8 [[TMP3]], i8 [[EXTRACTED]]
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], -256
 ; CHECK-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[EXTENDED]]
@@ -1880,9 +1880,9 @@ define i8 @test_atomicrmw_usub_cond_i8_local(ptr addrspace(3) %ptr, i8 %value) {
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -1914,9 +1914,9 @@ define i8 @test_atomicrmw_usub_cond_i8_local_align2(ptr addrspace(3) %ptr, i8 %v
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; CHECK-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -1941,9 +1941,9 @@ define i8 @test_atomicrmw_usub_cond_i8_local_align4(ptr addrspace(3) %ptr, i8 %v
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[LOADED]] to i8
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP3]], i8 [[TMP5]], i8 [[VALUE]]
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i8 [[TMP3]], i8 [[EXTRACTED]]
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], -256
 ; CHECK-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[EXTENDED]]
@@ -1974,9 +1974,9 @@ define i8 @test_atomicrmw_usub_cond_i8_flat_agent(ptr %ptr, i8 %value) {
 ; GCN-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; GCN-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; GCN-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; GCN-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; GCN-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; GCN-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; GCN-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; GCN-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -2003,9 +2003,9 @@ define i8 @test_atomicrmw_usub_cond_i8_flat_agent(ptr %ptr, i8 %value) {
 ; R600-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; R600-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; R600-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; R600-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; R600-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; R600-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; R600-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; R600-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; R600-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; R600-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -2038,9 +2038,9 @@ define i8 @test_atomicrmw_usub_cond_i8_flat_agent_align2(ptr %ptr, i8 %value) {
 ; GCN-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; GCN-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; GCN-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; GCN-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; GCN-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; GCN-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; GCN-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; GCN-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -2067,9 +2067,9 @@ define i8 @test_atomicrmw_usub_cond_i8_flat_agent_align2(ptr %ptr, i8 %value) {
 ; R600-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; R600-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; R600-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; R600-NEXT:    [[TMP5:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; R600-NEXT:    [[TMP7:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP5]], i8 [[TMP7]], i8 [[VALUE]]
+; R600-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; R600-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 [[EXTRACTED]]
 ; R600-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; R600-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; R600-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
@@ -2094,9 +2094,9 @@ define i8 @test_atomicrmw_usub_cond_i8_flat_agent_align4(ptr %ptr, i8 %value) {
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[LOADED]] to i8
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP3]], i8 [[TMP5]], i8 [[VALUE]]
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
+; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i8 [[TMP3]], i8 [[EXTRACTED]]
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], -256
 ; CHECK-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[EXTENDED]]
@@ -2127,16 +2127,14 @@ define i8 @test_atomicrmw_usub_sat_i8_global_agent(ptr addrspace(1) %ptr, i8 %va
 ; GCN-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; GCN-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; GCN-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; GCN-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; GCN-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; GCN-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; GCN-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; GCN-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; GCN-NEXT:    [[TMP8:%.*]] = cmpxchg ptr addrspace(1) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; GCN-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; GCN-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; GCN-NEXT:    [[TMP4:%.*]] = cmpxchg ptr addrspace(1) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; GCN-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; GCN-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; GCN-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; GCN:       atomicrmw.end:
 ; GCN-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[SHIFTAMT]]
@@ -2156,16 +2154,14 @@ define i8 @test_atomicrmw_usub_sat_i8_global_agent(ptr addrspace(1) %ptr, i8 %va
 ; R600-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; R600-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; R600-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; R600-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; R600-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; R600-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; R600-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; R600-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; R600-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; R600-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; R600-NEXT:    [[TMP8:%.*]] = cmpxchg ptr addrspace(1) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; R600-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; R600-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; R600-NEXT:    [[TMP4:%.*]] = cmpxchg ptr addrspace(1) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; R600-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; R600-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; R600-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; R600:       atomicrmw.end:
 ; R600-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[TMP2]]
@@ -2191,16 +2187,14 @@ define i8 @test_atomicrmw_usub_sat_i8_global_agent_align2(ptr addrspace(1) %ptr,
 ; GCN-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; GCN-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; GCN-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; GCN-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; GCN-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; GCN-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; GCN-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; GCN-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; GCN-NEXT:    [[TMP8:%.*]] = cmpxchg ptr addrspace(1) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; GCN-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; GCN-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; GCN-NEXT:    [[TMP4:%.*]] = cmpxchg ptr addrspace(1) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; GCN-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; GCN-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; GCN-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; GCN:       atomicrmw.end:
 ; GCN-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[SHIFTAMT]]
@@ -2220,16 +2214,14 @@ define i8 @test_atomicrmw_usub_sat_i8_global_agent_align2(ptr addrspace(1) %ptr,
 ; R600-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; R600-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; R600-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; R600-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; R600-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; R600-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; R600-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; R600-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; R600-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; R600-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; R600-NEXT:    [[TMP8:%.*]] = cmpxchg ptr addrspace(1) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; R600-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; R600-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; R600-NEXT:    [[TMP4:%.*]] = cmpxchg ptr addrspace(1) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; R600-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; R600-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; R600-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; R600:       atomicrmw.end:
 ; R600-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[TMP2]]
@@ -2247,15 +2239,13 @@ define i8 @test_atomicrmw_usub_sat_i8_global_agent_align4(ptr addrspace(1) %ptr,
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[LOADED]] to i8
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP3:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i8 [[TMP3]], i8 0
+; CHECK-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], -256
 ; CHECK-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[EXTENDED]]
-; CHECK-NEXT:    [[TMP6:%.*]] = cmpxchg ptr addrspace(1) [[PTR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP6]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP6]], 0
+; CHECK-NEXT:    [[TMP2:%.*]] = cmpxchg ptr addrspace(1) [[PTR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP2]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP2]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    [[EXTRACTED1:%.*]] = trunc i32 [[NEWLOADED]] to i8
@@ -2279,16 +2269,14 @@ define i8 @test_atomicrmw_usub_sat_i8_local(ptr addrspace(3) %ptr, i8 %value) {
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; CHECK-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; CHECK-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; CHECK-NEXT:    [[TMP8:%.*]] = cmpxchg ptr addrspace(3) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] seq_cst seq_cst, align 4
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; CHECK-NEXT:    [[TMP4:%.*]] = cmpxchg ptr addrspace(3) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] seq_cst seq_cst, align 4
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[TMP2]]
@@ -2313,16 +2301,14 @@ define i8 @test_atomicrmw_usub_sat_i8_local_align2(ptr addrspace(3) %ptr, i8 %va
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; CHECK-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; CHECK-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; CHECK-NEXT:    [[TMP8:%.*]] = cmpxchg ptr addrspace(3) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] seq_cst seq_cst, align 4
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; CHECK-NEXT:    [[TMP4:%.*]] = cmpxchg ptr addrspace(3) [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] seq_cst seq_cst, align 4
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[TMP2]]
@@ -2340,15 +2326,13 @@ define i8 @test_atomicrmw_usub_sat_i8_local_align4(ptr addrspace(3) %ptr, i8 %va
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[LOADED]] to i8
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP3:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i8 [[TMP3]], i8 0
+; CHECK-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], -256
 ; CHECK-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[EXTENDED]]
-; CHECK-NEXT:    [[TMP6:%.*]] = cmpxchg ptr addrspace(3) [[PTR]], i32 [[LOADED]], i32 [[INSERTED]] seq_cst seq_cst, align 4
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP6]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP6]], 0
+; CHECK-NEXT:    [[TMP2:%.*]] = cmpxchg ptr addrspace(3) [[PTR]], i32 [[LOADED]], i32 [[INSERTED]] seq_cst seq_cst, align 4
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP2]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP2]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    [[EXTRACTED1:%.*]] = trunc i32 [[NEWLOADED]] to i8
@@ -2373,16 +2357,14 @@ define i8 @test_atomicrmw_usub_sat_i8_flat_agent(ptr %ptr, i8 %value) {
 ; GCN-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; GCN-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; GCN-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; GCN-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; GCN-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; GCN-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; GCN-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; GCN-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; GCN-NEXT:    [[TMP8:%.*]] = cmpxchg ptr [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; GCN-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; GCN-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; GCN-NEXT:    [[TMP4:%.*]] = cmpxchg ptr [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; GCN-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; GCN-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; GCN-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; GCN:       atomicrmw.end:
 ; GCN-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[SHIFTAMT]]
@@ -2402,16 +2384,14 @@ define i8 @test_atomicrmw_usub_sat_i8_flat_agent(ptr %ptr, i8 %value) {
 ; R600-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; R600-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; R600-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; R600-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; R600-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; R600-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; R600-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; R600-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; R600-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; R600-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; R600-NEXT:    [[TMP8:%.*]] = cmpxchg ptr [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; R600-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; R600-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; R600-NEXT:    [[TMP4:%.*]] = cmpxchg ptr [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; R600-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; R600-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; R600-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; R600:       atomicrmw.end:
 ; R600-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[TMP2]]
@@ -2437,16 +2417,14 @@ define i8 @test_atomicrmw_usub_sat_i8_flat_agent_align2(ptr %ptr, i8 %value) {
 ; GCN-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; GCN-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; GCN-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; GCN-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; GCN-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; GCN-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; GCN-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; GCN-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[SHIFTAMT]]
 ; GCN-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; GCN-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; GCN-NEXT:    [[TMP8:%.*]] = cmpxchg ptr [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; GCN-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; GCN-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; GCN-NEXT:    [[TMP4:%.*]] = cmpxchg ptr [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; GCN-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; GCN-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; GCN-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; GCN:       atomicrmw.end:
 ; GCN-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[SHIFTAMT]]
@@ -2466,16 +2444,14 @@ define i8 @test_atomicrmw_usub_sat_i8_flat_agent_align2(ptr %ptr, i8 %value) {
 ; R600-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; R600-NEXT:    [[SHIFTED:%.*]] = lshr i32 [[LOADED]], [[TMP2]]
 ; R600-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[SHIFTED]] to i8
-; R600-NEXT:    [[TMP4:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; R600-NEXT:    [[TMP5:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; R600-NEXT:    [[NEW:%.*]] = select i1 [[TMP4]], i8 [[TMP5]], i8 0
+; R600-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; R600-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; R600-NEXT:    [[SHIFTED1:%.*]] = shl nuw i32 [[EXTENDED]], [[TMP2]]
 ; R600-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], [[INV_MASK]]
 ; R600-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[SHIFTED1]]
-; R600-NEXT:    [[TMP8:%.*]] = cmpxchg ptr [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; R600-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP8]], 1
-; R600-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP8]], 0
+; R600-NEXT:    [[TMP4:%.*]] = cmpxchg ptr [[ALIGNEDADDR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; R600-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP4]], 1
+; R600-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP4]], 0
 ; R600-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; R600:       atomicrmw.end:
 ; R600-NEXT:    [[SHIFTED2:%.*]] = lshr i32 [[NEWLOADED]], [[TMP2]]
@@ -2493,15 +2469,13 @@ define i8 @test_atomicrmw_usub_sat_i8_flat_agent_align4(ptr %ptr, i8 %value) {
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi i32 [ [[TMP1]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[EXTRACTED:%.*]] = trunc i32 [[LOADED]] to i8
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp uge i8 [[EXTRACTED]], [[VALUE:%.*]]
-; CHECK-NEXT:    [[TMP3:%.*]] = sub i8 [[EXTRACTED]], [[VALUE]]
-; CHECK-NEXT:    [[NEW:%.*]] = select i1 [[TMP2]], i8 [[TMP3]], i8 0
+; CHECK-NEXT:    [[NEW:%.*]] = call i8 @llvm.usub.sat.i8(i8 [[EXTRACTED]], i8 [[VALUE:%.*]])
 ; CHECK-NEXT:    [[EXTENDED:%.*]] = zext i8 [[NEW]] to i32
 ; CHECK-NEXT:    [[UNMASKED:%.*]] = and i32 [[LOADED]], -256
 ; CHECK-NEXT:    [[INSERTED:%.*]] = or i32 [[UNMASKED]], [[EXTENDED]]
-; CHECK-NEXT:    [[TMP6:%.*]] = cmpxchg ptr [[PTR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
-; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP6]], 1
-; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP6]], 0
+; CHECK-NEXT:    [[TMP2:%.*]] = cmpxchg ptr [[PTR]], i32 [[LOADED]], i32 [[INSERTED]] syncscope("agent") seq_cst seq_cst, align 4
+; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { i32, i1 } [[TMP2]], 1
+; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { i32, i1 } [[TMP2]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
 ; CHECK:       atomicrmw.end:
 ; CHECK-NEXT:    [[EXTRACTED1:%.*]] = trunc i32 [[NEWLOADED]] to i8
