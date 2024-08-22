@@ -10,6 +10,23 @@
 #ifndef _LIBCPP___ALGORITHM_RADIX_SORT_H
 #define _LIBCPP___ALGORITHM_RADIX_SORT_H
 
+// This is an implementation of classic LSD radix sort algorithm, running in linear time and using `O(max(N, M))`
+// additional memory, where `N` is size of an input range, `M` — maximum value of
+// a radix of the sorted integer type. Type of the radix and its maximum value are determined at compile time
+// based on type returned by function `__radix`. The default radix is uint8.
+
+// The algorithm is equivalent to several consecutive calls of counting sort for each
+// radix of the sorted numbers from low to high byte.
+// The algorithm uses a temporary buffer of size equal to size of the input range. Each `i`-th pass
+// of the algorithm sorts values by `i`-th radix and moves values to the temporary buffer (for each even `i`, counted
+// from zero), or moves them back to the initial range (for each odd `i`). It there is only one radix in sorted integers
+// (e.g. int8), than sorted values are placed to the buffer, and then moved back to the initial range.
+
+// The implementation also has several optimizations:
+// - the counters for the counting sort are calculated in one pass for all radices;
+// - if all values of a radix are the same, we do not sort that radix, and just move items to the buffer;
+// - if two consecutive radices satisfies condition above, we do nothing for these two radices.
+
 #include <__algorithm/copy.h>
 #include <__algorithm/for_each.h>
 #include <__bit/countl.h>
