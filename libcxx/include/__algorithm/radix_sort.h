@@ -27,8 +27,8 @@
 // - if all values of a radix are the same, we do not sort that radix, and just move items to the buffer;
 // - if two consecutive radices satisfies condition above, we do nothing for these two radices.
 
-#include <__algorithm/copy.h>
 #include <__algorithm/for_each.h>
+#include <__algorithm/move.h>
 #include <__bit/countl.h>
 #include <__config>
 #include <__functional/identity.h>
@@ -64,16 +64,6 @@ _LIBCPP_PUSH_MACROS
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 14
-
-template <class _Iterator, enable_if_t<is_move_assignable<__iter_value_type<_Iterator>>::value, int> = 0>
-_LIBCPP_HIDE_FROM_ABI constexpr move_iterator<_Iterator> __move_assign_please(_Iterator __i) {
-  return std::make_move_iterator(std::move(__i));
-}
-
-template <class _Iterator, enable_if_t<!is_move_assignable<__iter_value_type<_Iterator>>::value, int> = 0>
-_LIBCPP_HIDE_FROM_ABI constexpr _Iterator __move_assign_please(_Iterator __i) {
-  return __i;
-}
 
 template <class _UnsignedInteger>
 _LIBCPP_HIDE_FROM_ABI constexpr _UnsignedInteger __intlog2(_UnsignedInteger __n) {
@@ -153,7 +143,7 @@ __dispose(_ForwardIterator __first,
           _RandomAccessIterator2 __counters) {
   std::for_each(__first, __last, [&__result, &__counters, &__map](auto&& __preimage) {
     auto __index      = __counters[__map(__preimage)]++;
-    __result[__index] = std::forward<decltype(__preimage)>(__preimage);
+    __result[__index] = std::move(__preimage);
   });
 }
 
@@ -217,7 +207,7 @@ _LIBCPP_HIDE_FROM_ABI void __dispose_backward(
                 std::make_reverse_iterator(__first),
                 [&__result, &__counters, &__map](auto&& __preimage) {
                   auto __index      = --__counters[__map(__preimage)];
-                  __result[__index] = std::forward<decltype(__preimage)>(__preimage);
+                  __result[__index] = std::move(__preimage);
                 });
 }
 
@@ -247,13 +237,11 @@ _LIBCPP_HIDE_FROM_ABI void __radix_sort_impl(
     _RandomAccessIterator2 __buffer,
     _Map __map,
     _Radix __radix) {
-  auto __buffer_end = std::__counting_sort_impl(
-      std::__move_assign_please(__first),
-      std::__move_assign_please(__last),
-      __buffer,
-      [&__map, &__radix](const auto& value) { return __radix(__map(value)); });
+  auto __buffer_end = std::__counting_sort_impl(__first, __last, __buffer, [&__map, &__radix](const auto& value) {
+    return __radix(__map(value));
+  });
 
-  std::copy(std::__move_assign_please(__buffer), std::__move_assign_please(__buffer_end), __first);
+  std::move(__buffer, __buffer_end, __first);
 }
 
 template <
@@ -287,31 +275,21 @@ _LIBCPP_HIDE_FROM_ABI void __radix_sort_impl(
       }
 
       if (__n0th_is_single) {
-        std::copy(std::__move_assign_please(__first), std::__move_assign_please(__last), __buffer_begin);
+        std::move(__first, __last, __buffer_begin);
       } else {
         auto __n0th = [__radix_number, &__map, &__radix](const auto& __v) {
           return std::__nth_radix(__radix_number, __radix, __map(__v));
         };
-        std::__dispose_backward(
-            std::__move_assign_please(__first),
-            std::__move_assign_please(__last),
-            __buffer_begin,
-            __n0th,
-            __counters[__radix_number]);
+        std::__dispose_backward(__first, __last, __buffer_begin, __n0th, __counters[__radix_number]);
       }
 
       if (__n1th_is_single) {
-        std::copy(std::__move_assign_please(__buffer_begin), std::__move_assign_please(__buffer_end), __first);
+        std::move(__buffer_begin, __buffer_end, __first);
       } else {
         auto __n1th = [__radix_number, &__map, &__radix](const auto& __v) {
           return std::__nth_radix(__radix_number + 1, __radix, __map(__v));
         };
-        std::__dispose_backward(
-            std::__move_assign_please(__buffer_begin),
-            std::__move_assign_please(__buffer_end),
-            __first,
-            __n1th,
-            __counters[__radix_number + 1]);
+        std::__dispose_backward(__buffer_begin, __buffer_end, __first, __n1th, __counters[__radix_number + 1]);
       }
     }
   }
