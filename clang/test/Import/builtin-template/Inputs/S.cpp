@@ -14,3 +14,10 @@ using TypePackElement = __type_pack_element<i, T...>;
 
 template <int i>
 struct X;
+
+
+template <template <class...> class Templ, class...Types>
+using TypeListDedup = __type_list_dedup<Templ, Types...>;
+
+template <class ...Ts>
+struct TypeList {};

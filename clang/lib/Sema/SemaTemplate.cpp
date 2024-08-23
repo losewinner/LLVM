@@ -17,7 +17,9 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/TemplateBase.h"
 #include "clang/AST/TemplateName.h"
+#include "clang/AST/TypeOrdering.h"
 #include "clang/AST/TypeVisitor.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/DiagnosticSema.h"
@@ -38,9 +40,11 @@
 #include "clang/Sema/Template.h"
 #include "clang/Sema/TemplateDeduction.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <iterator>
 #include <optional>
@@ -3132,12 +3136,12 @@ checkBuiltinTemplateIdType(Sema &SemaRef, BuiltinTemplateDecl *BTD,
                                        TemplateLoc, SyntheticTemplateArgs);
   }
 
-  case BTK__type_pack_element:
+  case BTK__type_pack_element: {
     // Specializations of
     //    __type_pack_element<Index, T_1, ..., T_N>
     // are treated like T_Index.
     assert(Converted.size() == 2 &&
-      "__type_pack_element should be given an index and a parameter pack");
+           "__type_pack_element should be given an index and a parameter pack");
 
     TemplateArgument IndexArg = Converted[0], Ts = Converted[1];
     if (IndexArg.isDependent() || Ts.isDependent())
@@ -3157,6 +3161,34 @@ checkBuiltinTemplateIdType(Sema &SemaRef, BuiltinTemplateDecl *BTD,
     // We simply return the type at index `Index`.
     int64_t N = Index.getExtValue();
     return Ts.getPackAsArray()[N].getAsType();
+  }
+  case BTK__type_list_dedup: {
+    assert(Converted.size() == 2 &&
+           "__type_list_dedup should be given a template and a parameter pack");
+    TemplateArgument Template = Converted[0];
+    TemplateArgument Ts = Converted[1];
+    if (Template.isDependent() || Ts.isDependent())
+      return Context.getCanonicalTemplateSpecializationType(TemplateName(BTD),
+                                                            Converted);
+
+    assert(Template.getKind() == clang::TemplateArgument::Template);
+    assert(Ts.getKind() == clang::TemplateArgument::Pack);
+    TemplateArgumentListInfo SyntheticTemplateArgs;
+    llvm::DenseSet<QualType> Seen;
+    // Synthesize a new template argument list, removing duplicates.
+    for (auto T : Ts.getPackAsArray()) {
+      assert(T.getKind() == clang::TemplateArgument::Type);
+      if (!Seen.insert(T.getAsType().getCanonicalType()).second)
+        continue;
+      SyntheticTemplateArgs.addArgument(TemplateArgumentLoc(
+          TemplateArgument(T),
+          SemaRef.Context.getTrivialTypeSourceInfo(
+              T.getAsType(),
+              /*FIXME: add location*/ SourceLocation())));
+    }
+    return SemaRef.CheckTemplateIdType(Template.getAsTemplate(), TemplateLoc,
+                                       SyntheticTemplateArgs);
+  }
   }
   llvm_unreachable("unexpected BuiltinTemplateDecl!");
 }

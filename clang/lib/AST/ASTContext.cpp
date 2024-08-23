@@ -1170,6 +1170,14 @@ ASTContext::getTypePackElementDecl() const {
   return TypePackElementDecl;
 }
 
+BuiltinTemplateDecl *
+ASTContext::getTypeListDedupDecl() const {
+  if (!TypeListDedupDecl)
+    TypeListDedupDecl =
+        buildBuiltinTemplateDecl(BTK__type_list_dedup, getTypeListDedupName());
+  return TypeListDedupDecl;
+}
+
 RecordDecl *ASTContext::buildImplicitRecord(StringRef Name,
                                             RecordDecl::TagKind TK) const {
   SourceLocation Loc;
