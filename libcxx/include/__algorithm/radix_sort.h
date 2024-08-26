@@ -295,10 +295,10 @@ _LIBCPP_HIDE_FROM_ABI void __radix_sort_impl(
   }
 }
 
-_LIBCPP_HIDE_FROM_ABI constexpr auto __to_unsigned(bool __b) { return __b; }
+_LIBCPP_HIDE_FROM_ABI constexpr auto __shift_to_unsigned(bool __b) { return __b; }
 
 template <class _Ip>
-_LIBCPP_HIDE_FROM_ABI constexpr auto __to_unsigned(_Ip __n) {
+_LIBCPP_HIDE_FROM_ABI constexpr auto __shift_to_unsigned(_Ip __n) {
   constexpr const auto __min_value = numeric_limits<_Ip>::min();
   return static_cast<make_unsigned_t<_Ip> >(__n ^ __min_value);
 }
@@ -319,7 +319,7 @@ __radix_sort(_RandomAccessIterator1 __first,
              _RandomAccessIterator2 __buffer,
              _Map __map,
              _Radix __radix) {
-  auto __map_to_unsigned = [__map = std::move(__map)](const auto& x) { return std::__to_unsigned(__map(x)); };
+  auto __map_to_unsigned = [__map = std::move(__map)](const auto& x) { return std::__shift_to_unsigned(__map(x)); };
   std::__radix_sort_impl(__first, __last, __buffer, __map_to_unsigned, __radix);
 }
 
