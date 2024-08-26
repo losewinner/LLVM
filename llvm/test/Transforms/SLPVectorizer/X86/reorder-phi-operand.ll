@@ -9,11 +9,11 @@ define ptr @test() {
 ; CHECK-NEXT:    [[TMP1:%.*]] = fpext <2 x float> [[TMP0]] to <2 x double>
 ; CHECK-NEXT:    br label [[BODY:%.*]]
 ; CHECK:       body:
-; CHECK-NEXT:    [[TMP2:%.*]] = phi <2 x double> [ [[TMP5:%.*]], [[BODY]] ], [ [[TMP1]], [[ENTRY:%.*]] ]
+; CHECK-NEXT:    [[TMP2:%.*]] = phi <2 x double> [ [[TMP6:%.*]], [[BODY]] ], [ [[TMP1]], [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x i16>, ptr null, align 2
 ; CHECK-NEXT:    [[TMP4:%.*]] = uitofp <2 x i16> [[TMP3]] to <2 x double>
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x double> [[TMP4]], <2 x double> poison, <2 x i32> <i32 1, i32 0>
-; CHECK-NEXT:    [[TMP5]] = call <2 x double> @llvm.fmuladd.v2f64(<2 x double> zeroinitializer, <2 x double> [[SHUFFLE]], <2 x double> [[TMP2]])
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <2 x double> [[TMP4]], <2 x double> poison, <2 x i32> <i32 1, i32 0>
+; CHECK-NEXT:    [[TMP6]] = call <2 x double> @llvm.fmuladd.v2f64(<2 x double> zeroinitializer, <2 x double> [[TMP5]], <2 x double> [[TMP2]])
 ; CHECK-NEXT:    br label [[BODY]]
 ;
 entry:
@@ -54,8 +54,8 @@ define void @test1(ptr %agg.result, ptr %this) {
 ; CHECK:       return:
 ; CHECK-NEXT:    [[TMP2:%.*]] = phi <2 x float> [ [[TMP1]], [[IF_END]] ], [ <float 1.000000e+00, float 0.000000e+00>, [[LOR_LHS_FALSE]] ], [ <float 1.000000e+00, float 0.000000e+00>, [[ENTRY:%.*]] ]
 ; CHECK-NEXT:    [[C_I_I_I:%.*]] = getelementptr inbounds float, ptr [[AGG_RESULT:%.*]], i32 2
-; CHECK-NEXT:    [[SHUFFLE:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> poison, <2 x i32> <i32 1, i32 0>
-; CHECK-NEXT:    store <2 x float> [[SHUFFLE]], ptr [[C_I_I_I]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = shufflevector <2 x float> [[TMP2]], <2 x float> poison, <2 x i32> <i32 1, i32 0>
+; CHECK-NEXT:    store <2 x float> [[TMP3]], ptr [[C_I_I_I]], align 4
 ; CHECK-NEXT:    ret void
 ;
 entry:
