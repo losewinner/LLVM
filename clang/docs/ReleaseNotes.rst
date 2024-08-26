@@ -213,6 +213,12 @@ Attribute Changes in Clang
 - ``[[clang::lifetimebound]]`` is now explicitly disallowed on explicit object member functions
   where they were previously silently ignored.
 
+- On targets with Itanium C++ ABI, Clang now supports ``[[gnu:gcc_struct]]``
+  with the behavior similar to one existing in GCC. In particular, whenever
+  ``-mms-bitfields`` command line option is provided (or if Microsoft-compatible
+  structure layout is default on the target), ``[[gnu::gcc_struct]]`` requests
+  the compiler to follow Itanium rules for the layout of an annotated structure.
+
 Improvements to Clang's diagnostics
 -----------------------------------
 
