@@ -5545,7 +5545,8 @@ Process::RunThreadPlan(ExecutionContext &exe_ctx,
       // Print a backtrace into the log so we can figure out where we are:
       StreamString s;
       s.PutCString("Thread state after unsuccessful completion: \n");
-      thread->GetStackFrameStatus(s, 0, UINT32_MAX, true, UINT32_MAX);
+      thread->GetStackFrameStatus(s, 0, UINT32_MAX, true, UINT32_MAX,
+                                  /*show_hidden*/ true);
       log->PutString(s.GetString());
     }
     // Restore the thread state if we are going to discard the plan execution.
@@ -5819,8 +5820,8 @@ size_t Process::GetThreadStatus(Stream &strm,
           continue;
       }
       thread_sp->GetStatus(strm, start_frame, num_frames,
-                           num_frames_with_source,
-                           stop_format);
+                           num_frames_with_source, stop_format,
+                           /*show_hidden*/ num_frames <= 1);
       ++num_thread_infos_dumped;
     } else {
       Log *log = GetLog(LLDBLog::Process);
@@ -6516,14 +6517,14 @@ static bool AddDirtyPages(const MemoryRegionInfo &region,
       } else {
         // Add previous contiguous range and init the new range with the
         // current dirty page.
-        ranges.push_back({range, lldb_permissions});
+        ranges.Append(range.start(), range.end(), {range, lldb_permissions});
         range = llvm::AddressRange(page_addr, page_addr + page_size);
       }
     }
   }
   // The last range
   if (!range.empty())
-    ranges.push_back({range, lldb_permissions});
+    ranges.Append(range.start(), range.end(), {range, lldb_permissions});
   return true;
 }
 
@@ -6544,12 +6545,16 @@ static void AddRegion(const MemoryRegionInfo &region, bool try_dirty_pages,
     return;
   if (try_dirty_pages && AddDirtyPages(region, ranges))
     return;
-  ranges.push_back(CreateCoreFileMemoryRange(region));
+
+  ranges.Append(region.GetRange().GetRangeBase(),
+                region.GetRange().GetByteSize(),
+                CreateCoreFileMemoryRange(region));
 }
 
 static void SaveOffRegionsWithStackPointers(
-    Process &process, const MemoryRegionInfos &regions,
-    Process::CoreFileMemoryRanges &ranges, std::set<addr_t> &stack_ends) {
+    Process &process, const SaveCoreOptions &core_options,
+    const MemoryRegionInfos &regions, Process::CoreFileMemoryRanges &ranges,
+    std::set<addr_t> &stack_ends) {
   const bool try_dirty_pages = true;
 
   // Before we take any dump, we want to save off the used portions of the
@@ -6571,10 +6576,16 @@ static void SaveOffRegionsWithStackPointers(
     if (process.GetMemoryRegionInfo(sp, sp_region).Success()) {
       const size_t stack_head = (sp - red_zone);
       const size_t stack_size = sp_region.GetRange().GetRangeEnd() - stack_head;
+      // Even if the SaveCoreOption doesn't want us to save the stack
+      // we still need to populate the stack_ends set so it doesn't get saved
+      // off in other calls
       sp_region.GetRange().SetRangeBase(stack_head);
       sp_region.GetRange().SetByteSize(stack_size);
       stack_ends.insert(sp_region.GetRange().GetRangeEnd());
-      AddRegion(sp_region, try_dirty_pages, ranges);
+      // This will return true if the threadlist the user specified is empty,
+      // or contains the thread id from thread_sp.
+      if (core_options.ShouldThreadBeSaved(thread_sp->GetID()))
+        AddRegion(sp_region, try_dirty_pages, ranges);
     }
   }
 }
@@ -6587,7 +6598,7 @@ static void GetCoreFileSaveRangesFull(Process &process,
                                       std::set<addr_t> &stack_ends) {
 
   // Don't add only dirty pages, add full regions.
-const bool try_dirty_pages = false;
+  const bool try_dirty_pages = false;
   for (const auto &region : regions)
     if (stack_ends.count(region.GetRange().GetRangeEnd()) == 0)
       AddRegion(region, try_dirty_pages, ranges);
@@ -6643,10 +6654,53 @@ static void GetCoreFileSaveRangesStackOnly(
   }
 }
 
-Status Process::CalculateCoreFileSaveRanges(lldb::SaveCoreStyle core_style,
+static void GetUserSpecifiedCoreFileSaveRanges(
+    Process &process, const MemoryRegionInfos &regions,
+    const SaveCoreOptions &options, Process::CoreFileMemoryRanges &ranges) {
+  const auto &option_ranges = options.GetCoreFileMemoryRanges();
+  if (option_ranges.IsEmpty())
+    return;
+
+  for (const auto &range : regions) {
+    auto entry = option_ranges.FindEntryThatContains(range.GetRange());
+    if (entry)
+      ranges.Append(range.GetRange().GetRangeBase(),
+                    range.GetRange().GetByteSize(),
+                    CreateCoreFileMemoryRange(range));
+  }
+}
+
+static Status
+FinalizeCoreFileSaveRanges(Process::CoreFileMemoryRanges &ranges) {
+  Status error;
+  ranges.Sort();
+  for (size_t i = ranges.GetSize() - 1; i > 0; i--) {
+    auto region = ranges.GetMutableEntryAtIndex(i);
+    auto next_region = ranges.GetMutableEntryAtIndex(i - 1);
+    if (next_region->GetRangeEnd() >= region->GetRangeBase() &&
+        region->GetRangeBase() <= next_region->GetRangeEnd() &&
+        region->data.lldb_permissions == next_region->data.lldb_permissions) {
+      const addr_t base =
+          std::min(region->GetRangeBase(), next_region->GetRangeBase());
+      const addr_t byte_size =
+          std::max(region->GetRangeEnd(), next_region->GetRangeEnd()) - base;
+      next_region->SetRangeBase(base);
+      next_region->SetByteSize(byte_size);
+      if (!ranges.Erase(i, i + 1)) {
+        error.SetErrorString("Core file memory ranges mutated outside of "
+                             "CalculateCoreFileSaveRanges");
+        return error;
+      }
+    }
+  }
+  return error;
+}
+
+Status Process::CalculateCoreFileSaveRanges(const SaveCoreOptions &options,
                                             CoreFileMemoryRanges &ranges) {
   lldb_private::MemoryRegionInfos regions;
   Status err = GetMemoryRegions(regions);
+  SaveCoreStyle core_style = options.GetStyle();
   if (err.Fail())
     return err;
   if (regions.empty())
@@ -6655,11 +6709,18 @@ Status Process::CalculateCoreFileSaveRanges(lldb::SaveCoreStyle core_style,
     return Status("callers must set the core_style to something other than "
                   "eSaveCoreUnspecified");
 
+  GetUserSpecifiedCoreFileSaveRanges(*this, regions, options, ranges);
+
   std::set<addr_t> stack_ends;
-  SaveOffRegionsWithStackPointers(*this, regions, ranges, stack_ends);
+  // For fully custom set ups, we don't want to even look at threads if there
+  // are no threads specified.
+  if (core_style != lldb::eSaveCoreCustomOnly || options.HasSpecifiedThreads())
+    SaveOffRegionsWithStackPointers(*this, options, regions, ranges,
+                                    stack_ends);
 
   switch (core_style) {
   case eSaveCoreUnspecified:
+  case eSaveCoreCustomOnly:
     break;
 
   case eSaveCoreFull:
@@ -6678,10 +6739,22 @@ Status Process::CalculateCoreFileSaveRanges(lldb::SaveCoreStyle core_style,
   if (err.Fail())
     return err;
 
-  if (ranges.empty())
+  if (ranges.IsEmpty())
     return Status("no valid address ranges found for core style");
 
-  return Status(); // Success!
+  return FinalizeCoreFileSaveRanges(ranges);
+}
+
+std::vector<ThreadSP>
+Process::CalculateCoreFileThreadList(const SaveCoreOptions &core_options) {
+  std::vector<ThreadSP> thread_list;
+  for (const lldb::ThreadSP &thread_sp : m_thread_list.Threads()) {
+    if (core_options.ShouldThreadBeSaved(thread_sp->GetID())) {
+      thread_list.push_back(thread_sp);
+    }
+  }
+
+  return thread_list;
 }
 
 void Process::SetAddressableBitMasks(AddressableBits bit_masks) {
