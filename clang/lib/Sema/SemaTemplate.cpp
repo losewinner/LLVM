@@ -3181,10 +3181,9 @@ checkBuiltinTemplateIdType(Sema &SemaRef, BuiltinTemplateDecl *BTD,
       if (!Seen.insert(T.getAsType().getCanonicalType()).second)
         continue;
       SyntheticTemplateArgs.addArgument(TemplateArgumentLoc(
-          TemplateArgument(T),
-          SemaRef.Context.getTrivialTypeSourceInfo(
-              T.getAsType(),
-              /*FIXME: add location*/ SourceLocation())));
+          TemplateArgument(T), SemaRef.Context.getTrivialTypeSourceInfo(
+                                   T.getAsType(),
+                                   /*FIXME: add location*/ SourceLocation())));
     }
     return SemaRef.CheckTemplateIdType(Template.getAsTemplate(), TemplateLoc,
                                        SyntheticTemplateArgs);

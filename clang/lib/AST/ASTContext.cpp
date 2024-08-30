@@ -1170,8 +1170,7 @@ ASTContext::getTypePackElementDecl() const {
   return TypePackElementDecl;
 }
 
-BuiltinTemplateDecl *
-ASTContext::getTypeListDedupDecl() const {
+BuiltinTemplateDecl *ASTContext::getTypeListDedupDecl() const {
   if (!TypeListDedupDecl)
     TypeListDedupDecl =
         buildBuiltinTemplateDecl(BTK__type_list_dedup, getTypeListDedupName());
