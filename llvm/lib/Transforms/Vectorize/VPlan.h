@@ -240,7 +240,7 @@ class VPCSAExtractScalarRecipe;
 /// assignment.
 class VPCSAState {
   VPValue *VPInitScalar = nullptr;
-  VPInstruction *VPInitData = nullptr;
+  VPValue *VPInitData = nullptr;
   VPInstruction *VPMaskPhi = nullptr;
   VPInstruction *VPAnyActive = nullptr;
   VPCSAHeaderPHIRecipe *VPPhiRecipe = nullptr;
@@ -248,7 +248,7 @@ class VPCSAState {
   VPCSAExtractScalarRecipe *VPExtractScalar = nullptr;
 
 public:
-  VPCSAState(VPValue *VPInitScalar, VPInstruction *InitData,
+  VPCSAState(VPValue *VPInitScalar, VPValue *InitData,
              VPInstruction *MaskPhi)
       : VPInitScalar(VPInitScalar), VPInitData(InitData), VPMaskPhi(MaskPhi) {}
 
@@ -256,7 +256,7 @@ public:
 
   VPValue *getVPInitScalar() const { return VPInitScalar; }
 
-  VPInstruction *getVPInitData() const { return VPInitData; }
+  VPValue *getVPInitData() const { return VPInitData; }
 
   VPInstruction *getVPMaskPhi() const { return VPMaskPhi; }
 
@@ -834,8 +834,27 @@ public:
   bool mayHaveSideEffects() const;
 
   /// Returns true for PHI-like recipes.
-  bool isPhi() const {
+  virtual bool isPhi() const {
+    assert(getVPDefID() != VPInstructionSC &&
+           "VPInstructions implement this function themselves");
     return getVPDefID() >= VPFirstPHISC && getVPDefID() <= VPLastPHISC;
+  }
+
+  /// Returns true for PHI-like recipes that exists in vector loop header basic
+  /// block
+  virtual bool isHeaderPhi() const {
+    assert(getVPDefID() != VPInstructionSC &&
+           "VPInstructions implement this function themselves");
+    return (getVPDefID() >= VPFirstHeaderPHISC &&
+            getVPDefID() <= VPLastHeaderPHISC) ||
+           getVPDefID() == VPWidenPHISC;
+  }
+
+  /// Returns true for PHI-like recipes that generate their own backedge
+  virtual bool isPhiThatGeneratesBackedge() const {
+    assert(getVPDefID() != VPInstructionSC &&
+           "VPInstructions implement this function themselves");
+    return getVPDefID() == VPWidenPHISC || getVPDefID() == VPCSAHeaderPHISC;
   }
 
   /// Returns true if the recipe may read from memory.
@@ -1282,14 +1301,12 @@ public:
     // operand). Only generates scalar values (either for the first lane only or
     // for all lanes, depending on its uses).
     PtrAdd,
-    CSAInitMask,
-    CSAInitData,
     CSAMaskPhi,
     CSAMaskSel,
     CSAVLPhi,
     CSAVLSel,
-    CSAAnyActive,
-    CSAAnyActiveEVL,
+    AnyActive,
+    AnyActiveEVL,
   };
 
 private:
@@ -1440,6 +1457,16 @@ public:
 
   /// Returns the symbolic name assigned to the VPInstruction.
   StringRef getName() const { return Name; }
+
+  /// Returns true for PHI-like recipes.
+  bool isPhi() const override;
+
+  /// Returns true for PHI-like recipes that exists in vector loop header basic
+  /// block
+  bool isHeaderPhi() const override;
+
+  /// Returns true for PHI-like recipes that generate their own backedge
+  bool isPhiThatGeneratesBackedge() const override;
 };
 
 /// A recipe to wrap on original IR instruction not to be modified during
@@ -4524,20 +4551,6 @@ public:
   /// Return true if all visited instruction can be combined.
   bool isCompletelySLP() const { return CompletelySLP; }
 };
-
-namespace vputils {
-
-/// Returns true for PHI-like recipes.
-bool isPhi(const VPRecipeBase &R);
-
-/// Returns true for PHI-like recipes that generate their own backedge
-bool isPhiThatGeneratesBackedge(const VPRecipeBase &R);
-
-/// Returns true for PHI-like recipes that exists in vector loop header basic
-/// block
-bool isHeaderPhi(const VPRecipeBase &R);
-} // end namespace vputils
-
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_H

@@ -2942,8 +2942,8 @@ void InnerLoopVectorizer::fixCSALiveOuts(VPTransformState &State, VPlan &Plan) {
     assert(VPDataUpdate &&
            "VPDataUpdate must have been introduced prior to fixing live outs");
     Value *V = VPDataUpdate->getUnderlyingValue();
-    Value *ExtractedScalar = State.get(CSA.second->getExtractScalarRecipe(), 0,
-                                       /*NeedsScalar=*/true);
+    Value *ExtractedScalar =
+        State.get(CSA.second->getExtractScalarRecipe(), /*NeedsScalar=*/true);
     // Fix LCSSAPhis
     llvm::SmallPtrSet<PHINode *, 2> ToFix;
     for (User *U : V->users())
@@ -8822,7 +8822,7 @@ static void
 addCSAPreprocessRecipes(const LoopVectorizationLegality::CSAList &CSAs,
                         Loop *OrigLoop, VPBasicBlock *PreheaderVPBB,
                         VPBasicBlock *HeaderVPBB, DebugLoc DL, VFRange &Range,
-                        VPlan &Plan) {
+                        VPlan &Plan, VPRecipeBuilder &Builder) {
 
   // Don't build full CSA for VF=ElementCount::getFixed(1)
   bool IsScalarVF = LoopVectorizationPlanner::getDecisionAndClampRange(
@@ -8840,16 +8840,14 @@ addCSAPreprocessRecipes(const LoopVectorizationLegality::CSAList &CSAs,
       continue;
     }
 
-    auto *VPInitMask =
-        new VPInstruction(VPInstruction::CSAInitMask, {}, DL, "csa.init.mask");
-    auto *VPInitData = new VPInstruction(VPInstruction::CSAInitData,
-                                         {VPInitScalar}, DL, "csa.init.data");
-    PreheaderVPBB->appendRecipe(VPInitMask);
-    PreheaderVPBB->appendRecipe(VPInitData);
+    VPBuilder PHB(PreheaderVPBB);
+    auto *VPInitMask = Builder.getVPValueOrAddLiveIn(
+        ConstantInt::getFalse(Type::getInt1Ty(CSA.first->getContext())));
+    auto *VPInitData =
+        Builder.getVPValueOrAddLiveIn(PoisonValue::get(CSA.first->getType()));
 
-    auto *VPMaskPhi = new VPInstruction(VPInstruction::CSAMaskPhi, {VPInitMask},
-                                        DL, "csa.mask.phi");
-    HeaderVPBB->appendRecipe(VPMaskPhi);
+    VPBuilder HB(HeaderVPBB);
+    auto *VPMaskPhi = HB.createCSAMaskPhi(VPInitMask, DL, "csa.mask.phi");
 
     auto *S = new VPCSAState(VPInitScalar, VPInitData, VPMaskPhi);
     Plan.addCSAState(CSA.first, S);
@@ -8888,22 +8886,22 @@ addCSAPostprocessRecipes(VPRecipeBuilder &RecipeBuilder,
     // In that case, we must use the negation of WidenedCond.
     // i.e. select cond new_val old_val versus select cond.not old_val new_val
     VPValue *CondToUse = WidenedCond;
+    VPBuilder B;
     if (cast<SelectInst>(CSA.second.getAssignment())->getTrueValue() ==
         CSA.first) {
-      auto *VPNotCond = new VPInstruction(VPInstruction::Not, WidenedCond, DL);
+      auto *VPNotCond = B.createNot(WidenedCond, DL);
       VPNotCond->insertBefore(
           GetVPValue(CSA.second.getAssignment())->getDefiningRecipe());
       CondToUse = VPNotCond;
     }
 
-    auto *VPAnyActive = new VPInstruction(
-        VPInstruction::CSAAnyActive, {CondToUse}, DL, "csa.cond.anyactive");
+    auto *VPAnyActive =
+        B.createAnyActive(CondToUse, DL, "csa.cond.anyactive");
     VPAnyActive->insertBefore(
         GetVPValue(CSA.second.getAssignment())->getDefiningRecipe());
 
-    auto *VPMaskSel = new VPInstruction(
-        VPInstruction::CSAMaskSel,
-        {CondToUse, CSAState->getVPMaskPhi(), VPAnyActive}, DL, "csa.mask.sel");
+    auto *VPMaskSel = B.createCSAMaskSel(CondToUse, CSAState->getVPMaskPhi(),
+                                         VPAnyActive, DL, "csa.mask.sel");
     VPMaskSel->insertAfter(VPAnyActive);
     VPDataUpdate->setVPNewMaskAndVPAnyActive(VPMaskSel, VPAnyActive);
     VPCSAExtractScalarRecipe *ExtractScalarRecipe =
@@ -9233,11 +9231,12 @@ LoopVectorizationPlanner::tryToBuildVPlanWithVPRecipes(VFRange &Range) {
   bool HasNUW = !IVUpdateMayOverflow || Style == TailFoldingStyle::None;
   addCanonicalIVRecipes(*Plan, Legal->getWidestInductionType(), HasNUW, DL);
 
+  VPRecipeBuilder RecipeBuilder(*Plan, OrigLoop, TLI, Legal, CM, PSE, Builder);
+
   addCSAPreprocessRecipes(Legal->getCSAs(), OrigLoop, Plan->getPreheader(),
                           Plan->getVectorLoopRegion()->getEntryBasicBlock(), DL,
-                          Range, *Plan);
+                          Range, *Plan, RecipeBuilder);
 
-  VPRecipeBuilder RecipeBuilder(*Plan, OrigLoop, TLI, Legal, CM, PSE, Builder);
 
   // ---------------------------------------------------------------------------
   // Pre-construction: record ingredients whose recipes we'll need to further
@@ -9354,10 +9353,8 @@ LoopVectorizationPlanner::tryToBuildVPlanWithVPRecipes(VFRange &Range) {
     VPBB = cast<VPBasicBlock>(VPBB->getSingleSuccessor());
   }
 
-  VPBasicBlock *MiddleVPBB =
-      cast<VPBasicBlock>(Plan->getVectorLoopRegion()->getSingleSuccessor());
   addCSAPostprocessRecipes(RecipeBuilder, Legal->getCSAs(), MiddleVPBB, DL,
-                           Range, *Plan);
+                           Range, *Plan, OrigLoop);
 
   // After here, VPBB should not be used.
   VPBB = nullptr;

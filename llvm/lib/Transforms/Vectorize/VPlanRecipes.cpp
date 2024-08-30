@@ -363,8 +363,8 @@ bool VPInstruction::canGenerateScalarForFirstLane() const {
   case VPInstruction::ExplicitVectorLength:
   case VPInstruction::CSAVLSel:
   case VPInstruction::CSAVLPhi:
-  case VPInstruction::CSAAnyActive:
-  case VPInstruction::CSAAnyActiveEVL:
+  case VPInstruction::AnyActive:
+  case VPInstruction::AnyActiveEVL:
     return true;
   default:
     return false;
@@ -640,71 +640,42 @@ Value *VPInstruction::generate(VPTransformState &State) {
     }
     return NewPhi;
   }
-  case VPInstruction::CSAInitMask: {
-    if (Part == 0) {
-      Value *InitMask = ConstantAggregateZero::get(VectorType::get(
-          Type::getInt1Ty(State.Builder.getContext()), State.VF));
-      State.set(this, InitMask, Part);
-      return InitMask;
-    }
-    Value *V = State.get(this, Part - 1);
-    return V;
-  }
-  case VPInstruction::CSAInitData: {
-    if (Part == 0) {
-      Type *ElemTyp = getOperand(0)->getUnderlyingValue()->getType();
-      Value *InitData = PoisonValue::get(VectorType::get(ElemTyp, State.VF));
-      State.set(this, InitData, Part);
-      return InitData;
-    }
-    Value *V = State.get(this, Part - 1);
-    return V;
-  }
   case VPInstruction::CSAMaskPhi: {
-    if (Part == 0) {
-      IRBuilder<>::InsertPointGuard Guard(State.Builder);
-      State.Builder.SetInsertPoint(State.CFG.PrevBB->getFirstNonPHI());
-      BasicBlock *PreheaderBB = State.CFG.getPreheaderBBFor(this);
-      Value *InitMask = State.get(getOperand(0), Part);
-      PHINode *MaskPhi =
-          State.Builder.CreatePHI(InitMask->getType(), 2, "csa.mask.phi");
-      MaskPhi->addIncoming(InitMask, PreheaderBB);
-      State.set(this, MaskPhi, Part);
-      return MaskPhi;
-    }
-    Value *V = State.get(this, Part - 1);
-    return V;
+    IRBuilder<>::InsertPointGuard Guard(State.Builder);
+    State.Builder.SetInsertPoint(State.CFG.PrevBB->getFirstNonPHI());
+    BasicBlock *PreheaderBB = State.CFG.getPreheaderBBFor(this);
+    Value *InitMask = State.get(getOperand(0));
+    PHINode *MaskPhi =
+        State.Builder.CreatePHI(InitMask->getType(), 2, "csa.mask.phi");
+    MaskPhi->addIncoming(InitMask, PreheaderBB);
+    State.set(this, MaskPhi);
+    return MaskPhi;
   }
   case VPInstruction::CSAMaskSel: {
-    Value *WidenedCond = State.get(getOperand(0), Part);
-    Value *MaskPhi = State.get(getOperand(1), Part);
-    Value *AnyActive = State.get(getOperand(2), Part, /*NeedsScalar=*/true);
-    // If not the first Part, use the mask from the previous unrolled Part
-    Value *OldMask = Part == 0 ? MaskPhi : State.get(this, Part - 1);
-    Value *MaskSel = State.Builder.CreateSelect(AnyActive, WidenedCond, OldMask,
+    Value *WidenedCond = State.get(getOperand(0));
+    Value *MaskPhi = State.get(getOperand(1));
+    Value *AnyActive = State.get(getOperand(2), /*NeedsScalar=*/true);
+    Value *MaskSel = State.Builder.CreateSelect(AnyActive, WidenedCond, MaskPhi,
                                                 "csa.mask.sel");
-    // MaskPhi wants to use the most recently updated mask. That's the one
-    // that corresponds to the last Part.
-    if (Part == State.UF - 1)
-      cast<PHINode>(MaskPhi)->addIncoming(MaskSel, State.CFG.PrevBB);
+    cast<PHINode>(MaskPhi)->addIncoming(MaskSel, State.CFG.PrevBB);
     return MaskSel;
   }
-  case VPInstruction::CSAAnyActive: {
-    Value *WidenedCond = State.get(getOperand(0), Part);
+  case VPInstruction::AnyActive: {
+    Value *WidenedCond = State.get(getOperand(0));
     return Builder.CreateOrReduce(WidenedCond);
   }
-  case VPInstruction::CSAAnyActiveEVL: {
-    Value *WidenedCond = State.get(getOperand(0), Part);
+  case VPInstruction::AnyActiveEVL: {
+    Value *WidenedCond = State.get(getOperand(0));
     Value *AllOnesMask = Constant::getAllOnesValue(
         VectorType::get(Type::getInt1Ty(State.Builder.getContext()), State.VF));
-    Value *EVL = State.get(getOperand(1), Part, /*NeedsScalar=*/true);
+    Value *EVL = State.get(getOperand(1), /*NeedsScalar=*/true);
 
     Value *StartValue =
         ConstantInt::get(WidenedCond->getType()->getScalarType(), 0);
     Value *AnyActive = State.Builder.CreateIntrinsic(
         WidenedCond->getType()->getScalarType(), Intrinsic::vp_reduce_or,
         {StartValue, WidenedCond, AllOnesMask, EVL}, nullptr,
-        "csa.cond.anyactive");
+        "any.active");
     return AnyActive;
   }
   case VPInstruction::CSAVLPhi: {
@@ -720,9 +691,9 @@ Value *VPInstruction::generate(VPTransformState &State) {
     return VLPhi;
   }
   case VPInstruction::CSAVLSel: {
-    Value *AnyActive = State.get(getOperand(0), Part, /*NeedsScalar=*/true);
-    Value *VLPhi = State.get(getOperand(1), Part, /*NeedsScalar=*/true);
-    Value *EVL = State.get(getOperand(2), Part, /*NeedsScalar=*/true);
+    Value *AnyActive = State.get(getOperand(0), /*NeedsScalar=*/true);
+    Value *VLPhi = State.get(getOperand(1), /*NeedsScalar=*/true);
+    Value *EVL = State.get(getOperand(2), /*NeedsScalar=*/true);
     Value *VLSel =
         State.Builder.CreateSelect(AnyActive, EVL, VLPhi, "csa.vl.sel");
     cast<PHINode>(VLPhi)->addIncoming(VLSel, State.CFG.PrevBB);
@@ -737,8 +708,8 @@ Value *VPInstruction::generate(VPTransformState &State) {
 bool VPInstruction::isVectorToScalar() const {
   return getOpcode() == VPInstruction::ExtractFromEnd ||
          getOpcode() == VPInstruction::ComputeReductionResult ||
-         getOpcode() == VPInstruction::CSAAnyActive ||
-         getOpcode() == VPInstruction::CSAAnyActiveEVL;
+         getOpcode() == VPInstruction::AnyActive ||
+         getOpcode() == VPInstruction::AnyActiveEVL;
 }
 
 bool VPInstruction::isSingleScalar() const {
@@ -746,6 +717,21 @@ bool VPInstruction::isSingleScalar() const {
          getOpcode() == VPInstruction::CSAVLPhi ||
          getOpcode() == VPInstruction::CSAVLSel ||
          getOpcode() == VPInstruction::ExplicitVectorLength;
+}
+
+bool VPInstruction::isPhi() const {
+  return getOpcode() == VPInstruction::CSAMaskPhi ||
+         getOpcode() == VPInstruction::CSAVLPhi;
+}
+
+bool VPInstruction::isHeaderPhi() const {
+  return getOpcode() == VPInstruction::CSAMaskPhi ||
+         getOpcode() == VPInstruction::CSAVLPhi;
+}
+
+bool VPInstruction::isPhiThatGeneratesBackedge() const {
+  return getOpcode() == VPInstruction::CSAMaskPhi ||
+         getOpcode() == VPInstruction::CSAVLPhi;
 }
 
 #if !defined(NDEBUG)
@@ -899,12 +885,6 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent,
   case VPInstruction::PtrAdd:
     O << "ptradd";
     break;
-  case VPInstruction::CSAInitMask:
-    O << "csa-init-mask";
-    break;
-  case VPInstruction::CSAInitData:
-    O << "csa-init-data";
-    break;
   case VPInstruction::CSAMaskPhi:
     O << "csa-mask-phi";
     break;
@@ -917,11 +897,11 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent,
   case VPInstruction::CSAVLSel:
     O << "csa-vl-sel";
     break;
-  case VPInstruction::CSAAnyActive:
-    O << "csa-anyactive";
+  case VPInstruction::AnyActive:
+    O << "anyactive";
     break;
-  case VPInstruction::CSAAnyActiveEVL:
-    O << "csa-anyactive-evl";
+  case VPInstruction::AnyActiveEVL:
+    O << "anyactive-evl";
     break;
   default:
     O << Instruction::getOpcodeName(getOpcode());
@@ -2492,9 +2472,7 @@ void VPCSAHeaderPHIRecipe::execute(VPTransformState &State) {
   // may not have been executed. We let VPCSADataUpdateRecipe::execute add the
   // incoming operand to DataPhi.
 
-  // Use the same DataPhi for all Parts
-  for (unsigned Part = 0; Part < State.UF; ++Part)
-    State.set(this, DataPhi, Part);
+  State.set(this, DataPhi);
 }
 
 InstructionCost VPCSAHeaderPHIRecipe::computeCost(ElementCount VF,
@@ -2526,21 +2504,15 @@ void VPCSADataUpdateRecipe::print(raw_ostream &O, const Twine &Indent,
 #endif
 
 void VPCSADataUpdateRecipe::execute(VPTransformState &State) {
-  for (unsigned Part = 0; Part < State.UF; ++Part) {
-    Value *AnyActive = State.get(getVPAnyActive(), Part, /*NeedsScalar=*/true);
-    Value *DataUpdate = getVPDataPhi() == getVPTrue()
-                            ? State.get(getVPFalse(), Part)
-                            : State.get(getVPTrue(), Part);
-    PHINode *DataPhi = cast<PHINode>(State.get(getVPDataPhi(), Part));
-    // If not the first Part, use the mask from the previous unrolled Part
-    Value *OldData = Part == 0 ? DataPhi : State.get(this, Part - 1);
-    Value *DataSel = State.Builder.CreateSelect(AnyActive, DataUpdate, OldData,
-                                                "csa.data.sel");
+  Value *AnyActive = State.get(getVPAnyActive(), /*NeedsScalar=*/true);
+  Value *DataUpdate = getVPDataPhi() == getVPTrue() ? State.get(getVPFalse())
+                                                    : State.get(getVPTrue());
+  PHINode *DataPhi = cast<PHINode>(State.get(getVPDataPhi()));
+  Value *DataSel = State.Builder.CreateSelect(AnyActive, DataUpdate, DataPhi,
+                                              "csa.data.sel");
 
-    if (Part == State.UF - 1)
-      DataPhi->addIncoming(DataSel, State.CFG.PrevBB);
-    State.set(this, DataSel, Part);
-  }
+  DataPhi->addIncoming(DataSel, State.CFG.PrevBB);
+  State.set(this, DataSel);
 }
 
 InstructionCost VPCSADataUpdateRecipe::computeCost(ElementCount VF,
@@ -2555,19 +2527,22 @@ InstructionCost VPCSADataUpdateRecipe::computeCost(ElementCount VF,
   const TargetTransformInfo &TTI = Ctx.TTI;
 
   // Data Update
-  C += TTI.getArithmeticInstrCost(Instruction::Select, VTy, CostKind);
+  C += TTI.getCmpSelInstrCost(Instruction::Select, VTy, MaskTy,
+                              CmpInst::BAD_ICMP_PREDICATE, CostKind);
 
   // FIXME: These costs should be moved into VPInstruction::computeCost. We put
   // them here for now since they are related to updating the data and there is
-  // no VPInstruction::computeCost support at the moment. CSAInitMask AnyActive
-  C += TTI.getArithmeticInstrCost(Instruction::Select, VTy, CostKind);
-  // vp.reduce.or
+  // no VPInstruction::computeCost support at the moment.
+
+  // AnyActive
   C += TTI.getArithmeticReductionCost(Instruction::Or, VTy, std::nullopt,
                                       CostKind);
   // VPVLSel
-  C += TTI.getArithmeticInstrCost(Instruction::Select, VTy, CostKind);
+  C += TTI.getCmpSelInstrCost(Instruction::Select, VTy, MaskTy,
+                              CmpInst::BAD_ICMP_PREDICATE, CostKind);
   // MaskUpdate
-  C += TTI.getArithmeticInstrCost(Instruction::Select, MaskTy, CostKind);
+  C += TTI.getCmpSelInstrCost(Instruction::Select, MaskTy, MaskTy,
+                              CmpInst::BAD_ICMP_PREDICATE, CostKind);
   return C;
 }
 
@@ -2585,10 +2560,9 @@ void VPCSAExtractScalarRecipe::execute(VPTransformState &State) {
   IRBuilder<>::InsertPointGuard Guard(State.Builder);
   State.Builder.SetInsertPoint(State.CFG.ExitBB->getFirstNonPHI());
 
-  unsigned LastPart = State.UF - 1;
   Value *InitScalar = getVPInitScalar()->getLiveInIRValue();
-  Value *MaskSel = State.get(getVPMaskSel(), LastPart);
-  Value *DataSel = State.get(getVPDataSel(), LastPart);
+  Value *MaskSel = State.get(getVPMaskSel());
+  Value *DataSel = State.get(getVPDataSel());
 
   Value *LastIdx = nullptr;
   Value *IndexVec = State.Builder.CreateStepVector(
@@ -2600,7 +2574,7 @@ void VPCSAExtractScalarRecipe::execute(VPTransformState &State) {
     // index in the data vector to extract from. If no element in the mask
     // is active, we pick -1. If we pick -1, then we will use the initial scalar
     // value instead of extracting from the data vector.
-    Value *VL = State.get(getVPCSAVLSel(), LastPart, /*NeedsScalar=*/true);
+    Value *VL = State.get(getVPCSAVLSel(), /*NeedsScalar=*/true);
     LastIdx = State.Builder.CreateIntrinsic(NegOne->getType(),
                                             Intrinsic::vp_reduce_smax,
                                             {NegOne, IndexVec, MaskSel, VL});
@@ -2615,7 +2589,7 @@ void VPCSAExtractScalarRecipe::execute(VPTransformState &State) {
     // inactive, which would also cause the reduction to have value 0.
     Value *MaybeLastIdx = State.Builder.CreateIntMaxReduce(ActiveLaneIdxs);
     Value *IsLaneZeroActive =
-        State.Builder.CreateExtractElement(MaskSel, (uint64_t)0);
+        State.Builder.CreateExtractElement(MaskSel, static_cast<uint64_t>(0));
     Value *Zero = ConstantInt::get(MaybeLastIdx->getType(), 0);
     Value *MaybeLastIdxEQZero = State.Builder.CreateICmpEQ(MaybeLastIdx, Zero);
     Value *And = State.Builder.CreateAnd(IsLaneZeroActive, MaybeLastIdxEQZero);
@@ -2628,7 +2602,7 @@ void VPCSAExtractScalarRecipe::execute(VPTransformState &State) {
   Value *LastIdxGEZero = State.Builder.CreateICmpSGE(LastIdx, Zero);
   Value *ChooseFromVecOrInit =
       State.Builder.CreateSelect(LastIdxGEZero, ExtractFromVec, InitScalar);
-  State.set(this, ChooseFromVecOrInit, 0, /*IsScalar=*/true);
+  State.set(this, ChooseFromVecOrInit, /*IsScalar=*/true);
 }
 
 InstructionCost
@@ -2657,31 +2631,31 @@ VPCSAExtractScalarRecipe::computeCost(ElementCount VF,
                                     CostKind);
   } else {
     // ActiveLaneIdxs
-    C += TTI.getArithmeticInstrCost(Instruction::Select,
-                                    MaskTy->getScalarType(), CostKind);
+    C += TTI.getCmpSelInstrCost(Instruction::Select, MaskTy, MaskTy,
+                                CmpInst::BAD_ICMP_PREDICATE, CostKind);
     // MaybeLastIdx
     C += TTI.getMinMaxReductionCost(Intrinsic::smax, Int32VTy, FastMathFlags(),
                                     CostKind);
     // IsLaneZeroActive
-    C += TTI.getArithmeticInstrCost(Instruction::ExtractElement, MaskTy,
-                                    CostKind);
+    C += TTI.getVectorInstrCost(Instruction::ExtractElement, MaskTy, CostKind);
     // MaybeLastIdxEQZero
-    C += TTI.getArithmeticInstrCost(Instruction::ICmp, MaskTy->getScalarType(),
-                                    CostKind);
+    C += TTI.getCmpSelInstrCost(Instruction::ICmp, Int32VTy, MaskTy,
+                                CmpInst::ICMP_EQ, CostKind);
     // And
     C += TTI.getArithmeticInstrCost(Instruction::And, MaskTy->getScalarType(),
                                     CostKind);
     // LastIdx
-    C += TTI.getArithmeticInstrCost(Instruction::Select, VTy->getScalarType(),
-                                    CostKind);
+    C += TTI.getCmpSelInstrCost(Instruction::Select, VTy, MaskTy,
+                                CmpInst::BAD_ICMP_PREDICATE, CostKind);
   }
   // ExtractFromVec
-  C += TTI.getArithmeticInstrCost(Instruction::ExtractElement, VTy, CostKind);
-  // LastIdxGeZero
-  C += TTI.getArithmeticInstrCost(Instruction::ICmp, Int32VTy, CostKind);
+  C += TTI.getVectorInstrCost(Instruction::ExtractElement, VTy, CostKind);
+  // LastIdxGEZero
+  C += TTI.getCmpSelInstrCost(Instruction::ICmp, Int32VTy, MaskTy,
+                              CmpInst::ICMP_SGE, CostKind);
   // ChooseFromVecOrInit
-  C += TTI.getArithmeticInstrCost(Instruction::Select, VTy->getScalarType(),
-                                  CostKind);
+  C += TTI.getCmpSelInstrCost(Instruction::Select, VTy, MaskTy,
+                              CmpInst::BAD_ICMP_PREDICATE, CostKind);
   return C;
 }
 
@@ -3835,30 +3809,3 @@ void VPEVLBasedIVPHIRecipe::print(raw_ostream &O, const Twine &Indent,
   printOperands(O, SlotTracker);
 }
 #endif
-
-bool vputils::isPhi(const VPRecipeBase &R) {
-  if (R.isPhi())
-    return true;
-  if (auto *VPInst = dyn_cast<VPInstruction>(&R))
-    return VPInst->getOpcode() == VPInstruction::CSAMaskPhi ||
-           VPInst->getOpcode() == VPInstruction::CSAVLPhi;
-  return false;
-}
-
-bool vputils::isPhiThatGeneratesBackedge(const VPRecipeBase &R) {
-  if (isa<VPWidenPHIRecipe, VPCSAHeaderPHIRecipe>(&R))
-    return true;
-  if (auto *VPInst = dyn_cast<VPInstruction>(&R))
-    return VPInst->getOpcode() == VPInstruction::CSAMaskPhi ||
-           VPInst->getOpcode() == VPInstruction::CSAVLPhi;
-  return false;
-}
-
-bool vputils::isHeaderPhi(const VPRecipeBase &R) {
-  if (isa<VPHeaderPHIRecipe, VPWidenPHIRecipe>(&R))
-    return true;
-  if (auto *VPInst = dyn_cast<VPInstruction>(&R))
-    return VPInst->getOpcode() == VPInstruction::CSAMaskPhi ||
-           VPInst->getOpcode() == VPInstruction::CSAVLPhi;
-  return false;
-}
