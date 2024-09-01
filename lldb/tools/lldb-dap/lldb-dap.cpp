@@ -3809,7 +3809,7 @@ void request_variables(const llvm::json::Object &request) {
         (selectedThread.GetSelectedFrame().GetFrameID() == 0)) {
       auto renamedReturnValue = stopReturnValue.Clone("(Return Value)");
       variables.emplace_back(
-          CreateVariable(renamedReturnValue,0, UINT64_MAX, hex, false));
+          CreateVariable(renamedReturnValue, 0, UINT64_MAX, hex, false));
     }
 
     // Now we construct the result with unique display variable names
