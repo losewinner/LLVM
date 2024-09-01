@@ -3801,6 +3801,17 @@ void request_variables(const llvm::json::Object &request) {
       variable_name_counts[GetNonNullVariableName(variable)]++;
     }
 
+    // Show return value if there is any ( in the top frame )
+    auto process = g_dap.target.GetProcess();
+    auto selectedThread = process.GetSelectedThread();
+    lldb::SBValue stopReturnValue = selectedThread.GetStopReturnValue();
+    if (stopReturnValue.IsValid() &&
+        (selectedThread.GetSelectedFrame().GetFrameID() == 0)) {
+      auto renamedReturnValue = stopReturnValue.Clone("(Return Value)");
+      variables.emplace_back(
+          CreateVariable(renamedReturnValue,0, UINT64_MAX, hex, false));
+    }
+
     // Now we construct the result with unique display variable names
     for (auto i = start_idx; i < end_idx; ++i) {
       lldb::SBValue variable = top_scope->GetValueAtIndex(i);
