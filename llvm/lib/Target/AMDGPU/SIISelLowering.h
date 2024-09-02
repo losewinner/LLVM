@@ -344,8 +344,8 @@ public:
       MachineMemOperand::Flags Flags = MachineMemOperand::MONone,
       unsigned *IsFast = nullptr) const override;
 
-  EVT getOptimalMemOpType(const MemOp &Op,
-                          const AttributeList &FuncAttributes) const override;
+  EVT getOptimalMemOpType(const MemOp &Op, const AttributeList &FuncAttributes,
+                          bool PreferIntScalar) const override;
 
   bool isMemOpUniform(const SDNode *N) const;
   bool isMemOpHasNoClobberedMemOperand(const SDNode *N) const;
