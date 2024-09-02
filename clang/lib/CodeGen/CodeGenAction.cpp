@@ -376,7 +376,7 @@ void BackendConsumer::CompleteTentativeDefinition(VarDecl *D) {
   Gen->CompleteTentativeDefinition(D);
 }
 
-void BackendConsumer::CompleteExternalDeclaration(VarDecl *D) {
+void BackendConsumer::CompleteExternalDeclaration(DeclaratorDecl *D) {
   Gen->CompleteExternalDeclaration(D);
 }
 
@@ -969,9 +969,10 @@ CodeGenerator *CodeGenAction::getCodeGenerator() const {
   return BEConsumer->getCodeGenerator();
 }
 
-bool CodeGenAction::BeginSourceFileAction(CompilerInstance &CI) {
+bool CodeGenAction::BeginInvocation(CompilerInstance &CI) {
   if (CI.getFrontendOpts().GenReducedBMI)
-    CI.getLangOpts().setCompilingModule(LangOptions::CMK_ModuleInterface);
+    return BeginInvocationForModules(CI);
+
   return true;
 }
 
