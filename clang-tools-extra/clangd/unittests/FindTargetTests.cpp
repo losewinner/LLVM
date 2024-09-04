@@ -733,7 +733,7 @@ TEST_F(TargetDeclTest, BuiltinTemplates) {
   EXPECT_DECLS("TemplateSpecializationTypeLoc", );
 
   Code = R"cpp(
-    template <template <class...> Templ, class... Types>
+    template <template <class...> class Templ, class... Types>
     using type_list_dedup = [[__type_list_dedup]]<Templ, Types...>;
   )cpp";
   EXPECT_DECLS("TemplateSpecializationTypeLoc", );
