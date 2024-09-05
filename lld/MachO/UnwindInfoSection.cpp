@@ -109,14 +109,53 @@ CREATE_LAYOUT_CLASS(CompactUnwind, FOR_EACH_CU_FIELD);
 
 #undef FOR_EACH_CU_FIELD
 
-// LLD's internal representation of a compact unwind entry.
-struct CompactUnwindEntry {
-  uint64_t functionAddress;
-  uint32_t functionLength;
-  compact_unwind_encoding_t encoding;
-  Symbol *personality;
-  InputSection *lsda;
-};
+void lld::macho::CompactUnwindEntry::relocateOneCompactUnwindEntry(
+    const Defined *d) {
+
+  ConcatInputSection *unwindEntry = d->unwindEntry();
+  if (!unwindEntry)
+    return;
+
+  // If we have DWARF unwind info, create a slimmed-down CU entry that points
+  // to it.
+  if (unwindEntry->getName() == section_names::ehFrame) {
+    // The unwinder will look for the DWARF entry starting at the hint,
+    // assuming the hint points to a valid CFI record start. If it
+    // fails to find the record, it proceeds in a linear search through the
+    // contiguous CFI records from the hint until the end of the section.
+    // Ideally, in the case where the offset is too large to be encoded, we
+    // would instead encode the largest possible offset to a valid CFI record,
+    // but since we don't keep track of that, just encode zero -- the start of
+    // the section is always the start of a CFI record.
+    uint64_t dwarfOffsetHint = unwindEntry->outSecOff <= DWARF_SECTION_OFFSET
+                                   ? unwindEntry->outSecOff
+                                   : 0;
+    encoding = target->modeDwarfEncoding | dwarfOffsetHint;
+    const FDE &fde = cast<ObjFile>(d->getFile())->fdes[unwindEntry];
+    functionLength = fde.funcLength;
+    // Omit the DWARF personality from compact-unwind entry so that we
+    // don't need to encode it.
+    personality = nullptr;
+    lsda = fde.lsda;
+    return;
+  }
+
+  assert(unwindEntry->getName() == section_names::compactUnwind);
+
+  CompactUnwindLayout cuLayout(target->wordSize);
+  auto buf = reinterpret_cast<const uint8_t *>(unwindEntry->data.data()) -
+             target->wordSize;
+  functionLength =
+      support::endian::read32le(buf + cuLayout.functionLengthOffset);
+  encoding = support::endian::read32le(buf + cuLayout.encodingOffset);
+  for (const Reloc &r : unwindEntry->relocs) {
+    if (r.offset == cuLayout.personalityOffset)
+      personality = r.referent.get<Symbol *>();
+    else if (r.offset == cuLayout.lsdaOffset)
+      lsda = r.getReferentInputSection();
+  }
+  return;
+}
 
 using EncodingMap = DenseMap<compact_unwind_encoding_t, size_t>;
 
@@ -349,51 +388,9 @@ Symbol *UnwindInfoSectionImpl::canonicalizePersonality(Symbol *personality) {
 void UnwindInfoSectionImpl::relocateCompactUnwind(
     std::vector<CompactUnwindEntry> &cuEntries) {
   parallelFor(0, symbolsVec.size(), [&](size_t i) {
-    CompactUnwindEntry &cu = cuEntries[i];
     const Defined *d = symbolsVec[i].second;
-    cu.functionAddress = d->getVA();
-    if (!d->unwindEntry())
-      return;
-
-    // If we have DWARF unwind info, create a slimmed-down CU entry that points
-    // to it.
-    if (d->unwindEntry()->getName() == section_names::ehFrame) {
-      // The unwinder will look for the DWARF entry starting at the hint,
-      // assuming the hint points to a valid CFI record start. If it
-      // fails to find the record, it proceeds in a linear search through the
-      // contiguous CFI records from the hint until the end of the section.
-      // Ideally, in the case where the offset is too large to be encoded, we
-      // would instead encode the largest possible offset to a valid CFI record,
-      // but since we don't keep track of that, just encode zero -- the start of
-      // the section is always the start of a CFI record.
-      uint64_t dwarfOffsetHint =
-          d->unwindEntry()->outSecOff <= DWARF_SECTION_OFFSET
-              ? d->unwindEntry()->outSecOff
-              : 0;
-      cu.encoding = target->modeDwarfEncoding | dwarfOffsetHint;
-      const FDE &fde = cast<ObjFile>(d->getFile())->fdes[d->unwindEntry()];
-      cu.functionLength = fde.funcLength;
-      // Omit the DWARF personality from compact-unwind entry so that we
-      // don't need to encode it.
-      cu.personality = nullptr;
-      cu.lsda = fde.lsda;
-      return;
-    }
-
-    assert(d->unwindEntry()->getName() == section_names::compactUnwind);
-
-    auto buf =
-        reinterpret_cast<const uint8_t *>(d->unwindEntry()->data.data()) -
-        target->wordSize;
-    cu.functionLength =
-        support::endian::read32le(buf + cuLayout.functionLengthOffset);
-    cu.encoding = support::endian::read32le(buf + cuLayout.encodingOffset);
-    for (const Reloc &r : d->unwindEntry()->relocs) {
-      if (r.offset == cuLayout.personalityOffset)
-        cu.personality = r.referent.get<Symbol *>();
-      else if (r.offset == cuLayout.lsdaOffset)
-        cu.lsda = r.getReferentInputSection();
-    }
+    cuEntries[i].functionAddress = d->getVA();
+    cuEntries[i].relocateOneCompactUnwindEntry(d);
   });
 }
 

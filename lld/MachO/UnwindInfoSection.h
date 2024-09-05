@@ -34,6 +34,18 @@ protected:
 
 UnwindInfoSection *makeUnwindInfoSection();
 
+// LLD's internal representation of a compact unwind entry.
+struct CompactUnwindEntry {
+  uint64_t functionAddress;
+  uint32_t functionLength;
+  compact_unwind_encoding_t encoding;
+  Symbol *personality = nullptr;
+  InputSection *lsda = nullptr;
+
+  // Relocate the entry to the given Symbol.
+  void relocateOneCompactUnwindEntry(const Defined *d);
+};
+
 } // namespace lld::macho
 
 #endif
