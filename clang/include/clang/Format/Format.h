@@ -974,7 +974,7 @@ struct FormatStyle {
 
   /// If ``true``, ``namespace a { class b; }`` can be put on a single a single
   /// line.
-  /// \version 19
+  /// \version 20
   bool AllowShortNamespacesOnASingleLine;
 
   /// Different ways to break after the function definition return type.
