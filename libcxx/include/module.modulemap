@@ -2008,6 +2008,7 @@ module std_private_type_traits_is_void                                   [system
   export std_private_type_traits_integral_constant
 }
 module std_private_type_traits_is_volatile                               [system] { header "__type_traits/is_volatile.h" }
+module std_private_type_traits_is_within_lifetime                        [system] { header "__type_traits/is_within_lifetime.h" }
 module std_private_type_traits_lazy                                      [system] { header "__type_traits/lazy.h" }
 module std_private_type_traits_make_32_64_or_128_bit                     [system] { header "__type_traits/make_32_64_or_128_bit.h" }
 module std_private_type_traits_make_const_lvalue_ref                     [system] { header "__type_traits/make_const_lvalue_ref.h" }
