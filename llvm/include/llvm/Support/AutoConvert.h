@@ -54,10 +54,10 @@ std::error_code restorezOSStdHandleAutoConversion(int FD);
 std::error_code setzOSFileTag(int FD, int CCSID, bool Text);
 
 // Get the the tag ccsid for a file name or a file descriptor.
-ErrorOr<__ccsid_t> getFileTag(const char *FileName, const int FD = -1);
+ErrorOr<__ccsid_t> getzOSFileTag(const char *FileName, const int FD = -1);
 
 // Query the file tag to determine if it needs conversion to UTF-8 codepage.
-ErrorOr<bool> needConversion(const char *FileName, const int FD = -1);
+ErrorOr<bool> needzOSConversion(const char *FileName, const int FD = -1);
 
 } // namespace llvm
 #endif // __cplusplus

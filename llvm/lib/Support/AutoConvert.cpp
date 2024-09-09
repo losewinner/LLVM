@@ -118,7 +118,7 @@ std::error_code llvm::setzOSFileTag(int FD, int CCSID, bool Text) {
   return std::error_code();
 }
 
-ErrorOr<__ccsid_t> llvm::getFileTag(const char *FileName, const int FD) {
+ErrorOr<__ccsid_t> llvm::getzOSFileTag(const char *FileName, const int FD) {
   // If we have a file descriptor, use it to find out file tagging. Otherwise we
   // need to use stat() with the file path.
   if (FD != -1) {
@@ -137,8 +137,8 @@ ErrorOr<__ccsid_t> llvm::getFileTag(const char *FileName, const int FD) {
   return Attr.st_tag.ft_ccsid;
 }
 
-ErrorOr<bool> llvm::needConversion(const char *FileName, const int FD) {
-  ErrorOr<__ccsid_t> Ccsid = getFileTag(FileName, FD);
+ErrorOr<bool> llvm::needzOSConversion(const char *FileName, const int FD) {
+  ErrorOr<__ccsid_t> Ccsid = getzOSFileTag(FileName, FD);
   if (std::error_code EC = Ccsid.getError())
     return EC;
   // We don't need conversion for UTF-8 tagged files or binary files.
