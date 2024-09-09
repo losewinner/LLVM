@@ -29,6 +29,7 @@
 
 #include <__algorithm/for_each.h>
 #include <__algorithm/move.h>
+#include <__bit/bit_log2.h>
 #include <__bit/countl.h>
 #include <__config>
 #include <__functional/identity.h>
@@ -65,13 +66,6 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 14
 
-template <class _UnsignedInteger>
-_LIBCPP_HIDE_FROM_ABI constexpr _UnsignedInteger __intlog2(_UnsignedInteger __n) {
-  static_assert(is_unsigned<_UnsignedInteger>::value, "Must be unsigned integral");
-
-  return numeric_limits<_UnsignedInteger>::digits - 1 - std::__countl_zero(__n);
-}
-
 template <class _InputIterator, class _OutputIterator>
 _LIBCPP_HIDE_FROM_ABI pair<_OutputIterator, __iter_value_type<_InputIterator>>
 __partial_sum_max(_InputIterator __first, _InputIterator __last, _OutputIterator __result) {
@@ -101,7 +95,7 @@ struct __radix_sort_traits {
   static_assert(is_integral<__radix_type>::value, "");
 
   constexpr static auto __radix_value_range = numeric_limits<__radix_type>::max() + 1;
-  constexpr static auto __radix_size        = std::__intlog2<uint64_t>(__radix_value_range);
+  constexpr static auto __radix_size        = std::__bit_log2<uint64_t>(__radix_value_range);
   constexpr static auto __radix_count       = sizeof(__image_type) * CHAR_BIT / __radix_size;
 };
 
@@ -111,7 +105,7 @@ struct __counting_sort_traits {
   static_assert(is_unsigned<__image_type>::value, "");
 
   constexpr static const auto __value_range = numeric_limits<__image_type>::max() + 1;
-  constexpr static auto __radix_size        = std::__intlog2<uint64_t>(__value_range);
+  constexpr static auto __radix_size        = std::__bit_log2<uint64_t>(__value_range);
 };
 
 template <class _Radix, class _Integer>
