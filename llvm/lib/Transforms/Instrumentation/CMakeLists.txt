@@ -21,7 +21,7 @@ add_llvm_component_library(LLVMInstrumentation
   PGOInstrumentation.cpp
   PGOMemOPSizeOpt.cpp
   PoisonChecking.cpp
-  SanitizerCoverage.cpp
+  CoverageSanitizer.cpp
   SanitizerBinaryMetadata.cpp
   ValueProfileCollector.cpp
   ThreadSanitizer.cpp
