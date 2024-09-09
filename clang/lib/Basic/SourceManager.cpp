@@ -627,7 +627,7 @@ FileID SourceManager::createFileIDImpl(ContentCache &File, StringRef Filename,
   unsigned FileSize = File.getSize();
 #ifdef __MVS__
   llvm::ErrorOr<bool> NeedConversion =
-      llvm::needConversion(Filename.str().c_str());
+      llvm::needzOSConversion(Filename.str().c_str());
   if (NeedConversion && *NeedConversion) {
     // Buffer size may increase due to potential z/OS EBCDIC to UTF-8
     // conversion.
