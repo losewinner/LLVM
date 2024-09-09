@@ -19,8 +19,8 @@
 // radix of the sorted numbers from low to high byte.
 // The algorithm uses a temporary buffer of size equal to size of the input range. Each `i`-th pass
 // of the algorithm sorts values by `i`-th radix and moves values to the temporary buffer (for each even `i`, counted
-// from zero), or moves them back to the initial range (for each odd `i`). It there is only one radix in sorted integers
-// (e.g. int8), than sorted values are placed to the buffer, and then moved back to the initial range.
+// from zero), or moves them back to the initial range (for each odd `i`). If there is only one radix in sorted integers
+// (e.g. int8), the sorted values are placed to the buffer, and then moved back to the initial range.
 
 // The implementation also has several optimizations:
 // - the counters for the counting sort are calculated in one pass for all radices;
