@@ -20,11 +20,11 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 #if _LIBCPP_STD_VER >= 26 && __has_builtin(__builtin_is_within_lifetime)
 template <class _Tp>
-_LIBCPP_HIDE_FROM_ABI inline consteval bool is_within_lifetime(const _Tp* __p) noexcept {
+_LIBCPP_HIDE_FROM_ABI consteval bool is_within_lifetime(const _Tp* __p) noexcept {
   if constexpr (is_function_v<_Tp>) {
     // Avoid multiple diagnostics
     static_assert(!is_function_v<_Tp>, "std::is_within_lifetime<T> cannot explicitly specify T as a function type");
-    return true;
+    return false;
   } else {
     return __builtin_is_within_lifetime(__p);
   }

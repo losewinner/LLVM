@@ -6,7 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03
+// UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
+// UNSUPPORTED: clang-18, clang-19, gcc-14, apple-clang-16
 
 // <type_traits>
 
@@ -15,18 +16,11 @@
 // explicitly specified, even if it isn't evaluated
 
 #include <type_traits>
-#include <cassert>
 
-#include "test_macros.h"
-
-void fn();
-
-int main(int, char**) {
-#ifdef __cpp_lib_is_within_lifetime
-  constexpr bool _ = true ? false : std::is_within_lifetime<void()>(&fn);
-  // expected-error@*:* {{static assertion failed due to requirement '!is_function_v<void ()>': std::is_within_lifetime<T> cannot explicitly specify T as a function type}}
-#else
-  // expected-no-diagnostics
-#endif
-  return 0;
+template <class T>
+consteval bool checked_is_within_lifetime(T* p) {
+  return p ? std::is_within_lifetime<T>(p) : false;
 }
+static_assert(!checked_is_within_lifetime<int>(nullptr));
+static_assert(!checked_is_within_lifetime<void()>(nullptr));
+// expected-error@*:* {{static assertion failed due to requirement '!is_function_v<void ()>': std::is_within_lifetime<T> cannot explicitly specify T as a function type}}

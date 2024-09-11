@@ -6,7 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++03
+// UNSUPPORTED: c++03, c++11, c++14, c++17, c++20, c++23
+// UNSUPPORTED: clang-18, clang-19, gcc-14, apple-clang-16
 
 // <type_traits>
 
@@ -17,24 +18,6 @@
 #include <cassert>
 
 #include "test_macros.h"
-
-#ifndef __cpp_lib_is_within_lifetime
-
-// Check that it doesn't exist if the feature test macro isn't defined (via ADL)
-template <class T>
-constexpr decltype(static_cast<void>(is_within_lifetime(std::declval<T>())), bool{}) is_within_lifetime_exists(int) {
-  return true;
-}
-template <class T>
-constexpr bool is_within_lifetime_exists(long) {
-  return false;
-}
-
-static_assert(!is_within_lifetime_exists<const std::integral_constant<bool, false>*>(0), "");
-
-#elif TEST_STD_VER < 26
-#  error __cpp_lib_is_within_lifetime defined before C++26
-#else // defined(__cpp_lib_is_within_lifetime) && TEST_STD_VER >= 26
 
 ASSERT_SAME_TYPE(decltype(std::is_within_lifetime(std::declval<int*>())), bool);
 ASSERT_SAME_TYPE(decltype(std::is_within_lifetime(std::declval<const int*>())), bool);
@@ -58,53 +41,101 @@ static_assert(is_within_lifetime_exists<const void*>);
 static_assert(!is_within_lifetime_exists<int>);               // Not a pointer
 static_assert(!is_within_lifetime_exists<decltype(nullptr)>); // Not a pointer
 static_assert(!is_within_lifetime_exists<void() const>);      // Not a pointer
-static_assert(!is_within_lifetime_exists<int S::*>);          // Doesn't accept pointer-to-member
-static_assert(!is_within_lifetime_exists<void (S::*)()>);
-static_assert(!is_within_lifetime_exists<void (*)()>); // Doesn't match `const T*`
-
-constexpr int i = 0;
-static_assert(std::is_within_lifetime(&i));
-static_assert(std::is_within_lifetime(const_cast<int*>(&i)));
-static_assert(std::is_within_lifetime(static_cast<const void*>(&i)));
-static_assert(std::is_within_lifetime(static_cast<void*>(const_cast<int*>(&i))));
-static_assert(std::is_within_lifetime<const int>(&i));
-static_assert(std::is_within_lifetime<int>(const_cast<int*>(&i)));
-static_assert(std::is_within_lifetime<const void>(static_cast<const void*>(&i)));
-static_assert(std::is_within_lifetime<void>(static_cast<void*>(const_cast<int*>(&i))));
-
-constexpr union {
-  int active;
-  int inactive;
-} u{.active = 1};
-static_assert(std::is_within_lifetime(&u.active) && !std::is_within_lifetime(&u.inactive));
+static_assert(!is_within_lifetime_exists<int S::*>);          // Doesn't accept pointer-to-data-member
+static_assert(!is_within_lifetime_exists<void (S::*)()>);     // Doesn't accept pointer-to-member-function
+static_assert(!is_within_lifetime_exists<void (*)()>);        // Doesn't match `const T*`
 
 consteval bool f() {
-  union {
-    int active;
-    int inactive;
-  };
-  if (std::is_within_lifetime(&active) || std::is_within_lifetime(&inactive))
-    return false;
-  active = 1;
-  if (!std::is_within_lifetime(&active) || std::is_within_lifetime(&inactive))
-    return false;
-  inactive = 1;
-  if (std::is_within_lifetime(&active) || !std::is_within_lifetime(&inactive))
-    return false;
-  int j;
-  S s;
-  return std::is_within_lifetime(&j) && std::is_within_lifetime(&s);
+  // Test that it works with global variables whose lifetime is in a
+  // different constant expression
+  {
+    static constexpr int i = 0;
+    static_assert(std::is_within_lifetime(&i));
+    // (Even when cast to a different type)
+    static_assert(std::is_within_lifetime(const_cast<int*>(&i)));
+    static_assert(std::is_within_lifetime(static_cast<const void*>(&i)));
+    static_assert(std::is_within_lifetime(static_cast<void*>(const_cast<int*>(&i))));
+    static_assert(std::is_within_lifetime<const int>(&i));
+    static_assert(std::is_within_lifetime<int>(const_cast<int*>(&i)));
+    static_assert(std::is_within_lifetime<const void>(static_cast<const void*>(&i)));
+    static_assert(std::is_within_lifetime<void>(static_cast<void*>(const_cast<int*>(&i))));
+  }
+
+  {
+    static constexpr union {
+      int member1;
+      int member2;
+    } u{.member2 = 1};
+    static_assert(!std::is_within_lifetime(&u.member1) && std::is_within_lifetime(&u.member2));
+  }
+
+  // Test that it works for varibles inside the same constant expression
+  {
+    int i = 0;
+    assert(std::is_within_lifetime(&i));
+    // (Even when cast to a different type)
+    assert(std::is_within_lifetime(const_cast<int*>(&i)));
+    assert(std::is_within_lifetime(static_cast<const void*>(&i)));
+    assert(std::is_within_lifetime(static_cast<void*>(const_cast<int*>(&i))));
+    assert(std::is_within_lifetime<const int>(&i));
+    assert(std::is_within_lifetime<int>(const_cast<int*>(&i)));
+    assert(std::is_within_lifetime<const void>(static_cast<const void*>(&i)));
+    assert(std::is_within_lifetime<void>(static_cast<void*>(const_cast<int*>(&i))));
+  }
+  // Anonymous union
+  {
+    union {
+      int member1;
+      int member2;
+    };
+    assert(!std::is_within_lifetime(&member1) && !std::is_within_lifetime(&member2));
+    member1 = 1;
+    assert(std::is_within_lifetime(&member1) && !std::is_within_lifetime(&member2));
+    member2 = 1;
+    assert(!std::is_within_lifetime(&member1) && std::is_within_lifetime(&member2));
+  }
+  // Variant members
+  {
+    struct X {
+      union {
+        int member1;
+        int member2;
+      };
+    } x;
+    assert(!std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
+    x.member1 = 1;
+    assert(std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
+    x.member2 = 1;
+    assert(!std::is_within_lifetime(&x.member1) && std::is_within_lifetime(&x.member2));
+  }
+  // Unions
+  {
+    union X {
+      int member1;
+      int member2;
+    } x;
+    assert(!std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
+    x.member1 = 1;
+    assert(std::is_within_lifetime(&x.member1) && !std::is_within_lifetime(&x.member2));
+    x.member2 = 1;
+    assert(!std::is_within_lifetime(&x.member1) && std::is_within_lifetime(&x.member2));
+  }
+  {
+    S s; // uninitialised
+    assert(std::is_within_lifetime(&s));
+  }
+
+  return true;
 }
 static_assert(f());
 
-#  ifndef TEST_COMPILER_MSVC
-// MSVC doesn't support consteval propagation :(
+// Check that it is a consteval (and consteval-propagating) function
+// (i.e., taking the address of below will fail because it will be an immediate function)
 template <typename T>
 constexpr void does_escalate(T p) {
   std::is_within_lifetime(p);
 }
-
-template <typename T, void(T) = does_escalate<T>>
+template <typename T, void (*)(T) = &does_escalate<T>>
 constexpr bool check_escalated(int) {
   return false;
 }
@@ -114,6 +145,3 @@ constexpr bool check_escalated(long) {
 }
 static_assert(check_escalated<int*>(0), "");
 static_assert(check_escalated<void*>(0), "");
-#  endif // defined(TEST_COMPILER_MSVC)
-
-#endif // defined(__cpp_lib_is_within_lifetime) && TEST_STD_VER >= 26
