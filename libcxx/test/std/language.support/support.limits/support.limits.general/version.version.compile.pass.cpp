@@ -7186,16 +7186,16 @@
 #   endif
 # endif
 
-# if !defined(_LIBCPP_VERSION)
+# if __has_builtin(__builtin_is_within_lifetime)
 #   ifndef __cpp_lib_is_within_lifetime
 #     error "__cpp_lib_is_within_lifetime should be defined in c++26"
 #   endif
 #   if __cpp_lib_is_within_lifetime != 202306L
 #     error "__cpp_lib_is_within_lifetime should have the value 202306L in c++26"
 #   endif
-# else // _LIBCPP_VERSION
+# else
 #   ifdef __cpp_lib_is_within_lifetime
-#     error "__cpp_lib_is_within_lifetime should not be defined because it is unimplemented in libc++!"
+#     error "__cpp_lib_is_within_lifetime should not be defined when the requirement '__has_builtin(__builtin_is_within_lifetime)' is not met!"
 #   endif
 # endif
 
