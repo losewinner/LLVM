@@ -54,4 +54,29 @@ __builtin_type_pack_dedup<__builtin_type_pack_dedup, int, int, double>; // expec
                                                         // expected-note@* {{template parameter has a different kind in template argument}}
                                                         // expected-note@* {{previous template template parameter is here}}
 
+// Make sure various canonical / non-canonical type representations do not affect results
+// of the deduplication and the qualifiers do end up creating different types when C++ requires it.
+using Int = int;
+using CInt = const Int;
+using IntArray = Int[10];
+using CIntArray = Int[10];
+using IntPtr = int*;
+using CIntPtr = const int*;
+static_assert(
+  __is_same(
+    __builtin_type_pack_dedup<TypeList,
+      Int, int,
+      const int, const Int, CInt, const CInt,
+      IntArray, Int[10], int[10],
+      const IntArray, const int[10], CIntArray, const CIntArray,
+      IntPtr, int*,
+      const IntPtr, int* const,
+      CIntPtr, const int*,
+      const IntPtr*, int*const*,
+      CIntPtr*, const int**,
+      const CIntPtr*, const int* const*
+    >,
+    TypeList<int, const int, int[10], const int [10], int*, int* const, const int*, int*const *, const int**, const int*const*>),
+  "");
+
 // FIXME: tests for locations of template arguments, ideally we should point into the original locations of the template arguments.
