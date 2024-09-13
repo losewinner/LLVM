@@ -84,7 +84,7 @@ enum PredefinedDeclIDs {
   PREDEF_DECL_TYPE_PACK_ELEMENT_ID,
 
   /// The internal '__builtin_type_pack_dedup' template.
-  PREDEF_DECL___builtin_type_pack_dedup_ID,
+  PREDEF_DECL_TYPE_PACK_DEDUP_ID,
 
   /// The number of declaration IDs that are predefined.
   NUM_PREDEF_DECL_IDS

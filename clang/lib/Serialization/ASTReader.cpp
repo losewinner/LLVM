@@ -7898,7 +7898,7 @@ Decl *ASTReader::getPredefinedDecl(PredefinedDeclIDs ID) {
       return Context.TypePackElementDecl;
     NewLoaded = Context.getTypePackElementDecl();
     break;
-  case PREDEF_DECL___builtin_type_pack_dedup_ID:
+  case PREDEF_DECL_TYPE_PACK_DEDUP_ID:
     if (Context.TypePackDedupDecl)
       return Context.TypePackDedupDecl;
     NewLoaded = Context.getTypePackDedupDecl();
