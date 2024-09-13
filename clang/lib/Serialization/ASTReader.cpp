@@ -7898,10 +7898,10 @@ Decl *ASTReader::getPredefinedDecl(PredefinedDeclIDs ID) {
       return Context.TypePackElementDecl;
     NewLoaded = Context.getTypePackElementDecl();
     break;
-  case PREDEF_DECL_TYPE_LIST_DEDUP_ID:
-    if (Context.TypeListDedupDecl)
-      return Context.TypeListDedupDecl;
-    NewLoaded = Context.getTypeListDedupDecl();
+  case PREDEF_DECL___builtin_type_pack_dedup_ID:
+    if (Context.TypePackDedupDecl)
+      return Context.TypePackDedupDecl;
+    NewLoaded = Context.getTypePackDedupDecl();
     break;
   case NUM_PREDEF_DECL_IDS:
     llvm_unreachable("Invalid decl ID");

@@ -933,8 +933,8 @@ bool Sema::LookupBuiltin(LookupResult &R) {
           R.addDecl(getASTContext().getTypePackElementDecl());
           return true;
         }
-        if (II == getASTContext().getTypeListDedupName()) {
-          R.addDecl(getASTContext().getTypeListDedupDecl());
+        if (II == getASTContext().getTypePackDedupName()) {
+          R.addDecl(getASTContext().getTypePackDedupDecl());
           return true;
         }
       }

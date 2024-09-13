@@ -5052,7 +5052,7 @@ void ASTWriter::PrepareWritingSpecialDecls(Sema &SemaRef) {
                      PREDEF_DECL_CF_CONSTANT_STRING_TAG_ID);
   RegisterPredefDecl(Context.TypePackElementDecl,
                      PREDEF_DECL_TYPE_PACK_ELEMENT_ID);
-  RegisterPredefDecl(Context.TypeListDedupDecl, PREDEF_DECL_TYPE_LIST_DEDUP_ID);
+  RegisterPredefDecl(Context.TypePackDedupDecl, PREDEF_DECL___builtin_type_pack_dedup_ID);
 
   const TranslationUnitDecl *TU = Context.getTranslationUnitDecl();
 

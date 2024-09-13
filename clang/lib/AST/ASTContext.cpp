@@ -1170,11 +1170,11 @@ ASTContext::getTypePackElementDecl() const {
   return TypePackElementDecl;
 }
 
-BuiltinTemplateDecl *ASTContext::getTypeListDedupDecl() const {
-  if (!TypeListDedupDecl)
-    TypeListDedupDecl =
-        buildBuiltinTemplateDecl(BTK__type_list_dedup, getTypeListDedupName());
-  return TypeListDedupDecl;
+BuiltinTemplateDecl *ASTContext::getTypePackDedupDecl() const {
+  if (!TypePackDedupDecl)
+    TypePackDedupDecl =
+        buildBuiltinTemplateDecl(BTK__type_pack_dedup, getTypePackDedupName());
+  return TypePackDedupDecl;
 }
 
 RecordDecl *ASTContext::buildImplicitRecord(StringRef Name,

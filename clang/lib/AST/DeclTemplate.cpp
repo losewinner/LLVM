@@ -1609,7 +1609,7 @@ createTypePackElementParameterList(const ASTContext &C, DeclContext *DC) {
 }
 
 static TemplateParameterList *
-createTypeListDedupParameterList(const ASTContext &C, DeclContext *DC) {
+createTypePackDedupParameterList(const ASTContext &C, DeclContext *DC) {
   // template <typename ...> typename Templ
   auto *InnerTs = TemplateTypeParmDecl::Create(
       C, DC, SourceLocation(), SourceLocation(), /*Depth=*/1, /*Position=*/0,
@@ -1644,8 +1644,8 @@ static TemplateParameterList *createBuiltinTemplateParameterList(
     return createMakeIntegerSeqParameterList(C, DC);
   case BTK__type_pack_element:
     return createTypePackElementParameterList(C, DC);
-  case BTK__type_list_dedup:
-    return createTypeListDedupParameterList(C, DC);
+  case BTK__type_pack_dedup:
+    return createTypePackDedupParameterList(C, DC);
   }
 
   llvm_unreachable("unhandled BuiltinTemplateKind!");

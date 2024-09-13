@@ -17,7 +17,7 @@ struct X;
 
 
 template <template <class...> class Templ, class...Types>
-using TypeListDedup = __type_list_dedup<Templ, Types...>;
+using TypePackDedup = __builtin_type_pack_dedup<Templ, Types...>;
 
 template <class ...Ts>
 struct TypeList {};

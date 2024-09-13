@@ -5,7 +5,7 @@
 
 // CHECK-SEQ:  BuiltinTemplateDecl {{.+}} <<invalid sloc>> <invalid sloc> implicit __make_integer_seq{{$}}
 // CHECK-PACK: BuiltinTemplateDecl {{.+}} <<invalid sloc>> <invalid sloc> implicit __type_pack_element{{$}}
-// CHECK-DEDUP: BuiltinTemplateDecl {{.+}} <<invalid sloc>> <invalid sloc> implicit __type_list_dedup{{$}}
+// CHECK-DEDUP: BuiltinTemplateDecl {{.+}} <<invalid sloc>> <invalid sloc> implicit __builtin_type_pack_dedup{{$}}
 
 void expr() {
 #ifdef SEQ
@@ -24,8 +24,8 @@ void expr() {
 #endif
 
 #ifdef DEDUP
-  static_assert(__is_same(TypeListDedup<TypeList>, TypeList<>), "");
-  static_assert(__is_same(TypeListDedup<TypeList, int, double, int>, TypeList<int, double>), "");
-  static_assert(__is_same(TypeListDedup<TypeList, X<0>, X<1>, X<1>, X<2>, X<0>>, TypeList<X<0>, X<1>, X<2>>), "");
+  static_assert(__is_same(TypePackDedup<TypeList>, TypeList<>), "");
+  static_assert(__is_same(TypePackDedup<TypeList, int, double, int>, TypeList<int, double>), "");
+  static_assert(__is_same(TypePackDedup<TypeList, X<0>, X<1>, X<1>, X<2>, X<0>>, TypeList<X<0>, X<1>, X<2>>), "");
 #endif
 }
