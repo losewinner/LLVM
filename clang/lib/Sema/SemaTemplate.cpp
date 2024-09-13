@@ -3173,7 +3173,7 @@ checkBuiltinTemplateIdType(Sema &SemaRef, BuiltinTemplateDecl *BTD,
     assert(Template.getKind() == clang::TemplateArgument::Template);
     assert(Ts.getKind() == clang::TemplateArgument::Pack);
     TemplateArgumentListInfo SyntheticTemplateArgs;
-    llvm::DenseSet<QualType> Seen;
+    llvm::SmallDenseSet<QualType> Seen;
     // Synthesize a new template argument list, removing duplicates.
     for (auto T : Ts.getPackAsArray()) {
       assert(T.getKind() == clang::TemplateArgument::Type);
