@@ -3162,8 +3162,8 @@ checkBuiltinTemplateIdType(Sema &SemaRef, BuiltinTemplateDecl *BTD,
     return Ts.getPackAsArray()[N].getAsType();
   }
   case BTK__type_pack_dedup: {
-    assert(Converted.size() == 2 &&
-           "__builtin_type_pack_dedup should be given a template and a parameter pack");
+    assert(Converted.size() == 2 && "__builtin_type_pack_dedup should be given "
+                                    "a template and a parameter pack");
     TemplateArgument Template = Converted[0];
     TemplateArgument Ts = Converted[1];
     if (Template.isDependent() || Ts.isDependent())
