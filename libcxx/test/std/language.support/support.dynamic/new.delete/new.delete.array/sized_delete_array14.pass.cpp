@@ -9,7 +9,7 @@
 // test sized operator delete[] replacement.
 
 // These compiler versions don't enable sized deallocation by default.
-// UNSUPPORTED: clang-17, clang-18
+// UNSUPPORTED: clang-18
 
 // UNSUPPORTED: sanitizer-new-delete, c++03, c++11
 // XFAIL: apple-clang
