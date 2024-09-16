@@ -195,25 +195,25 @@ struct __stable_sort_switch {
   static const unsigned value = 128 * is_trivially_copy_assignable<_Tp>::value;
 };
 
-template <class _Tp, class = void>
-struct __radix_sort_min_switch {
-  static const unsigned value = (1 << 10);
-};
+template <class _Tp>
+constexpr unsigned __radix_sort_min_bound() {
+  static_assert(is_integral<_Tp>::value);
+  if constexpr (sizeof(_Tp) == 1) {
+    return 1 << 8;
+  }
 
-template <class _Int8>
-struct __radix_sort_min_switch<_Int8, __enable_if_t<is_integral<_Int8>::value && sizeof(_Int8) == 1> > {
-  static const unsigned value = (1 << 8);
-};
+  return 1 << 10;
+}
 
-template <class _Tp, class = void>
-struct __radix_sort_max_switch {
-  static const unsigned value = (1 << 16);
-};
+template <class _Tp>
+constexpr unsigned __radix_sort_max_bound() {
+  static_assert(is_integral<_Tp>::value);
+  if constexpr (sizeof(_Tp) == 8) {
+    return 1 << 15;
+  }
 
-template <class _Int64>
-struct __radix_sort_max_switch<_Int64, __enable_if_t<is_integral<_Int64>::value && sizeof(_Int64) == 8> > {
-  static const unsigned value = (1 << 15);
-};
+  return 1 << 16;
+}
 
 template <class _AlgPolicy, class _Compare, class _RandomAccessIterator>
 void __stable_sort(_RandomAccessIterator __first,
@@ -242,8 +242,8 @@ void __stable_sort(_RandomAccessIterator __first,
   constexpr auto __integral_value     = is_integral_v<value_type >;
   constexpr auto __allowed_radix_sort = __default_comp && __integral_value;
   if constexpr (__allowed_radix_sort) {
-    if (__len <= __buff_size && __len >= static_cast<difference_type>(__radix_sort_min_switch<value_type>::value) &&
-        __len <= static_cast<difference_type>(__radix_sort_max_switch<value_type>::value)) {
+    if (__len <= __buff_size && __len >= static_cast<difference_type>(__radix_sort_min_bound<value_type>()) &&
+        __len <= static_cast<difference_type>(__radix_sort_max_bound<value_type>())) {
       std::__radix_sort(__first, __last, __buff);
       return;
     }
