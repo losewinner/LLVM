@@ -5925,6 +5925,9 @@ SDValue DAGCombiner::hoistLogicOpWithSameOpcodeHands(SDNode *N) {
 
   // logic_op (truncate x), (truncate y) --> truncate (logic_op x, y)
   if (HandOpcode == ISD::TRUNCATE) {
+    // Don't create a logic op on an illegal type.
+    if (!TLI.isTypeLegal(XVT))
+      return SDValue();
     // If both operands have other uses, this transform would create extra
     // instructions without eliminating anything.
     if (!N0.hasOneUse() && !N1.hasOneUse())
@@ -5942,9 +5945,6 @@ SDValue DAGCombiner::hoistLogicOpWithSameOpcodeHands(SDNode *N) {
     // Prevent an infinite loop if the target preferts the inverse
     // transformation.
     if (TLI.isNarrowingProfitable(XVT, VT))
-      return SDValue();
-    // Don't create a logic op on an illegal type.
-    if (!TLI.isTypeLegal(XVT))
       return SDValue();
     SDValue Logic = DAG.getNode(LogicOpcode, DL, XVT, X, Y);
     return DAG.getNode(HandOpcode, DL, VT, Logic);
