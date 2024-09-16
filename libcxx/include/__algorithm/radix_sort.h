@@ -323,30 +323,6 @@ __radix_sort(_RandomAccessIterator1 __first, _RandomAccessIterator1 __last, _Ran
   std::__radix_sort(__first, __last, __buffer, __identity{}, __low_byte_fn{});
 }
 
-template <class _RandomAccessIterator1, class _RandomAccessIterator2>
-_LIBCPP_HIDE_FROM_ABI bool
-__radix_sort(_RandomAccessIterator1 __first,
-             _RandomAccessIterator1 __last,
-             _RandomAccessIterator2 __buffer,
-             _BoolConstant<true>) {
-  std::__radix_sort(__first, __last, __buffer, __identity{}, __low_byte_fn{});
-  return true;
-}
-
-template <class _RandomAccessIterator1, class _RandomAccessIterator2>
-_LIBCPP_HIDE_FROM_ABI bool
-__radix_sort(_RandomAccessIterator1, _RandomAccessIterator1, _RandomAccessIterator2, _BoolConstant<false>) {
-  return false;
-}
-
-#else // _LIBCPP_STD_VER > 14
-
-template <class _RandomAccessIterator1, class _RandomAccessIterator2, bool _EnableRadixSort>
-_LIBCPP_HIDE_FROM_ABI bool
-__radix_sort(_RandomAccessIterator1, _RandomAccessIterator1, _RandomAccessIterator2, _BoolConstant<_EnableRadixSort>) {
-  return false;
-}
-
 #endif // _LIBCPP_STD_VER > 14
 
 _LIBCPP_END_NAMESPACE_STD
