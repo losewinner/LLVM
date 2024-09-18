@@ -8785,14 +8785,11 @@ ExprResult Sema::ActOnConditionalOp(SourceLocation QuestionLoc,
       commonExpr = result.get();
     }
     // We usually want to apply unary conversions *before* saving, except
-    // in the special case of a C++ l-value conditional.
-    if (!(getLangOpts().CPlusPlus
-          && !commonExpr->isTypeDependent()
-          && commonExpr->getValueKind() == RHSExpr->getValueKind()
-          && commonExpr->isGLValue()
-          && commonExpr->isOrdinaryOrBitFieldObject()
-          && RHSExpr->isOrdinaryOrBitFieldObject()
-          && Context.hasSameType(commonExpr->getType(), RHSExpr->getType()))) {
+    // in the special case in C++ that operands have the same type.
+    if (!(getLangOpts().CPlusPlus && !commonExpr->isTypeDependent() &&
+          commonExpr->isOrdinaryOrBitFieldObject() &&
+          RHSExpr->isOrdinaryOrBitFieldObject() &&
+          Context.hasSameType(commonExpr->getType(), RHSExpr->getType()))) {
       ExprResult commonRes = UsualUnaryConversions(commonExpr);
       if (commonRes.isInvalid())
         return ExprError();
