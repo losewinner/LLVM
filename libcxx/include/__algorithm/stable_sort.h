@@ -195,6 +195,7 @@ struct __stable_sort_switch {
   static const unsigned value = 128 * is_trivially_copy_assignable<_Tp>::value;
 };
 
+#if _LIBCPP_STD_VER >= 17
 template <class _Tp>
 constexpr unsigned __radix_sort_min_bound() {
   static_assert(is_integral<_Tp>::value);
@@ -214,6 +215,7 @@ constexpr unsigned __radix_sort_max_bound() {
 
   return 1 << 16;
 }
+#endif // _LIBCPP_STD_VER > 17
 
 template <class _AlgPolicy, class _Compare, class _RandomAccessIterator>
 void __stable_sort(_RandomAccessIterator __first,
@@ -237,6 +239,8 @@ void __stable_sort(_RandomAccessIterator __first,
     std::__insertion_sort<_AlgPolicy, _Compare>(__first, __last, __comp);
     return;
   }
+
+#if _LIBCPP_STD_VER >= 17
   constexpr auto __default_comp =
       __desugars_to_v<__totally_ordered_less_tag, __remove_cvref_t<_Compare>, value_type, value_type >;
   constexpr auto __integral_value     = is_integral_v<value_type >;
@@ -248,6 +252,8 @@ void __stable_sort(_RandomAccessIterator __first,
       return;
     }
   }
+#endif // _LIBCPP_STD_VER > 17
+
   typename iterator_traits<_RandomAccessIterator>::difference_type __l2 = __len / 2;
   _RandomAccessIterator __m                                             = __first + __l2;
   if (__len <= __buff_size) {
