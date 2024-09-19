@@ -25,6 +25,7 @@
 #include <__type_traits/desugars_to.h>
 #include <__type_traits/enable_if.h>
 #include <__type_traits/is_integral.h>
+#include <__type_traits/is_same.h>
 #include <__type_traits/is_trivially_assignable.h>
 #include <__type_traits/remove_cvref.h>
 #include <__utility/move.h>
@@ -243,7 +244,8 @@ void __stable_sort(_RandomAccessIterator __first,
 #if _LIBCPP_STD_VER >= 17
   constexpr auto __default_comp =
       __desugars_to_v<__totally_ordered_less_tag, __remove_cvref_t<_Compare>, value_type, value_type >;
-  constexpr auto __integral_value     = is_integral_v<value_type >;
+  constexpr auto __integral_value =
+      is_integral_v<value_type > && is_same_v< value_type&, iter_reference_t<_RandomAccessIterator>>;
   constexpr auto __allowed_radix_sort = __default_comp && __integral_value;
   if constexpr (__allowed_radix_sort) {
     if (__len <= __buff_size && __len >= static_cast<difference_type>(__radix_sort_min_bound<value_type>()) &&
