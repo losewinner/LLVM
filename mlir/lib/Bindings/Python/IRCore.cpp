@@ -192,7 +192,9 @@ py::object classmethod(Func f, Args... args) {
 static py::object
 createCustomDialectWrapper(const std::string &dialectNamespace,
                            py::object dialectDescriptor) {
-  auto dialectClass = PyGlobals::get().lookupDialectClass(dialectNamespace);
+  auto dialectClass = PyGlobals::withInstance([&](PyGlobals& instance) {
+    return instance.lookupDialectClass(dialectNamespace);
+  });
   if (!dialectClass) {
     // Use the base class.
     return py::cast(PyDialect(std::move(dialectDescriptor)));
@@ -595,8 +597,10 @@ private:
 
 PyMlirContext::PyMlirContext(MlirContext context) : context(context) {
   py::gil_scoped_acquire acquire;
-  auto &liveContexts = getLiveContexts();
-  liveContexts[context.ptr] = this;
+  withLiveContexts([&](LiveContextMap& liveContexts) {
+    liveContexts[context.ptr] = this;
+    return this;
+  });
 }
 
 PyMlirContext::~PyMlirContext() {
@@ -604,7 +608,12 @@ PyMlirContext::~PyMlirContext() {
   // forContext method, which always puts the associated handle into
   // liveContexts.
   py::gil_scoped_acquire acquire;
-  getLiveContexts().erase(context.ptr);
+
+  withLiveContexts([&](LiveContextMap& liveContexts) {
+    liveContexts.erase(context.ptr);
+    return this;
+  });
+
   mlirContextDestroy(context);
 }
 
@@ -626,19 +635,20 @@ PyMlirContext *PyMlirContext::createNewContextForInit() {
 
 PyMlirContextRef PyMlirContext::forContext(MlirContext context) {
   py::gil_scoped_acquire acquire;
-  auto &liveContexts = getLiveContexts();
-  auto it = liveContexts.find(context.ptr);
-  if (it == liveContexts.end()) {
-    // Create.
-    PyMlirContext *unownedContextWrapper = new PyMlirContext(context);
-    py::object pyRef = py::cast(unownedContextWrapper);
-    assert(pyRef && "cast to py::object failed");
-    liveContexts[context.ptr] = unownedContextWrapper;
-    return PyMlirContextRef(unownedContextWrapper, std::move(pyRef));
-  }
-  // Use existing.
-  py::object pyRef = py::cast(it->second);
-  return PyMlirContextRef(it->second, std::move(pyRef));
+  return withLiveContexts([&](LiveContextMap& liveContexts) {
+    auto it = liveContexts.find(context.ptr);
+    if (it == liveContexts.end()) {
+      // Create.
+      PyMlirContext *unownedContextWrapper = new PyMlirContext(context);
+      py::object pyRef = py::cast(unownedContextWrapper);
+      assert(pyRef && "cast to py::object failed");
+      liveContexts[context.ptr] = unownedContextWrapper;
+      return PyMlirContextRef(unownedContextWrapper, std::move(pyRef));
+    }
+    // Use existing.
+    py::object pyRef = py::cast(it->second);
+    return PyMlirContextRef(it->second, std::move(pyRef));
+  });
 }
 
 PyMlirContext::LiveContextMap &PyMlirContext::getLiveContexts() {
@@ -646,7 +656,11 @@ PyMlirContext::LiveContextMap &PyMlirContext::getLiveContexts() {
   return liveContexts;
 }
 
-size_t PyMlirContext::getLiveCount() { return getLiveContexts().size(); }
+size_t PyMlirContext::getLiveCount() {
+  return withLiveContexts([&](LiveContextMap& liveContexts) {
+    return liveContexts.size();
+  });
+}
 
 size_t PyMlirContext::getLiveOperationCount() { return liveOperations.size(); }
 
@@ -1550,8 +1564,10 @@ py::object PyOperation::createOpView() {
   checkValid();
   MlirIdentifier ident = mlirOperationGetName(get());
   MlirStringRef identStr = mlirIdentifierStr(ident);
-  auto operationCls = PyGlobals::get().lookupOperationClass(
-      StringRef(identStr.data, identStr.length));
+  auto operationCls = PyGlobals::withInstance([&](PyGlobals& instance){
+      return instance.lookupOperationClass(
+          StringRef(identStr.data, identStr.length));
+  });
   if (operationCls)
     return PyOpView::constructDerived(*operationCls, *getRef().get());
   return py::cast(PyOpView(getRef().getObject()));
@@ -2002,7 +2018,9 @@ pybind11::object PyValue::maybeDownCast() {
   assert(!mlirTypeIDIsNull(mlirTypeID) &&
          "mlirTypeID was expected to be non-null.");
   std::optional<pybind11::function> valueCaster =
-      PyGlobals::get().lookupValueCaster(mlirTypeID, mlirTypeGetDialect(type));
+      PyGlobals::withInstance([&](PyGlobals& instance) {
+        return instance.lookupValueCaster(mlirTypeID, mlirTypeGetDialect(type));
+  });
   // py::return_value_policy::move means use std::move to move the return value
   // contents into a new instance that will be owned by Python.
   py::object thisObj = py::cast(this, py::return_value_policy::move);
@@ -3481,8 +3499,10 @@ void mlir::python::populateIRCore(py::module &m) {
         assert(!mlirTypeIDIsNull(mlirTypeID) &&
                "mlirTypeID was expected to be non-null.");
         std::optional<pybind11::function> typeCaster =
-            PyGlobals::get().lookupTypeCaster(mlirTypeID,
-                                              mlirAttributeGetDialect(self));
+            PyGlobals::withInstance([&](PyGlobals& instance){
+              return instance.lookupTypeCaster(mlirTypeID,
+                                               mlirAttributeGetDialect(self));
+            });
         if (!typeCaster)
           return py::cast(self);
         return typeCaster.value()(self);
@@ -3579,9 +3599,11 @@ void mlir::python::populateIRCore(py::module &m) {
              MlirTypeID mlirTypeID = mlirTypeGetTypeID(self);
              assert(!mlirTypeIDIsNull(mlirTypeID) &&
                     "mlirTypeID was expected to be non-null.");
-             std::optional<pybind11::function> typeCaster =
-                 PyGlobals::get().lookupTypeCaster(mlirTypeID,
+            std::optional<pybind11::function> typeCaster =
+                PyGlobals::withInstance([&](PyGlobals& instance){
+                  return instance.lookupTypeCaster(mlirTypeID,
                                                    mlirTypeGetDialect(self));
+                });
              if (!typeCaster)
                return py::cast(self);
              return typeCaster.value()(self);

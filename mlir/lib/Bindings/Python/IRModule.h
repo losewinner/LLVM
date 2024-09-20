@@ -263,6 +263,27 @@ private:
   using LiveContextMap = llvm::DenseMap<void *, PyMlirContext *>;
   static LiveContextMap &getLiveContexts();
 
+#ifdef Py_GIL_DISABLED
+  static PyMutex &getLock() {
+    static PyMutex lock;
+    return lock;
+  }
+#endif
+
+  template<typename F>
+  static inline auto withLiveContexts(const F& cb) -> decltype(cb(getLiveContexts())) {
+    auto &liveContexts = getLiveContexts();
+#ifdef Py_GIL_DISABLED
+    auto &lock = getLock();
+    PyMutex_Lock(&lock);
+#endif
+    auto result = cb(liveContexts);
+#ifdef Py_GIL_DISABLED
+    PyMutex_Unlock(&lock);
+#endif
+    return result;
+  }
+
   // Interns all live modules associated with this context. Modules tracked
   // in this map are valid. When a module is invalidated, it is removed
   // from this map, and while it still exists as an instance, any

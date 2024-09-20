@@ -21,7 +21,7 @@ static bool mlirTypeIsARankedIntegerTensor(MlirType t) {
          mlirTypeIsAInteger(mlirShapedTypeGetElementType(t));
 }
 
-PYBIND11_MODULE(_mlirPythonTest, m) {
+PYBIND11_MODULE(_mlirPythonTest, m, py::mod_gil_not_used()) {
   m.def(
       "register_python_test_dialect",
       [](MlirContext context, bool load) {
