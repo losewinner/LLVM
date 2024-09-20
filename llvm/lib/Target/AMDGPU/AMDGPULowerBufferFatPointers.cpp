@@ -1150,7 +1150,15 @@ Value *SplitPtrStructs::handleMemoryInst(Instruction *I, Value *Arg, Value *Ptr,
     case AtomicRMWInst::UIncWrap:
     case AtomicRMWInst::UDecWrap:
       report_fatal_error("wrapping increment/decrement not supported for "
-                         "buffer resources and should've ben expanded away");
+                         "buffer resources and should've been expanded away");
+      break;
+    case AtomicRMWInst::USubCond:
+      report_fatal_error("conditional subtract not supported for buffer "
+                         "resources and should've been expanded away");
+      break;
+    case AtomicRMWInst::USubSat:
+      report_fatal_error("subtract with clamp not supported for buffer "
+                         "resources and should've been expanded away");
       break;
     case AtomicRMWInst::BAD_BINOP:
       llvm_unreachable("Not sure how we got a bad binop");
