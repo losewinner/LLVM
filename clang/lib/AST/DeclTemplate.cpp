@@ -1608,6 +1608,35 @@ createTypePackElementParameterList(const ASTContext &C, DeclContext *DC) {
                                        nullptr);
 }
 
+static TemplateParameterList *
+createTypePackDedupParameterList(const ASTContext &C, DeclContext *DC) {
+  // template <typename ...> typename Templ
+  auto *InnerTs = TemplateTypeParmDecl::Create(
+      C, DC, SourceLocation(), SourceLocation(), /*Depth=*/1, /*Position=*/0,
+      /*Id=*/nullptr, /*Typename=*/true, /*ParameterPack=*/true,
+      /*HasTypeConstraint=*/false);
+  InnerTs->setImplicit(true);
+  auto *TemplateParamList = TemplateParameterList::Create(
+      C, SourceLocation(), SourceLocation(), {InnerTs}, SourceLocation(),
+      /*RequiresClause=*/nullptr);
+  auto *Template = TemplateTemplateParmDecl::Create(
+      C, DC, SourceLocation(), /*Depth=*/0,
+      /*Position=*/0, /*ParameterPack=*/false, /*Id=*/nullptr,
+      /*Typename=*/true, TemplateParamList);
+  Template->setImplicit(true);
+
+  // typename ...Ts
+  auto *Ts = TemplateTypeParmDecl::Create(
+      C, DC, SourceLocation(), SourceLocation(), /*Depth=*/0, /*Position=*/1,
+      /*Id=*/nullptr, /*Typename=*/true, /*ParameterPack=*/true,
+      /*HasTypeConstraint=*/false);
+  Ts->setImplicit(true);
+  return TemplateParameterList::Create(
+      C, SourceLocation(), SourceLocation(),
+      llvm::ArrayRef<NamedDecl *>({Template, Ts}), SourceLocation(),
+      /*RequiresClause=*/nullptr);
+}
+
 static TemplateParameterList *createBuiltinTemplateParameterList(
     const ASTContext &C, DeclContext *DC, BuiltinTemplateKind BTK) {
   switch (BTK) {
@@ -1615,6 +1644,8 @@ static TemplateParameterList *createBuiltinTemplateParameterList(
     return createMakeIntegerSeqParameterList(C, DC);
   case BTK__type_pack_element:
     return createTypePackElementParameterList(C, DC);
+  case BTK__type_pack_dedup:
+    return createTypePackDedupParameterList(C, DC);
   }
 
   llvm_unreachable("unhandled BuiltinTemplateKind!");

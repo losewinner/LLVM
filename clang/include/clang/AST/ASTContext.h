@@ -403,6 +403,9 @@ class ASTContext : public RefCountedBase<ASTContext> {
   /// The identifier '__type_pack_element'.
   mutable IdentifierInfo *TypePackElementName = nullptr;
 
+  /// The identifier '__builtin_type_pack_dedup'.
+  mutable IdentifierInfo *TypePackDedupName = nullptr;
+
   QualType ObjCConstantStringType;
   mutable RecordDecl *CFConstantStringTagDecl = nullptr;
   mutable TypedefDecl *CFConstantStringTypeDecl = nullptr;
@@ -610,6 +613,7 @@ private:
   mutable ExternCContextDecl *ExternCContext = nullptr;
   mutable BuiltinTemplateDecl *MakeIntegerSeqDecl = nullptr;
   mutable BuiltinTemplateDecl *TypePackElementDecl = nullptr;
+  mutable BuiltinTemplateDecl *TypePackDedupDecl = nullptr;
 
   /// The associated SourceManager object.
   SourceManager &SourceMgr;
@@ -1134,6 +1138,7 @@ public:
   ExternCContextDecl *getExternCContextDecl() const;
   BuiltinTemplateDecl *getMakeIntegerSeqDecl() const;
   BuiltinTemplateDecl *getTypePackElementDecl() const;
+  BuiltinTemplateDecl *getTypePackDedupDecl() const;
 
   // Builtin Types.
   CanQualType VoidTy;
@@ -2023,6 +2028,12 @@ public:
     if (!TypePackElementName)
       TypePackElementName = &Idents.get("__type_pack_element");
     return TypePackElementName;
+  }
+
+  IdentifierInfo *getTypePackDedupName() const {
+    if (!TypePackDedupName)
+      TypePackDedupName = &Idents.get("__builtin_type_pack_dedup");
+    return TypePackDedupName;
   }
 
   /// Retrieve the Objective-C "instancetype" type, if already known;
