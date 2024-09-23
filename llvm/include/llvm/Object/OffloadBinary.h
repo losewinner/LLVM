@@ -210,52 +210,55 @@ public:
   }
 };
 
+struct BundleEntry {
+  uint64_t Offset = 0u;
+  uint64_t Size = 0u;
+  uint64_t IDLength = 0u;
+  StringRef ID;
+  BundleEntry(uint64_t O, uint64_t S, uint64_t I, StringRef T)
+      : Offset(O), Size(S), IDLength(I), ID(T) {}
+  void dumpInfo(raw_ostream &OS) {
+    OS << "Offset = " << Offset << ", Size = " << Size
+       << ", ID Length = " << IDLength << ", ID = " << ID;
+  }
+  void dumpURI(raw_ostream &OS, StringRef filePath) {
+    OS << ID.data() << "\tfile:\/\/" << filePath << "#offset=" << Offset
+       << "&size=" << Size << "\n";
+  }
+};
+
 class OffloadFatBinBundle {
 
 private:
   uint64_t Size = 0u;
   StringRef FileName;
-  int64_t NumberOfEntries;
+  uint64_t NumberOfEntries;
+  SmallVector<BundleEntry> Entries;
 
 public:
-  struct BundleEntry {
-    uint64_t Offset = 0u;
-    uint64_t Size = 0u;
-    uint64_t IDLength = 0u;
-    StringRef ID;
-    BundleEntry(uint64_t O, uint64_t S, uint64_t I, StringRef T)
-        : Offset(O), Size(S), IDLength(I), ID(T) {}
-    void dump(raw_ostream &OS) {
-      OS << "Offset = " << Offset << ", Size = " << Size
-         << ", ID Length = " << IDLength << ", ID = " << ID;
-    }
-    void dumpURI(raw_ostream &OS, StringRef filePath) {
-      OS << ID.data() << "\tfile:\/\/" << filePath << "#offset=" << Offset
-         << "&size=" << Size << "\n";
-    }
-  };
-
+  SmallVector<BundleEntry> getEntries() { return Entries; }
   uint64_t getSize() const { return Size; }
   StringRef getFileName() const { return FileName; }
-  int64_t getNumEntries() const { return NumberOfEntries; }
+  uint64_t getNumEntries() const { return NumberOfEntries; }
 
-  std::unique_ptr<SmallVector<BundleEntry>> Entries;
   static Expected<std::unique_ptr<OffloadFatBinBundle>>
   create(MemoryBufferRef, uint64_t SectionOffset, StringRef fileName);
   Error extractBundle(const ObjectFile &Source);
 
+  Error DumpEntryToCodeObject();
+
   Error ReadEntries(StringRef Section, uint64_t SectionOffset);
   void DumpEntries() {
-    SmallVectorImpl<BundleEntry>::iterator it = Entries->begin();
-    for (int64_t I = 0; I < Entries->size(); I++) {
-      it->dump(outs());
+    SmallVectorImpl<BundleEntry>::iterator it = Entries.begin();
+    for (uint64_t I = 0; I < Entries.size(); I++) {
+      it->dumpInfo(outs());
       ++it;
     }
   }
 
   void PrintEntriesAsURI() {
-    SmallVectorImpl<BundleEntry>::iterator it = Entries->begin();
-    for (int64_t I = 0; I < NumberOfEntries; I++) {
+    SmallVectorImpl<BundleEntry>::iterator it = Entries.begin();
+    for (uint64_t I = 0; I < NumberOfEntries; I++) {
       it->dumpURI(outs(), FileName);
       ++it;
     }
@@ -263,7 +266,20 @@ public:
 
   OffloadFatBinBundle(MemoryBufferRef Source, StringRef file) : FileName(file) {
     NumberOfEntries = 0;
-    Entries = std::make_unique<SmallVector<BundleEntry>>();
+    Entries = SmallVector<BundleEntry>();
+  }
+
+  SmallVector<BundleEntry> EntryIDContains(StringRef str) {
+    SmallVector<BundleEntry> found = SmallVector<BundleEntry>();
+    SmallVectorImpl<BundleEntry>::iterator it = Entries.begin();
+    for (uint64_t I = 0; I < NumberOfEntries; I++) {
+      if (it->ID.contains(str)) {
+        found.push_back(*it);
+      }
+
+      ++it;
+    }
+    return found;
   }
 };
 

@@ -18,7 +18,6 @@
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ArchiveWriter.h"
 #include "llvm/Object/Binary.h"
-#include "llvm/BinaryFormat/COFF.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Object/Error.h"
@@ -36,8 +35,8 @@ using namespace llvm::object;
 namespace {
 
 static llvm::TimerGroup
-    ClangOffloadBundlerTimerGroup("Clang Offload Bundler Timer Group",
-                                  "Timer group for clang offload bundler");
+    OffloadBundlerTimerGroup("Offload Bundler Timer Group",
+                             "Timer group for offload bundler");
 
 /// Attempts to extract all the embedded device images contained inside the
 /// buffer \p Contents. The buffer is expected to contain a valid offloading
@@ -107,7 +106,7 @@ Error extractFromObject(const ObjectFile &Obj,
   return Error::success();
 }
 
-// Extract an Offload bundle (usually a Clang Offload Bundle) from a fat_bin
+// Extract an Offload bundle (usually a Offload Bundle) from a fat_bin
 // section
 Error extractOffloadBundle(MemoryBufferRef Contents, uint64_t SectionOffset,
                            StringRef fileName,
@@ -267,10 +266,10 @@ Error OffloadFatBinBundle::ReadEntries(StringRef Buffer,
     }
 
     // create a Bundle Entry object:
-    auto entry = new OffloadFatBinBundle::BundleEntry(
-        EntryOffset + SectionOffset, EntrySize, EntryIDSize, EntryID);
+    auto entry = new BundleEntry(EntryOffset + SectionOffset, EntrySize,
+                                 EntryIDSize, EntryID);
 
-    Entries->push_back(*entry);
+    Entries.push_back(*entry);
   } // end of for loop
 
   return Error::success();
@@ -298,8 +297,7 @@ OffloadFatBinBundle::create(MemoryBufferRef Buf, uint64_t SectionOffset,
 
 Error OffloadFatBinBundle::extractBundle(const ObjectFile &Source) {
   // This will extract all entries in the Bundle
-  SmallVectorImpl<OffloadFatBinBundle::BundleEntry>::iterator it =
-      Entries->begin();
+  SmallVectorImpl<BundleEntry>::iterator it = Entries.begin();
   for (int64_t I = 0; I < getNumEntries(); I++) {
 
     if (it->Size > 0) {
@@ -467,10 +465,6 @@ Error object::extractFatBinaryFromObject(
       } else if (Obj.isCOFF()) {
         if (const COFFObjectFile *COFFObj = dyn_cast<COFFObjectFile>(&Obj)) {
           const coff_section *CoffSection = COFFObj->getCOFFSection(Sec);
-          fprintf(
-              stderr, "DAVE: COFF viritual address =0x%llX\n",
-              CoffSection
-                  ->VirtualAddress); // COFFObj->getCOFFSection(Sec)->VirtualAddress);
         }
       }
 
@@ -698,7 +692,7 @@ CompressedOffloadBundle::decompress(llvm::MemoryBufferRef &Input,
                              "Unknown compressing method");
 
   llvm::Timer DecompressTimer("Decompression Timer", "Decompression time",
-                              ClangOffloadBundlerTimerGroup);
+                              OffloadBundlerTimerGroup);
   if (Verbose)
     DecompressTimer.startTimer();
 
@@ -720,7 +714,7 @@ CompressedOffloadBundle::decompress(llvm::MemoryBufferRef &Input,
     // Recalculate MD5 hash for integrity check
     llvm::Timer HashRecalcTimer("Hash Recalculation Timer",
                                 "Hash recalculation time",
-                                ClangOffloadBundlerTimerGroup);
+                                OffloadBundlerTimerGroup);
     HashRecalcTimer.startTimer();
     llvm::MD5 Hash;
     llvm::MD5::MD5Result Result;
@@ -775,7 +769,7 @@ CompressedOffloadBundle::compress(llvm::compression::Params P,
                              "Compression not supported");
 
   llvm::Timer HashTimer("Hash Calculation Timer", "Hash calculation time",
-                        ClangOffloadBundlerTimerGroup);
+                        OffloadBundlerTimerGroup);
   if (Verbose)
     HashTimer.startTimer();
   llvm::MD5 Hash;
@@ -792,7 +786,7 @@ CompressedOffloadBundle::compress(llvm::compression::Params P,
       Input.getBuffer().size());
 
   llvm::Timer CompressTimer("Compression Timer", "Compression time",
-                            ClangOffloadBundlerTimerGroup);
+                            OffloadBundlerTimerGroup);
   if (Verbose)
     CompressTimer.startTimer();
   llvm::compression::compress(P, BufferUint8, CompressedBuffer);
