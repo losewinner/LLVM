@@ -182,8 +182,12 @@ define amdgpu_kernel void @v_xor_i1(ptr addrspace(1) %out, ptr addrspace(1) %in0
 ; SI-NEXT:    s_waitcnt vmcnt(0)
 ; SI-NEXT:    s_mov_b32 s8, s4
 ; SI-NEXT:    s_mov_b32 s9, s5
-; SI-NEXT:    v_xor_b32_e32 v0, v0, v1
 ; SI-NEXT:    v_and_b32_e32 v0, 1, v0
+; SI-NEXT:    v_and_b32_e32 v1, 1, v1
+; SI-NEXT:    v_cmp_eq_u32_e32 vcc, 1, v0
+; SI-NEXT:    v_cmp_eq_u32_e64 s[0:1], 1, v1
+; SI-NEXT:    s_xor_b64 s[0:1], vcc, s[0:1]
+; SI-NEXT:    v_cndmask_b32_e64 v0, 0, 1, s[0:1]
 ; SI-NEXT:    buffer_store_byte v0, off, s[8:11], 0
 ; SI-NEXT:    s_endpgm
 ;
@@ -202,8 +206,12 @@ define amdgpu_kernel void @v_xor_i1(ptr addrspace(1) %out, ptr addrspace(1) %in0
 ; VI-NEXT:    s_waitcnt vmcnt(0)
 ; VI-NEXT:    v_mov_b32_e32 v0, s4
 ; VI-NEXT:    v_mov_b32_e32 v1, s5
-; VI-NEXT:    v_xor_b32_e32 v2, v4, v2
+; VI-NEXT:    v_and_b32_e32 v3, 1, v4
 ; VI-NEXT:    v_and_b32_e32 v2, 1, v2
+; VI-NEXT:    v_cmp_eq_u32_e32 vcc, 1, v3
+; VI-NEXT:    v_cmp_eq_u32_e64 s[0:1], 1, v2
+; VI-NEXT:    s_xor_b64 s[0:1], vcc, s[0:1]
+; VI-NEXT:    v_cndmask_b32_e64 v2, 0, 1, s[0:1]
 ; VI-NEXT:    flat_store_byte v[0:1], v2
 ; VI-NEXT:    s_endpgm
   %a = load volatile i1, ptr addrspace(1) %in0
