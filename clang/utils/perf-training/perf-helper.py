@@ -85,9 +85,7 @@ def perf(args):
     parser.add_argument(
         "--lbr", action="store_true", help="Use perf with branch stacks"
     )
-    parser.add_argument(
-        "--csspgo", action="store_true", help="Enable CSSPGO flags"
-    )
+    parser.add_argument("--csspgo", action="store_true", help="Enable CSSPGO flags")
     parser.add_argument("cmd", nargs=argparse.REMAINDER, help="")
 
     opts = parser.parse_args(args)
