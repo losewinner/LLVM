@@ -26,19 +26,25 @@ namespace llvm {
   class Function;
 
 #if ENABLE_DEBUGLOC_COVERAGE_TRACKING
-  // Used to represent different "kinds" of DebugLoc, expressing that a DebugLoc
-  // is either ordinary, containing a valid DILocation, or otherwise describing
-  // the reason why the DebugLoc does not contain a valid DILocation.
+  // Used to represent different "kinds" of DebugLoc, expressing that the
+  // instruction it is part of is either normal and should contain a valid
+  // DILocation, or otherwise describing the reason why the instruction does
+  // not contain a valid DILocation.
   enum class DebugLocKind : uint8_t {
-    // DebugLoc is expected to contain a valid DILocation.
+    // The instruction is expected to contain a valid DILocation.
     Normal,
-    // DebugLoc intentionally does not have a valid DILocation; may be for a
-    // compiler-generated instruction, or an explicitly dropped location.
-    LineZero,
-    // DebugLoc does not have a known or currently knowable source location,
-    // e.g. the attribution is ambiguous in a way that can't be represented, or
-    // determining the correct location is complicated and requires future
-    // developer effort.
+    // The instruction is compiler-generated, i.e. it is not associated with any
+    // line in the original source.
+    CompilerGenerated,
+    // The instruction has intentionally had its source location removed,
+    // typically because it was moved outside of its original control-flow and
+    // presenting the prior source location would be misleading for debuggers
+    // or profilers.
+    Dropped,
+    // The instruction does not have a known or currently knowable source
+    // location, e.g. the attribution is ambiguous in a way that can't be
+    // represented, or determining the correct location is complicated and
+    // requires future developer effort.
     Unknown,
     // DebugLoc is attached to an instruction that we don't expect to be
     // emitted, and so can omit a valid DILocation; we don't expect to ever try
@@ -117,7 +123,8 @@ namespace llvm {
 
     static DebugLoc getTemporary();
     static DebugLoc getUnknown();
-    static DebugLoc getLineZero();
+    static DebugLoc getCompilerGenerated();
+    static DebugLoc getDropped();
 
     /// Get the underlying \a DILocation.
     ///
