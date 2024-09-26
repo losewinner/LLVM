@@ -24,7 +24,7 @@ class StringRef;
 class raw_ostream;
 
 #if ENABLE_DEBUGLOC_ORIGIN_TRACKING
-// Typedefs that are convenient but only used by the StackTrace-collection code
+// Typedefs that are convenient but only used by the stack-trace-collection code
 // added if DebugLoc origin-tracking is enabled.
 template <typename T, typename Enable> struct DenseMapInfo;
 template <typename ValueT, typename ValueInfoT> class DenseSet;
@@ -77,7 +77,7 @@ namespace sys {
 #ifdef NDEBUG
 #error DebugLoc origin-tracking should not be enabled in Release builds.
 #endif
-  /// Populates the given array with a stacktrace of the current program, up to
+  /// Populates the given array with a stack trace of the current program, up to
   /// MaxDepth frames. Returns the number of frames returned, which will be
   /// inserted into \p StackTrace from index 0. All entries after the returned
   /// depth will be unmodified. NB: This is only intended to be used for
