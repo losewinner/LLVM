@@ -59,6 +59,9 @@ const uint64_t MaxSimplifiedDynamicAllocaToInline = 65536;
 const char FunctionInlineCostMultiplierAttributeName[] =
     "function-inline-cost-multiplier";
 
+const char FunctionInlineExtraCostAttributeName[] =
+    "function-inline-extra-cost";
+
 const char MaxInlineStackSizeAttributeName[] = "inline-max-stacksize";
 } // namespace InlineConstants
 

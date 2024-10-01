@@ -225,6 +225,7 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
       Advice->recordUnattemptedInlining();
       continue;
     }
+    std::optional<int> InliningCost = Advice->inliningCost();
 
     // Setup the data structure used to plumb customization into the
     // `InlineFunction` routine.
@@ -265,8 +266,16 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
               NewCallee = ICB->getCalledFunction();
         }
         if (NewCallee)
-          if (!NewCallee->isDeclaration())
+          if (!NewCallee->isDeclaration()) {
             Calls->push({ICB, NewHistoryID});
+            if (InliningCost) {
+              Attribute NewCBExtraCost = Attribute::get(
+                  M.getContext(),
+                  InlineConstants::FunctionInlineExtraCostAttributeName,
+                  itostr(*InliningCost));
+              ICB->addFnAttr(NewCBExtraCost);
+            }
+          }
       }
     }
 
