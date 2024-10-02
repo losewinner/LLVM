@@ -1052,9 +1052,14 @@ void VPlan::execute(VPTransformState *State) {
          "middle block has unexpected successors");
   VPBasicBlock *ScalarPhVPBB = cast<VPBasicBlock>(
       MiddleSuccs.size() == 1 ? MiddleSuccs[0] : MiddleSuccs[1]);
-  assert(!isa<VPIRBasicBlock>(ScalarPhVPBB) &&
-         "scalar preheader cannot be wrapped already");
-  replaceVPBBWithIRVPBB(ScalarPhVPBB, ScalarPh);
+  if (!isa<VPIRBasicBlock>(ScalarPhVPBB)) {
+    replaceVPBBWithIRVPBB(ScalarPhVPBB, ScalarPh);
+    // Only disconnect ScalarPh and the original loop header if ScalarPH is
+    // still present in VPlan. In that case, the branch and the DT update will
+    // be (re-)created during VPlan execution.
+    State->CFG.DTU.applyUpdates(
+        {{DominatorTree::Delete, ScalarPh, ScalarPh->getSingleSuccessor()}});
+  }
   replaceVPBBWithIRVPBB(MiddleVPBB, MiddleBB);
 
   // Disconnect the middle block from its single successor (the scalar loop
@@ -1064,8 +1069,6 @@ void VPlan::execute(VPTransformState *State) {
   BrInst->insertBefore(MiddleBB->getTerminator());
   MiddleBB->getTerminator()->eraseFromParent();
   State->CFG.DTU.applyUpdates({{DominatorTree::Delete, MiddleBB, ScalarPh}});
-  State->CFG.DTU.applyUpdates(
-      {{DominatorTree::Delete, ScalarPh, ScalarPh->getSingleSuccessor()}});
 
   // Generate code in the loop pre-header and body.
   for (VPBlockBase *Block : vp_depth_first_shallow(Entry))

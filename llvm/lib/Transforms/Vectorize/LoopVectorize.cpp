@@ -2582,6 +2582,20 @@ void InnerLoopVectorizer::createInductionResumeValue(
     ArrayRef<BasicBlock *> BypassBlocks,
     std::pair<BasicBlock *, Value *> AdditionalBypass) {
   Value *VectorTripCount = getOrCreateVectorTripCount(LoopVectorPreHeader);
+  VPBasicBlock *MiddleVPBB =
+      cast<VPBasicBlock>(Plan.getVectorLoopRegion()->getSingleSuccessor());
+  VPBasicBlock *ScalarPHVPBB = nullptr;
+  if (MiddleVPBB->getNumSuccessors() == 2) {
+    // Order is strict: first is the exit block, second is the scalar preheader.
+    ScalarPHVPBB = cast<VPBasicBlock>(MiddleVPBB->getSuccessors()[1]);
+  } else {
+    ScalarPHVPBB = cast<VPBasicBlock>(MiddleVPBB->getSingleSuccessor());
+  }
+  auto *ScalarLoopHeader =
+      cast_if_present<VPIRBasicBlock>(ScalarPHVPBB->getSingleSuccessor());
+  if (!ScalarLoopHeader)
+    return;
+
   assert(VectorTripCount && "Expected valid arguments");
 
   Instruction *OldInduction = Legal->getPrimaryInduction();
@@ -2612,25 +2626,12 @@ void InnerLoopVectorizer::createInductionResumeValue(
     }
   }
 
-  VPBasicBlock *MiddleVPBB =
-      cast<VPBasicBlock>(Plan.getVectorLoopRegion()->getSingleSuccessor());
-
-  VPBasicBlock *ScalarPHVPBB = nullptr;
-  if (MiddleVPBB->getNumSuccessors() == 2) {
-    // Order is strict: first is the exit block, second is the scalar preheader.
-    ScalarPHVPBB = cast<VPBasicBlock>(MiddleVPBB->getSuccessors()[1]);
-  } else {
-    ScalarPHVPBB = cast<VPBasicBlock>(MiddleVPBB->getSingleSuccessor());
-  }
-
   VPBuilder ScalarPHBuilder(ScalarPHVPBB);
   auto *ResumePhiRecipe = ScalarPHBuilder.createNaryOp(
       VPInstruction::ResumePhi,
       {Plan.getOrAddLiveIn(EndValue), Plan.getOrAddLiveIn(II.getStartValue())},
       OrigPhi->getDebugLoc(), "bc.resume.val");
 
-  auto *ScalarLoopHeader =
-      cast<VPIRBasicBlock>(ScalarPHVPBB->getSingleSuccessor());
   addOperandToPhiInVPIRBasicBlock(ScalarLoopHeader, OrigPhi, ResumePhiRecipe);
   InductionBypassValues[OrigPhi] = {AdditionalBypass.first,
                                     EndValueFromAdditionalBypass};
