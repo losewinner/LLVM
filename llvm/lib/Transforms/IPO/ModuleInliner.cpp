@@ -268,7 +268,7 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
         if (NewCallee)
           if (!NewCallee->isDeclaration()) {
             Calls->push({ICB, NewHistoryID});
-            if (InliningCost) {
+            if (InliningCost && *InliningCost > 0) {
               Attribute NewCBExtraCost = Attribute::get(
                   M.getContext(),
                   InlineConstants::FunctionInlineExtraCostAttributeName,
