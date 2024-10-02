@@ -787,8 +787,9 @@ class LLVM_LIBRARY_VISIBILITY UEFITargetInfo : public OSTargetInfo<Target> {
 protected:
   void getOSDefines(const LangOptions &Opts, const llvm::Triple &Triple,
                     MacroBuilder &Builder) const override {
-    Builder.defineMacro("__UEFI__");                      
-    addWindowsDefines(Triple, Opts, Builder);
+    Builder.defineMacro("__UEFI__");
+    Builder.defineMacro("__PECOFF__");
+    // addWindowsDefines(Triple, Opts, Builder);
   }
 
 public:
