@@ -225,6 +225,10 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
       Advice->recordUnattemptedInlining();
       continue;
     }
+    int CBInliningExtraCost =
+        getStringFnAttrAsInt(
+            *CB, InlineConstants::FunctionInlineExtraCostAttributeName)
+            .value_or(0);
     std::optional<int> InliningCost = Advice->inliningCost();
 
     // Setup the data structure used to plumb customization into the
@@ -272,7 +276,8 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
               Attribute NewCBExtraCost = Attribute::get(
                   M.getContext(),
                   InlineConstants::FunctionInlineExtraCostAttributeName,
-                  itostr(*InliningCost));
+                  itostr(CBInliningExtraCost +
+                         (*InliningCost - CBInliningExtraCost) / 2));
               ICB->addFnAttr(NewCBExtraCost);
             }
           }

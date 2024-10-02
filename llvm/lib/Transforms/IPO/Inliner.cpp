@@ -376,6 +376,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           getStringFnAttrAsInt(
               *CB, InlineConstants::FunctionInlineCostMultiplierAttributeName)
               .value_or(1);
+      int CBInliningExtraCost =
+          getStringFnAttrAsInt(
+              *CB, InlineConstants::FunctionInlineExtraCostAttributeName)
+              .value_or(0);
       std::optional<int> InliningCost = Advice->inliningCost();
 
       // Setup the data structure used to plumb customization into the
@@ -440,7 +444,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                 Attribute NewCBExtraCost = Attribute::get(
                     M.getContext(),
                     InlineConstants::FunctionInlineExtraCostAttributeName,
-                    itostr(*InliningCost));
+                    itostr(CBInliningExtraCost +
+                           (*InliningCost - CBInliningExtraCost) / 2));
                 ICB->addFnAttr(NewCBExtraCost);
               }
             }
