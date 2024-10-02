@@ -277,7 +277,7 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
                   M.getContext(),
                   InlineConstants::FunctionInlineExtraCostAttributeName,
                   itostr(CBInliningExtraCost +
-                         (*InliningCost - CBInliningExtraCost) / 4));
+                         (*InliningCost - CBInliningExtraCost) / 8));
               ICB->addFnAttr(NewCBExtraCost);
             }
           }
