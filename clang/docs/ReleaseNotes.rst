@@ -609,6 +609,7 @@ clang-format
 ------------
 
 - Adds ``BreakBinaryOperations`` option.
+- Adds the ``ExportBlockIndentation`` option.
 
 libclang
 --------
