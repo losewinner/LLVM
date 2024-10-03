@@ -9,7 +9,43 @@
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/DebugInfo.h"
+
+#if ENABLE_DEBUGLOC_ORIGIN_TRACKING
+#include "llvm/Support/Signals.h"
+
+namespace llvm {
+DbgLocOrigin::DbgLocOrigin(bool ShouldCollectTrace) {
+  if (ShouldCollectTrace) {
+    auto &[Depth, StackTrace] = StackTraces.emplace_back();
+    Depth = sys::getStackTrace(StackTrace);
+  }
+}
+void DbgLocOrigin::addTrace() {
+  if (StackTraces.empty())
+    return;
+  auto &[Depth, StackTrace] = StackTraces.emplace_back();
+  Depth = sys::getStackTrace(StackTrace);
+}
+} // namespace llvm
+#endif
+
 using namespace llvm;
+
+#if ENABLE_DEBUGLOC_COVERAGE_TRACKING
+DILocAndCoverageTracking::DILocAndCoverageTracking(const DILocation *L)
+    : TrackingMDNodeRef(const_cast<DILocation *>(L)), DbgLocOrigin(!L),
+      Kind(DebugLocKind::Normal) {}
+
+DebugLoc DebugLoc::getTemporary() { return DebugLoc(DebugLocKind::Temporary); }
+DebugLoc DebugLoc::getUnknown() { return DebugLoc(DebugLocKind::Unknown); }
+DebugLoc DebugLoc::getLineZero() { return DebugLoc(DebugLocKind::LineZero); }
+
+#else
+
+DebugLoc DebugLoc::getTemporary() { return DebugLoc(); }
+DebugLoc DebugLoc::getUnknown() { return DebugLoc(); }
+DebugLoc DebugLoc::getLineZero() { return DebugLoc(); }
+#endif // ENABLE_DEBUGLOC_COVERAGE_TRACKING
 
 //===----------------------------------------------------------------------===//
 // DebugLoc Implementation
