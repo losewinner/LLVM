@@ -445,7 +445,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                     M.getContext(),
                     InlineConstants::FunctionInlineExtraCostAttributeName,
                     itostr(CBInliningExtraCost +
-                           (*InliningCost - CBInliningExtraCost) / 8));
+                           (*InliningCost - CBInliningExtraCost) / 16));
                 ICB->addFnAttr(NewCBExtraCost);
               }
             }
