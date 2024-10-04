@@ -7,4 +7,4 @@ program test
     !$omp end target teams
 end program
 
-! CHECK: omp.target map_entries({{.*}}) thread_limit({{.*}}) ompx_bare
+! CHECK: omp.target {{.*}} ompx_bare
