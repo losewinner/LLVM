@@ -29,14 +29,14 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds float, ptr %in, i64 %indvars.iv
-  %0 = load float, ptr %arrayidx, align 4
-  %call = tail call { float, float } @foo(float %0) #0
-  %1 = extractvalue { float, float } %call, 0
-  %2 = extractvalue { float, float } %call, 1
+  %in_val = load float, ptr %arrayidx, align 4
+  %call = tail call { float, float } @foo(float %in_val) #0
+  %extract_a = extractvalue { float, float } %call, 0
+  %extract_b = extractvalue { float, float } %call, 1
   %arrayidx2 = getelementptr inbounds float, ptr %out_a, i64 %indvars.iv
-  store float %1, ptr %arrayidx2, align 4
+  store float %extract_a, ptr %arrayidx2, align 4
   %arrayidx4 = getelementptr inbounds float, ptr %out_b, i64 %indvars.iv
-  store float %2, ptr %arrayidx4, align 4
+  store float %extract_b, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -69,14 +69,14 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds double, ptr %in, i64 %indvars.iv
-  %0 = load double, ptr %arrayidx, align 8
-  %call = tail call { double, double } @bar(double %0) #1
-  %1 = extractvalue { double, double } %call, 0
-  %2 = extractvalue { double, double } %call, 1
+  %in_val = load double, ptr %arrayidx, align 8
+  %call = tail call { double, double } @bar(double %in_val) #1
+  %extract_a = extractvalue { double, double } %call, 0
+  %extract_b = extractvalue { double, double } %call, 1
   %arrayidx2 = getelementptr inbounds double, ptr %out_a, i64 %indvars.iv
-  store double %1, ptr %arrayidx2, align 8
+  store double %extract_a, ptr %arrayidx2, align 8
   %arrayidx4 = getelementptr inbounds double, ptr %out_b, i64 %indvars.iv
-  store double %2, ptr %arrayidx4, align 8
+  store double %extract_b, ptr %arrayidx4, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -107,15 +107,15 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds float, ptr %in, i64 %indvars.iv
-  %0 = load float, ptr %arrayidx, align 4
+  %in_val = load float, ptr %arrayidx, align 4
   ; #3 does not have a fixed-size vector mapping (so replication is used)
-  %call = tail call { float, float } @foo(float %0) #3
-  %1 = extractvalue { float, float } %call, 0
-  %2 = extractvalue { float, float } %call, 1
+  %call = tail call { float, float } @foo(float %in_val) #3
+  %extract_a = extractvalue { float, float } %call, 0
+  %extract_b = extractvalue { float, float } %call, 1
   %arrayidx2 = getelementptr inbounds float, ptr %out_a, i64 %indvars.iv
-  store float %1, ptr %arrayidx2, align 4
+  store float %extract_a, ptr %arrayidx2, align 4
   %arrayidx4 = getelementptr inbounds float, ptr %out_b, i64 %indvars.iv
-  store float %2, ptr %arrayidx4, align 4
+  store float %extract_b, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -150,14 +150,14 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds float, ptr %in, i64 %indvars.iv
-  %0 = load float, ptr %arrayidx, align 4
-  %call = tail call { float, float } @foo(float %0) #0
-  %1 = extractvalue { float, float } %call, 0
-  %2 = extractvalue { float, float } %call, 1
+  %in_val = load float, ptr %arrayidx, align 4
+  %call = tail call { float, float } @foo(float %in_val) #0
+  %extract_a = extractvalue { float, float } %call, 0
+  %extract_b = extractvalue { float, float } %call, 1
   %arrayidx2 = getelementptr inbounds float, ptr %out_a, i64 %indvars.iv
-  store float %1, ptr %arrayidx2, align 4
+  store float %extract_a, ptr %arrayidx2, align 4
   %arrayidx4 = getelementptr inbounds float, ptr %out_b, i64 %indvars.iv
-  store float %2, ptr %arrayidx4, align 4
+  store float %extract_b, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -181,14 +181,14 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds float, ptr %in, i64 %indvars.iv
-  %0 = load float, ptr %arrayidx, align 4
-  %call = tail call { float, i32 } @baz(float %0) #2
-  %1 = extractvalue { float, i32 } %call, 0
-  %2 = extractvalue { float, i32 } %call, 1
+  %in_val = load float, ptr %arrayidx, align 4
+  %call = tail call { float, i32 } @baz(float %in_val) #2
+  %extract_a = extractvalue { float, i32 } %call, 0
+  %extract_b = extractvalue { float, i32 } %call, 1
   %arrayidx2 = getelementptr inbounds float, ptr %out_a, i64 %indvars.iv
-  store float %1, ptr %arrayidx2, align 4
+  store float %extract_a, ptr %arrayidx2, align 4
   %arrayidx4 = getelementptr inbounds i32, ptr %out_b, i64 %indvars.iv
-  store i32 %2, ptr %arrayidx4, align 4
+  store i32 %extract_b, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
@@ -214,14 +214,47 @@ entry:
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
   %arrayidx = getelementptr inbounds double, ptr %in, i64 %indvars.iv
-  %0 = load double, ptr %arrayidx, align 8
-  %call = tail call %named_struct @bar_named(double %0) #4
-  %1 = extractvalue %named_struct %call, 0
-  %2 = extractvalue %named_struct %call, 1
+  %in_val = load double, ptr %arrayidx, align 8
+  %call = tail call %named_struct @bar_named(double %in_val) #4
+  %extract_a = extractvalue %named_struct %call, 0
+  %extract_b = extractvalue %named_struct %call, 1
   %arrayidx2 = getelementptr inbounds double, ptr %out_a, i64 %indvars.iv
-  store double %1, ptr %arrayidx2, align 8
+  store double %extract_a, ptr %arrayidx2, align 8
   %arrayidx4 = getelementptr inbounds double, ptr %out_b, i64 %indvars.iv
-  store double %2, ptr %arrayidx4, align 8
+  store double %extract_b, ptr %arrayidx4, align 8
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
+  br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
+
+for.cond.cleanup:
+  ret void
+}
+
+; TODO: Allow mixed-struct type vectorization and mark overflow intrinsics as trivially vectorizable.
+define void @test_overflow_intrinsic(ptr noalias readonly %in, ptr noalias writeonly %out_a, ptr noalias writeonly %out_b) {
+; NEON-LABEL: define void @test_overflow_intrinsic
+; NEON-NOT:   vector.body:
+; SVE_TF-NOT:   @llvm.sadd.with.overflow.v{{.+}}i32
+;
+; SVE_TF-LABEL: define void @test_overflow_intrinsic
+; SVE_TF-NOT:   vector.body:
+; SVE_TF-NOT:   @llvm.sadd.with.overflow.v{{.+}}i32
+; SVE_TF-NOT:   @llvm.sadd.with.overflow.nxv{{.+}}i32
+entry:
+  br label %for.body
+
+for.body:
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %arrayidx = getelementptr inbounds float, ptr %in, i64 %indvars.iv
+  %in_val = load i32, ptr %arrayidx, align 4
+  %call = tail call { i32, i1 } @llvm.sadd.with.overflow.i32(i32 %in_val, i32 %in_val)
+  %extract_ret = extractvalue { i32, i1 } %call, 0
+  %extract_overflow = extractvalue { i32, i1 } %call, 1
+  %zext_overflow = zext i1 %extract_overflow to i8
+  %arrayidx2 = getelementptr inbounds i32, ptr %out_a, i64 %indvars.iv
+  store i32 %extract_ret, ptr %arrayidx2, align 4
+  %arrayidx4 = getelementptr inbounds i8, ptr %out_b, i64 %indvars.iv
+  store i8 %zext_overflow, ptr %arrayidx4, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 1024
   br i1 %exitcond.not, label %for.cond.cleanup, label %for.body

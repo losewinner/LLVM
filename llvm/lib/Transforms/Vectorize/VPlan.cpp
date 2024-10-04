@@ -412,7 +412,6 @@ void VPTransformState::packScalarIntoWideValue(VPValue *Def,
       WideValue = Builder.CreateInsertValue(WideValue, VectorValue, I);
     }
   } else {
-    assert(WideValue->getType()->isVectorTy() && "expected vector type!");
     WideValue = Builder.CreateInsertElement(WideValue, ScalarInst, LaneExpr);
   }
   set(Def, WideValue);
