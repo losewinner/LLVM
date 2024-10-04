@@ -376,9 +376,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           getStringFnAttrAsInt(
               *CB, InlineConstants::FunctionInlineCostMultiplierAttributeName)
               .value_or(1);
-      int CBInliningExtraCost =
+      int CBInliningAdditionalCost =
           getStringFnAttrAsInt(
-              *CB, InlineConstants::FunctionInlineExtraCostAttributeName)
+              *CB, InlineConstants::FunctionInlineAdditionalCostAttributeName)
               .value_or(0);
       std::optional<int> InliningCost = Advice->inliningCost();
 
@@ -441,12 +441,15 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                     itostr(CBCostMult * IntraSCCCostMultiplier));
                 ICB->addFnAttr(NewCBCostMult);
               } else if (InliningCost && *InliningCost > 0) {
-                Attribute NewCBExtraCost = Attribute::get(
+                // Similar to hot call site thresholds that can cause Inliner to
+                // inline numerous functions causing compile time issues, a
+                // linear accumulator was created to mitigate the problem.
+                Attribute NewCBAdditionalCost = Attribute::get(
                     M.getContext(),
-                    InlineConstants::FunctionInlineExtraCostAttributeName,
-                    itostr(CBInliningExtraCost +
-                           (*InliningCost - CBInliningExtraCost) / 16));
-                ICB->addFnAttr(NewCBExtraCost);
+                    InlineConstants::FunctionInlineAdditionalCostAttributeName,
+                    itostr(CBInliningAdditionalCost +
+                           (*InliningCost - CBInliningAdditionalCost) / 16));
+                ICB->addFnAttr(NewCBAdditionalCost);
               }
             }
           }

@@ -225,9 +225,9 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
       Advice->recordUnattemptedInlining();
       continue;
     }
-    int CBInliningExtraCost =
+    int CBInliningAdditionalCost =
         getStringFnAttrAsInt(
-            *CB, InlineConstants::FunctionInlineExtraCostAttributeName)
+            *CB, InlineConstants::FunctionInlineAdditionalCostAttributeName)
             .value_or(0);
     std::optional<int> InliningCost = Advice->inliningCost();
 
@@ -273,12 +273,15 @@ PreservedAnalyses ModuleInlinerPass::run(Module &M,
           if (!NewCallee->isDeclaration()) {
             Calls->push({ICB, NewHistoryID});
             if (InliningCost && *InliningCost > 0) {
-              Attribute NewCBExtraCost = Attribute::get(
+              // Similar to hot call site thresholds that can cause Inliner to
+              // inline numerous functions causing compile time issues, a linear
+              // accumulator was created to mitigate the problem.
+              Attribute NewCBAdditionalCost = Attribute::get(
                   M.getContext(),
-                  InlineConstants::FunctionInlineExtraCostAttributeName,
-                  itostr(CBInliningExtraCost +
-                         (*InliningCost - CBInliningExtraCost) / 16));
-              ICB->addFnAttr(NewCBExtraCost);
+                  InlineConstants::FunctionInlineAdditionalCostAttributeName,
+                  itostr(CBInliningAdditionalCost +
+                         (*InliningCost - CBInliningAdditionalCost) / 16));
+              ICB->addFnAttr(NewCBAdditionalCost);
             }
           }
       }
