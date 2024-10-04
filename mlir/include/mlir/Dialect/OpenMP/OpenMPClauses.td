@@ -1284,11 +1284,12 @@ class OpenMP_BareClauseSkip<
   );
 
   let optAssemblyFormat = [{
-    `ompx_bare`
+    `ompx_bare` $bare
   }];
 
   let description = [{
-    ompx_bare placeholder description
+    ompx_bare allows `omp target teams` to be executed on a GPU with multi-dim
+    teams and threads.
   }];
 }
 
