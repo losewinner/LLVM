@@ -2326,7 +2326,7 @@ void InnerLoopVectorizer::scalarizeInstruction(const Instruction *Instr,
                                                VPTransformState &State) {
   assert((!Instr->getType()->isAggregateType() ||
           canWidenType(Instr->getType())) &&
-         "expected widenable or non-aggregate type!");
+         "widenable type or non-aggregate type!");
 
   // Does this instruction return a value ?
   bool IsVoidRetTy = Instr->getType()->isVoidTy();
