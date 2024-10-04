@@ -1679,8 +1679,8 @@ public:
     Type *RetTy = ICA.getReturnType();
 
     ElementCount RetVF =
-        isWideTy(RetTy) ? getWideTypeVF(RetTy) : ElementCount::getFixed(1);
-
+        (RetTy->isVectorTy() ? cast<VectorType>(RetTy)->getElementCount()
+                             : ElementCount::getFixed(1));
     const IntrinsicInst *I = ICA.getInst();
     const SmallVectorImpl<const Value *> &Args = ICA.getArgs();
     FastMathFlags FMF = ICA.getFlags();
@@ -1939,13 +1939,10 @@ public:
     InstructionCost ScalarizationCost = InstructionCost::getInvalid();
     if (RetVF.isVector() && !RetVF.isScalable()) {
       ScalarizationCost = 0;
-      if (!RetTy->isVoidTy()) {
-        for (Type *VectorTy : getContainedTypes(RetTy)) {
-          ScalarizationCost += getScalarizationOverhead(
-              cast<VectorType>(VectorTy),
-              /*Insert*/ true, /*Extract*/ false, CostKind);
-        }
-      }
+      if (!RetTy->isVoidTy())
+        ScalarizationCost += getScalarizationOverhead(
+            cast<VectorType>(RetTy),
+            /*Insert*/ true, /*Extract*/ false, CostKind);
       ScalarizationCost +=
           getOperandsScalarizationOverhead(Args, ICA.getArgTypes(), CostKind);
     }
@@ -2542,32 +2539,27 @@ public:
     // Else, assume that we need to scalarize this intrinsic. For math builtins
     // this will emit a costly libcall, adding call overhead and spills. Make it
     // very expensive.
-    if (isWideTy(RetTy)) {
-      const SmallVector<Type *, 2> RetVTys = getContainedTypes(RetTy);
-
+    if (auto *RetVTy = dyn_cast<VectorType>(RetTy)) {
       // Scalable vectors cannot be scalarized, so return Invalid.
-      if (any_of(concat<Type *const>(RetVTys, Tys),
-                 [](Type *Ty) { return isa<ScalableVectorType>(Ty); }))
+      if (isa<ScalableVectorType>(RetTy) || any_of(Tys, [](const Type *Ty) {
+            return isa<ScalableVectorType>(Ty);
+          }))
         return InstructionCost::getInvalid();
 
-      InstructionCost ScalarizationCost = ScalarizationCostPassed;
-      if (!SkipScalarizationCost) {
-        ScalarizationCost = 0;
-        for (Type *RetVTy : RetVTys) {
-          ScalarizationCost += getScalarizationOverhead(
-              cast<VectorType>(RetVTy), /*Insert*/ true,
-              /*Extract*/ false, CostKind);
-        }
-      }
+      InstructionCost ScalarizationCost =
+          SkipScalarizationCost
+              ? ScalarizationCostPassed
+              : getScalarizationOverhead(RetVTy, /*Insert*/ true,
+                                         /*Extract*/ false, CostKind);
 
-      unsigned ScalarCalls = getWideTypeVF(RetTy).getFixedValue();
+      unsigned ScalarCalls = cast<FixedVectorType>(RetVTy)->getNumElements();
       SmallVector<Type *, 4> ScalarTys;
       for (Type *Ty : Tys) {
         if (Ty->isVectorTy())
           Ty = Ty->getScalarType();
         ScalarTys.push_back(Ty);
       }
-      IntrinsicCostAttributes Attrs(IID, ToNarrowTy(RetTy), ScalarTys, FMF);
+      IntrinsicCostAttributes Attrs(IID, RetTy->getScalarType(), ScalarTys, FMF);
       InstructionCost ScalarCost =
           thisT()->getIntrinsicInstrCost(Attrs, CostKind);
       for (Type *Ty : Tys) {
