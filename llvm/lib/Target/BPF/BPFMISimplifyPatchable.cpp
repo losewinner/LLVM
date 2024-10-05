@@ -100,21 +100,25 @@ static bool isStoreImm(unsigned Opcode) {
 }
 
 static bool isStore32(unsigned Opcode) {
-  return Opcode == BPF::STB32 || Opcode == BPF::STH32 || Opcode == BPF::STW32;
+  return Opcode == BPF::STB32 || Opcode == BPF::STH32 || Opcode == BPF::STW32 ||
+         Opcode == BPF::STBREL32 || Opcode == BPF::STHREL32 ||
+         Opcode == BPF::STWREL32;
 }
 
 static bool isStore64(unsigned Opcode) {
   return Opcode == BPF::STB || Opcode == BPF::STH || Opcode == BPF::STW ||
-         Opcode == BPF::STD;
+         Opcode == BPF::STD || Opcode == BPF::STDREL;
 }
 
 static bool isLoad32(unsigned Opcode) {
-  return Opcode == BPF::LDB32 || Opcode == BPF::LDH32 || Opcode == BPF::LDW32;
+  return Opcode == BPF::LDB32 || Opcode == BPF::LDH32 || Opcode == BPF::LDW32 ||
+         Opcode == BPF::LDBACQ32 || Opcode == BPF::LDHACQ32 ||
+         Opcode == BPF::LDWACQ32;
 }
 
 static bool isLoad64(unsigned Opcode) {
   return Opcode == BPF::LDB || Opcode == BPF::LDH || Opcode == BPF::LDW ||
-         Opcode == BPF::LDD;
+         Opcode == BPF::LDD || Opcode == BPF::LDDACQ;
 }
 
 static bool isLoadSext(unsigned Opcode) {
