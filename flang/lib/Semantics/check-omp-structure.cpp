@@ -3077,6 +3077,15 @@ void OmpStructureChecker::Enter(const parser::OmpClause::Linear &x) {
     }
   }
 
+  // OpenMP 5.2: Ordered clause restriction
+  if (const auto *clause{
+          FindClause(GetContext(), llvm::omp::Clause::OMPC_ordered)}) {
+    const auto &orderedClause{std::get<parser::OmpClause::Ordered>(clause->u)};
+    if (orderedClause.v) {
+      return;
+    }
+  }
+
   auto checkForValidLinearClause = [&](const parser::Name &name, bool is_ref) {
     parser::CharBlock source{GetContext().clauseSource};
     std::string listItemName{name.ToString()};
