@@ -129,6 +129,16 @@ public:
       llvm::SmallVectorImpl<mlir::Type> *reductionTypes = nullptr,
       llvm::SmallVectorImpl<const semantics::Symbol *> *reductionSyms =
           nullptr) const;
+  bool processTaskReduction(
+      mlir::Location currentLocation, mlir::omp::TaskReductionClauseOps &result,
+      llvm::SmallVectorImpl<mlir::Type> *taskReductionTypes = nullptr,
+      llvm::SmallVectorImpl<const semantics::Symbol *> *taskReductionSyms =
+          nullptr) const;
+  bool processInReduction(
+      mlir::Location currentLocation, mlir::omp::InReductionClauseOps &result,
+      llvm::SmallVectorImpl<mlir::Type> *inReductionTypes = nullptr,
+      llvm::SmallVectorImpl<const semantics::Symbol *> *inReductionSyms =
+          nullptr) const;
   bool processTo(llvm::SmallVectorImpl<DeclareTargetCapturePair> &result) const;
   bool processUseDeviceAddr(
       lower::StatementContext &stmtCtx,
