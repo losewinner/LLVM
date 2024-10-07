@@ -1063,7 +1063,7 @@ bool ClauseProcessor::processReduction(
         llvm::SmallVector<mlir::Attribute> reductionDeclSymbols;
         llvm::SmallVector<const semantics::Symbol *> reductionSyms;
         ReductionProcessor rp;
-        rp.addDeclareReduction(
+        rp.addDeclareReduction<omp::clause::Reduction>(
             currentLocation, converter, clause, reductionVars, reduceVarByRef,
             reductionDeclSymbols, outReductionSyms ? &reductionSyms : nullptr);
 
@@ -1082,6 +1082,80 @@ bool ClauseProcessor::processReduction(
 
         if (outReductionSyms)
           llvm::copy(reductionSyms, std::back_inserter(*outReductionSyms));
+      });
+}
+
+bool ClauseProcessor::processTaskReduction(
+    mlir::Location currentLocation, mlir::omp::TaskReductionClauseOps &result,
+    llvm::SmallVectorImpl<mlir::Type> *outReductionTypes,
+    llvm::SmallVectorImpl<const semantics::Symbol *> *outReductionSyms) const {
+  return findRepeatableClause<omp::clause::TaskReduction>(
+      [&](const omp::clause::TaskReduction &clause, const parser::CharBlock &) {
+        llvm::SmallVector<mlir::Value> taskReductionVars;
+        llvm::SmallVector<bool> taskReductionByref;
+        llvm::SmallVector<mlir::Attribute> taskReductionDeclSymbols;
+        llvm::SmallVector<const semantics::Symbol *> taskReductionSyms;
+        ReductionProcessor rp;
+        rp.addDeclareReduction<omp::clause::TaskReduction>(
+            currentLocation, converter, clause, taskReductionVars,
+            taskReductionByref, taskReductionDeclSymbols,
+            outReductionSyms ? &taskReductionSyms : nullptr);
+
+        // Copy local lists into the output.
+        llvm::copy(taskReductionVars,
+                   std::back_inserter(result.taskReductionVars));
+        llvm::copy(taskReductionByref,
+                   std::back_inserter(result.taskReductionByref));
+        llvm::copy(taskReductionDeclSymbols,
+                   std::back_inserter(result.taskReductionSyms));
+
+        if (outReductionTypes) {
+          outReductionTypes->reserve(outReductionTypes->size() +
+                                     taskReductionVars.size());
+          llvm::transform(taskReductionVars,
+                          std::back_inserter(*outReductionTypes),
+                          [](mlir::Value v) { return v.getType(); });
+        }
+
+        if (outReductionSyms)
+          llvm::copy(taskReductionSyms, std::back_inserter(*outReductionSyms));
+      });
+}
+
+bool ClauseProcessor::processInReduction(
+    mlir::Location currentLocation, mlir::omp::InReductionClauseOps &result,
+    llvm::SmallVectorImpl<mlir::Type> *outReductionTypes,
+    llvm::SmallVectorImpl<const semantics::Symbol *> *outReductionSyms) const {
+  return findRepeatableClause<omp::clause::InReduction>(
+      [&](const omp::clause::InReduction &clause,
+          const parser::CharBlock &source) {
+        llvm::SmallVector<mlir::Value> inReductionVars;
+        llvm::SmallVector<bool> inReductionByref;
+        llvm::SmallVector<mlir::Attribute> inReductionDeclSymbols;
+        llvm::SmallVector<const semantics::Symbol *> inReductionSyms;
+        ReductionProcessor rp;
+        rp.addDeclareReduction<omp::clause::InReduction>(
+            currentLocation, converter, clause, inReductionVars,
+            inReductionByref, inReductionDeclSymbols,
+            outReductionSyms ? &inReductionSyms : nullptr);
+
+        // Copy local lists into the output.
+        llvm::copy(inReductionVars, std::back_inserter(result.inReductionVars));
+        llvm::copy(inReductionByref,
+                   std::back_inserter(result.inReductionByref));
+        llvm::copy(inReductionDeclSymbols,
+                   std::back_inserter(result.inReductionSyms));
+
+        if (outReductionTypes) {
+          outReductionTypes->reserve(outReductionTypes->size() +
+                                     inReductionVars.size());
+          llvm::transform(inReductionVars,
+                          std::back_inserter(*outReductionTypes),
+                          [](mlir::Value v) { return v.getType(); });
+        }
+
+        if (outReductionSyms)
+          llvm::copy(inReductionSyms, std::back_inserter(*outReductionSyms));
       });
 }
 
