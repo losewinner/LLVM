@@ -1230,6 +1230,7 @@ static void genTargetClauses(
     llvm::SmallVectorImpl<const semantics::Symbol *> &isDevicePtrSyms,
     llvm::SmallVectorImpl<const semantics::Symbol *> &mapSyms) {
   ClauseProcessor cp(converter, semaCtx, clauses);
+  cp.processBare(clauseOps);
   cp.processDepend(clauseOps);
   cp.processDevice(stmtCtx, clauseOps);
   cp.processHasDeviceAddr(clauseOps, hasDeviceAddrSyms);
@@ -1241,7 +1242,6 @@ static void genTargetClauses(
     cp.processNowait(clauseOps);
 
   cp.processThreadLimit(stmtCtx, clauseOps);
-  cp.processBare(clauseOps);
 
   cp.processTODO<clause::Allocate, clause::Defaultmap, clause::Firstprivate,
                  clause::InReduction, clause::UsesAllocators>(
