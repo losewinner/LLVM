@@ -15,6 +15,15 @@ subroutine test2
 end
 
 subroutine test3
+  integer i
+!ERROR: OMPX_BARE clause is only allowed on combined TARGET TEAMS
+  !$omp target teams distribute ompx_bare
+  do i = 0, 10
+  end do
+  !$omp end target teams distribute
+end
+
+subroutine test4
 !No errors
   !$omp target teams ompx_bare
   !$omp end target teams
