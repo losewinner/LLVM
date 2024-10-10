@@ -1,10 +1,11 @@
-; RUN: llc -verify-machineinstrs -mcpu=pwr10 -disable-ppc-vsx-fma-mutation=false -ppc-asm-full-reg-names -schedule-ppc-vsx-fma-mutation-early < %s | \
-; RUN:  FileCheck --check-prefix=CHECK-M %s
+; RUN: llc -verify-machineinstrs -mcpu=pwr10 -disable-ppc-vsx-fma-mutation=false \
+; RUN:   -ppc-asm-full-reg-names -schedule-ppc-vsx-fma-mutation-early \
+; RUN:    -mtriple powerpc64-ibm-aix7.2.0.0 < %s | FileCheck --check-prefix=CHECK-M %s
 
-; RUN: llc -verify-machineinstrs -mcpu=pwr10 -disable-ppc-vsx-fma-mutation=false -ppc-asm-full-reg-names < %s | \
-; RUN:  FileCheck --check-prefix=CHECK-A %s
+; RUN: llc -verify-machineinstrs -mcpu=pwr10 -disable-ppc-vsx-fma-mutation=false \
+; RUN:   -ppc-asm-full-reg-names -mtriple powerpc64-ibm-aix7.2.0.0 < %s | \
+; RUN:   FileCheck --check-prefix=CHECK-A %s
 
-target triple = "powerpc64-ibm-aix7.2.0.0"
 define void @vsexp(ptr noalias nocapture noundef writeonly %__output_a, ptr noalias nocapture noundef readonly %var1321In_a, ptr noalias nocapture noundef readonly %n) {
 entry:
   %0 = load i32, ptr %n, align 4
