@@ -8549,14 +8549,6 @@ VPWidenRecipe *VPRecipeBuilder::tryToWiden(Instruction *I,
     }
     [[fallthrough]];
   }
-  case Instruction::ExtractValue: {
-    SmallVector<VPValue *> NewOps(Operands);
-    Type *I32Ty = IntegerType::getInt32Ty(I->getContext());
-    for (unsigned Idx : cast<ExtractValueInst>(I)->getIndices())
-      NewOps.push_back(
-          Plan.getOrAddLiveIn(ConstantInt::get(I32Ty, Idx, false)));
-    return new VPWidenRecipe(*I, make_range(NewOps.begin(), NewOps.end()));
-  }
   case Instruction::Add:
   case Instruction::And:
   case Instruction::AShr:
@@ -8575,7 +8567,7 @@ VPWidenRecipe *VPRecipeBuilder::tryToWiden(Instruction *I,
   case Instruction::Shl:
   case Instruction::Sub:
   case Instruction::Xor:
-  case Instruction::Freeze:
+  case Instruction::Freeze: {
     SmallVector<VPValue *> NewOps(Operands);
     if (Instruction::isBinaryOp(I->getOpcode())) {
       // The legacy cost model uses SCEV to check if some of the operands are
@@ -8598,6 +8590,15 @@ VPWidenRecipe *VPRecipeBuilder::tryToWiden(Instruction *I,
       NewOps[1] = GetConstantViaSCEV(NewOps[1]);
     }
     return new VPWidenRecipe(*I, make_range(NewOps.begin(), NewOps.end()));
+  }
+  case Instruction::ExtractValue: {
+    SmallVector<VPValue *> NewOps(Operands);
+    Type *I32Ty = IntegerType::getInt32Ty(I->getContext());
+    for (unsigned Idx : cast<ExtractValueInst>(I)->getIndices())
+      NewOps.push_back(
+          Plan.getOrAddLiveIn(ConstantInt::get(I32Ty, Idx, false)));
+    return new VPWidenRecipe(*I, make_range(NewOps.begin(), NewOps.end()));
+  }
   };
 }
 
