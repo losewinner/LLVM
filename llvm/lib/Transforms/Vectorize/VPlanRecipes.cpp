@@ -1375,7 +1375,6 @@ InstructionCost VPWidenRecipe::computeCost(ElementCount VF,
         {TargetTransformInfo::OK_AnyValue, TargetTransformInfo::OP_None});
   }
 
-  case Instruction::ExtractValue:
   case Instruction::UDiv:
   case Instruction::SDiv:
   case Instruction::SRem:
@@ -1423,6 +1422,9 @@ InstructionCost VPWidenRecipe::computeCost(ElementCount VF,
     Type *VectorTy = ToVectorTy(Ctx.Types.inferScalarType(this), VF);
     return Ctx.TTI.getArithmeticInstrCost(Instruction::Mul, VectorTy, CostKind);
   }
+  case Instruction::ExtractValue:
+    return Ctx.TTI.getInstructionCost(cast<Instruction>(getUnderlyingValue()),
+                                      TTI::TCK_RecipThroughput);
   case Instruction::ICmp:
   case Instruction::FCmp: {
     Instruction *CtxI = dyn_cast_or_null<Instruction>(getUnderlyingValue());

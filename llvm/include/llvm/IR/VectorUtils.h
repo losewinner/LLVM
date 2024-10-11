@@ -46,7 +46,7 @@ bool isWideTy(Type *Ty);
 
 /// Returns the vectorization factor for a widened type.
 inline ElementCount getWideTypeVF(Type *Ty) {
-  assert(isWideTy(Ty) && "expected widened type!");
+  assert(isWideTy(Ty) && "expected widened type");
   return cast<VectorType>(getContainedTypes(Ty).front())->getElementCount();
 }
 
