@@ -545,7 +545,7 @@ protected:
   friend class LoopVectorizationPlanner;
 
   /// Set up the values of the IVs correctly when exiting the vector loop.
-  void fixupIVUsers(PHINode *OrigPhi, const InductionDescriptor &II,
+  virtual void fixupIVUsers(PHINode *OrigPhi, const InductionDescriptor &II,
                     Value *VectorTripCount, Value *EndValue,
                     BasicBlock *MiddleBlock, VPlan &Plan,
                     VPTransformState &State);
@@ -784,6 +784,11 @@ protected:
   BasicBlock *emitIterationCountCheck(BasicBlock *Bypass, bool ForEpilogue);
   void printDebugTracesAtStart() override;
   void printDebugTracesAtEnd() override;
+
+  void fixupIVUsers(PHINode *OrigPhi, const InductionDescriptor &II,
+                    Value *VectorTripCount, Value *EndValue,
+                    BasicBlock *MiddleBlock, VPlan &Plan,
+                    VPTransformState &State) override {};
 };
 
 // A specialized derived class of inner loop vectorizer that performs
