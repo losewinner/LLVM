@@ -513,18 +513,17 @@ public:
   /// Fix the non-induction PHIs in \p Plan.
   void fixNonInductionPHIs(VPTransformState &State);
 
-  /// Create a ResumePHI VPInstruction for the induction \p PhiRIR to resume
-  /// iteration count in the scalar epilogue from where the vectorized loop
-  /// left off, and add it to the scalar preheader of VPlan. \p Step is the
-  /// SCEV-expanded induction step to use. In cases where the loop skeleton is
-  /// more complicated (i.e., epilogue vectorization) and the resume values can
-  /// come from an additional bypass block, the \p AdditionalBypass pair
-  /// provides this additional bypass block along with the resume value coming
-  /// from it.
-  void createInductionResumeVPValue(
-      VPIRInstruction *PhiIRI, const InductionDescriptor &ID, Value *Step,
-      ArrayRef<BasicBlock *> BypassBlocks, VPBuilder &ScalarPHBuilder,
-      std::pair<BasicBlock *, Value *> AdditionalBypass = {nullptr, nullptr});
+  /// Create a new phi node for the induction variable \p OrigPhi to resume
+  /// iteration count in the scalar epilogue, from where the vectorized loop
+  /// left off. \p Step is the SCEV-expanded induction step to use. In cases
+  /// where the loop skeleton is more complicated (i.e., epilogue vectorization)
+  /// and the resume values can come from an additional bypass block, the \p
+  /// AdditionalBypass pair provides information about the bypass block and the
+  /// end value on the edge from bypass to this loop.
+  void
+  createInductionBypassValue(PHINode *OrigPhi, const InductionDescriptor &ID,
+                             Value *Step, ArrayRef<BasicBlock *> BypassBlocks,
+                             std::pair<BasicBlock *, Value *> AdditionalBypass);
 
   /// Returns the original loop trip count.
   Value *getTripCount() const { return TripCount; }
@@ -572,15 +571,11 @@ protected:
   /// vector loop preheader, middle block and scalar preheader.
   void createVectorLoopSkeleton(StringRef Prefix);
 
-  /// Create new phi nodes for the induction variables to resume iteration count
-  /// in the scalar epilogue, from where the vectorized loop left off.
-  /// In cases where the loop skeleton is more complicated (eg. epilogue
-  /// vectorization) and the resume values can come from an additional bypass
-  /// block, the \p AdditionalBypass pair provides information about the bypass
-  /// block and the end value on the edge from bypass to this loop.
-  void createInductionResumeVPValues(
+  /// Create values for the induction variables to resume iteration count
+  /// in bypass block.
+  void createInductionBypassValues(
       const SCEV2ValueTy &ExpandedSCEVs,
-      std::pair<BasicBlock *, Value *> AdditionalBypass = {nullptr, nullptr});
+      std::pair<BasicBlock *, Value *> AdditionalBypass);
 
   /// Allow subclasses to override and print debug traces before/after vplan
   /// execution, when trace information is requested.
@@ -2591,30 +2586,18 @@ void InnerLoopVectorizer::createVectorLoopSkeleton(StringRef Prefix) {
                  nullptr, Twine(Prefix) + "scalar.ph");
 }
 
-void InnerLoopVectorizer::createInductionResumeVPValue(
-    VPIRInstruction *PhiR, const InductionDescriptor &II, Value *Step,
-    ArrayRef<BasicBlock *> BypassBlocks, VPBuilder &ScalarPHBuilder,
+void InnerLoopVectorizer::createInductionBypassValue(
+    PHINode *OrigPhi, const InductionDescriptor &II, Value *Step,
+    ArrayRef<BasicBlock *> BypassBlocks,
     std::pair<BasicBlock *, Value *> AdditionalBypass) {
-  auto *OrigPhi = cast<PHINode>(&PhiR->getInstruction());
-  Value *VectorTripCount = getOrCreateVectorTripCount(LoopVectorPreHeader);
-  assert(VectorTripCount && "Expected valid arguments");
-
   Instruction *OldInduction = Legal->getPrimaryInduction();
-  Value *EndValue = nullptr;
   Value *EndValueFromAdditionalBypass = AdditionalBypass.second;
-  if (OrigPhi == OldInduction) {
-    // We know what the end value is.
-    EndValue = VectorTripCount;
-  } else {
+  if (OrigPhi != OldInduction) {
     IRBuilder<> B(LoopVectorPreHeader->getTerminator());
 
     // Fast-math-flags propagate from the original induction instruction.
     if (isa_and_nonnull<FPMathOperator>(II.getInductionBinOp()))
       B.setFastMathFlags(II.getInductionBinOp()->getFastMathFlags());
-
-    EndValue = emitTransformedIndex(B, VectorTripCount, II.getStartValue(),
-                                    Step, II.getKind(), II.getInductionBinOp());
-    EndValue->setName("ind.end");
 
     // Compute the end value for the additional bypass (if applicable).
     if (AdditionalBypass.first) {
@@ -2627,21 +2610,8 @@ void InnerLoopVectorizer::createInductionResumeVPValue(
     }
   }
 
-  auto *ResumePhiRecipe = ScalarPHBuilder.createNaryOp(
-      VPInstruction::ResumePhi,
-      {Plan.getOrAddLiveIn(EndValue), Plan.getOrAddLiveIn(II.getStartValue())},
-      OrigPhi->getDebugLoc(), "bc.resume.val");
-  assert(PhiR->getNumOperands() == 0 && "PhiR should not have any operands");
-  PhiR->addOperand(ResumePhiRecipe);
-
-  if (AdditionalBypass.first) {
-    // Store the bypass values here, as they need to be added to their phi nodes
-    // after the epilogue skeleton has been created.
-    assert(!InductionBypassValues.contains(OrigPhi) &&
-           "entry for OrigPhi already exits");
-    InductionBypassValues[OrigPhi] = {AdditionalBypass.first,
-                                      EndValueFromAdditionalBypass};
-  }
+  InductionBypassValues[OrigPhi] = {AdditionalBypass.first,
+                                    EndValueFromAdditionalBypass};
 }
 
 /// Return the expanded step for \p ID using \p ExpandedSCEVs to look up SCEV
@@ -2658,31 +2628,17 @@ static Value *getExpandedStep(const InductionDescriptor &ID,
   return I->second;
 }
 
-void InnerLoopVectorizer::createInductionResumeVPValues(
+void InnerLoopVectorizer::createInductionBypassValues(
     const SCEV2ValueTy &ExpandedSCEVs,
     std::pair<BasicBlock *, Value *> AdditionalBypass) {
-  assert(((AdditionalBypass.first && AdditionalBypass.second) ||
-          (!AdditionalBypass.first && !AdditionalBypass.second)) &&
-         "Inconsistent information about additional bypass.");
-  // We are going to resume the execution of the scalar loop.
-  // Go over all of the induction variables in the scalar header and fix the
-  // PHIs that are left in the scalar version of the loop. The starting values
-  // of PHI nodes depend on the counter of the last iteration in the vectorized
-  // loop. If we come from a bypass edge then we need to start from the original
-  // start value.
-  VPBasicBlock *ScalarPHVPBB = Plan.getScalarPreheader();
-  VPBuilder ScalarPHBuilder(ScalarPHVPBB, ScalarPHVPBB->begin());
-  for (VPRecipeBase &R : *Plan.getScalarHeader()) {
-    auto *PhiR = cast<VPIRInstruction>(&R);
-    auto *Phi = dyn_cast<PHINode>(&PhiR->getInstruction());
-    if (!Phi)
-      break;
-    if (!Legal->getInductionVars().contains(Phi))
-      continue;
-    const InductionDescriptor &II = Legal->getInductionVars().find(Phi)->second;
-    createInductionResumeVPValue(PhiR, II, getExpandedStep(II, ExpandedSCEVs),
-                                 LoopBypassBlocks, ScalarPHBuilder,
-                                 AdditionalBypass);
+  assert(AdditionalBypass.first && AdditionalBypass.second &&
+         "Must have bypass information");
+
+  for (const auto &InductionEntry : Legal->getInductionVars()) {
+    PHINode *OrigPhi = InductionEntry.first;
+    const InductionDescriptor &II = InductionEntry.second;
+    createInductionBypassValue(OrigPhi, II, getExpandedStep(II, ExpandedSCEVs),
+                               LoopBypassBlocks, AdditionalBypass);
   }
 }
 
@@ -2744,8 +2700,8 @@ InnerLoopVectorizer::createVectorizedLoopSkeleton(
   // faster.
   emitMemRuntimeChecks(LoopScalarPreHeader);
 
-  // Emit phis for the new starting index of the scalar loop.
-  createInductionResumeVPValues(ExpandedSCEVs);
+  Value *VectorTripCount = getOrCreateVectorTripCount(LoopVectorPreHeader);
+  assert(VectorTripCount && "Expected valid arguments");
 
   return {LoopVectorPreHeader, nullptr};
 }
@@ -7754,6 +7710,18 @@ DenseMap<const SCEV *, Value *> LoopVectorizationPlanner::executePlan(
                              ILV.getOrCreateVectorTripCount(nullptr),
                              CanonicalIVStartValue, State);
 
+  VPBasicBlock *MiddleVPBB =
+      cast<VPBasicBlock>(BestVPlan.getVectorLoopRegion()->getSingleSuccessor());
+
+  VPBasicBlock *ScalarPHVPBB = nullptr;
+  if (MiddleVPBB->getNumSuccessors() == 2) {
+    // Order is strict: first is the exit block, second is the scalar
+    // preheader.
+    ScalarPHVPBB = cast<VPBasicBlock>(MiddleVPBB->getSuccessors()[1]);
+  } else {
+    ScalarPHVPBB = cast<VPBasicBlock>(MiddleVPBB->getSingleSuccessor());
+  }
+
   BestVPlan.execute(&State);
 
   auto *ExitVPBB = BestVPlan.getMiddleBlock();
@@ -7858,11 +7826,6 @@ EpilogueVectorizerMainLoop::createEpilogueVectorizedLoopSkeleton(
 
   // Generate the induction variable.
   EPI.VectorTripCount = getOrCreateVectorTripCount(LoopVectorPreHeader);
-
-  // Create induction resume values and ResumePhis for the inductions in the
-  // epilogue loop in the VPlan for the epilogue vector loop.
-  VPBasicBlock *ScalarPHVPBB = Plan.getScalarPreheader();
-  createInductionResumeVPValues(ExpandedSCEVs);
 
   return {LoopVectorPreHeader, nullptr};
 }
@@ -8030,22 +7993,24 @@ EpilogueVectorizerEpilogueLoop::createEpilogueVectorizedLoopSkeleton(
   // Generate a resume induction for the vector epilogue and put it in the
   // vector epilogue preheader
   Type *IdxTy = Legal->getWidestInductionType();
+
   PHINode *EPResumeVal = PHINode::Create(IdxTy, 2, "vec.epilog.resume.val");
   EPResumeVal->insertBefore(LoopVectorPreHeader->getFirstNonPHIIt());
   EPResumeVal->addIncoming(EPI.VectorTripCount, VecEpilogueIterationCountCheck);
   EPResumeVal->addIncoming(ConstantInt::get(IdxTy, 0),
                            EPI.MainLoopIterationCountCheck);
 
-  // Generate induction resume values. These variables save the new starting
-  // indexes for the scalar loop. They are used to test if there are any tail
-  // iterations left once the vector loop has completed.
+  Value *VectorTripCount = getOrCreateVectorTripCount(LoopVectorPreHeader);
+  assert(VectorTripCount && "Expected valid arguments");
+
+  // Generate induction resume values for the bypass blocks.
   // Note that when the vectorized epilogue is skipped due to iteration count
   // check, then the resume value for the induction variable comes from
   // the trip count of the main vector loop, hence passing the AdditionalBypass
   // argument.
-  createInductionResumeVPValues(ExpandedSCEVs,
-                                {VecEpilogueIterationCountCheck,
-                                 EPI.VectorTripCount} /* AdditionalBypass */);
+  createInductionBypassValues(ExpandedSCEVs,
+                              {VecEpilogueIterationCountCheck,
+                               EPI.VectorTripCount} /* AdditionalBypass */);
 
   return {LoopVectorPreHeader, EPResumeVal};
 }
@@ -8848,13 +8813,64 @@ static void addCanonicalIVRecipes(VPlan &Plan, Type *IdxTy, bool HasNUW,
                        {CanonicalIVIncrement, &Plan.getVectorTripCount()}, DL);
 }
 
+static VPValue *addResumeValuesForInduction(VPHeaderPHIRecipe *PhiR,
+                                            VPBuilder &Builder,
+                                            VPBuilder &ScalarPHBuilder,
+                                            VPTypeAnalysis &TypeInfo,
+                                            VPValue *VectorTC) {
+  PHINode *OrigPhi;
+  const InductionDescriptor *ID;
+  VPValue *Start;
+  VPValue *Step;
+  Type *ScalarTy;
+  bool IsCanonical = false;
+  if (auto *WideIV = dyn_cast<VPWidenIntOrFpInductionRecipe>(PhiR)) {
+    if (WideIV->getTruncInst())
+      return nullptr;
+    OrigPhi = cast<PHINode>(WideIV->getUnderlyingValue());
+    ID = &WideIV->getInductionDescriptor();
+    Start = WideIV->getStartValue();
+    Step = WideIV->getStepValue();
+    ScalarTy = WideIV->getScalarType();
+    IsCanonical = WideIV->isCanonical();
+  } else if (auto *WideIV = dyn_cast<VPWidenPointerInductionRecipe>(PhiR)) {
+    OrigPhi = cast<PHINode>(WideIV->getUnderlyingValue());
+    ID = &WideIV->getInductionDescriptor();
+    Start = WideIV->getStartValue();
+    Step = WideIV->getOperand(1);
+    ScalarTy = Start->getLiveInIRValue()->getType();
+  } else {
+    return nullptr;
+  }
+
+  VPValue *EndValue = VectorTC;
+  if (!IsCanonical) {
+    EndValue = Builder.createDerivedIV(
+        ID->getKind(),
+        dyn_cast_or_null<FPMathOperator>(ID->getInductionBinOp()), Start,
+        VectorTC, Step);
+  }
+
+  if (ScalarTy != TypeInfo.inferScalarType(EndValue)) {
+    EndValue = Builder.createScalarCast(Instruction::Trunc, EndValue, ScalarTy);
+  }
+
+  auto *ResumePhiRecipe =
+      ScalarPHBuilder.createNaryOp(VPInstruction::ResumePhi, {EndValue, Start},
+                                   OrigPhi->getDebugLoc(), "bc.resume.val");
+  return ResumePhiRecipe;
+}
+
 /// Create resume phis in the scalar preheader for first-order recurrences and
 /// reductions and update the VPIRInstructions wrapping the original phis in the
 /// scalar header.
 static void addScalarResumePhis(VPRecipeBuilder &Builder, VPlan &Plan) {
+  VPTypeAnalysis TypeInfo(Plan.getCanonicalIV()->getScalarType());
   auto *ScalarPH = Plan.getScalarPreheader();
   auto *MiddleVPBB = cast<VPBasicBlock>(ScalarPH->getSinglePredecessor());
   VPBuilder ScalarPHBuilder(ScalarPH);
+  VPBuilder VectorPHBuilder(
+      cast<VPBasicBlock>(Plan.getVectorLoopRegion()->getSinglePredecessor()));
   VPBuilder MiddleBuilder(MiddleVPBB, MiddleVPBB->getFirstNonPhi());
   VPValue *OneVPV = Plan.getOrAddLiveIn(
       ConstantInt::get(Plan.getCanonicalIV()->getScalarType(), 1));
@@ -8864,6 +8880,13 @@ static void addScalarResumePhis(VPRecipeBuilder &Builder, VPlan &Plan) {
     if (!ScalarPhiI)
       break;
     auto *VectorPhiR = cast<VPHeaderPHIRecipe>(Builder.getRecipe(ScalarPhiI));
+
+    if (VPValue *ResumePhi = addResumeValuesForInduction(
+            VectorPhiR, VectorPHBuilder, ScalarPHBuilder, TypeInfo,
+            &Plan.getVectorTripCount())) {
+      ScalarPhiIRI->addOperand(ResumePhi);
+      continue;
+    }
     if (!isa<VPFirstOrderRecurrencePHIRecipe, VPReductionPHIRecipe>(VectorPhiR))
       continue;
     // The backedge value provides the value to resume coming out of a loop,
@@ -9341,6 +9364,7 @@ VPlanPtr LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
   bool HasNUW = true;
   addCanonicalIVRecipes(*Plan, Legal->getWidestInductionType(), HasNUW,
                         DebugLoc());
+  //  addResumeValuesForInductions(*Plan);
   assert(verifyVPlanIsValid(*Plan) && "VPlan is invalid");
   return Plan;
 }
@@ -9623,7 +9647,8 @@ void VPDerivedIVRecipe::execute(VPTransformState &State) {
       State.Builder, CanonicalIV, getStartValue()->getLiveInIRValue(), Step,
       Kind, cast_if_present<BinaryOperator>(FPBinOp));
   DerivedIV->setName(Name);
-  assert(DerivedIV != CanonicalIV && "IV didn't need transforming?");
+  /*  assert((isa<Constant>(CanonicalIV) || DerivedIV != CanonicalIV) &&*/
+  /*"IV didn't need transforming?");*/
 
   State.set(this, DerivedIV, VPLane(0));
 }
@@ -10285,6 +10310,52 @@ bool LoopVectorizePass::processLoop(Loop *L) {
                                            EPI, &LVL, &CM, BFI, PSI, Checks,
                                            *BestMainPlan);
 
+        VPlan &BestEpiPlan = LVP.getPlanFor(EPI.EpilogueVF);
+        // Collect PHI nodes of wide inductions in the VPlan for the epilogue.
+        // Those will need their resume-values computed from the main vector
+        // loop. Others can be removed in the main VPlan.
+        SmallPtrSet<PHINode *, 2> WidenedPhis;
+        for (VPRecipeBase &R :
+             BestEpiPlan.getVectorLoopRegion()->getEntryBasicBlock()->phis()) {
+          if (!isa<VPWidenIntOrFpInductionRecipe,
+                   VPWidenPointerInductionRecipe>(&R))
+            continue;
+          if (isa<VPWidenIntOrFpInductionRecipe>(&R))
+            WidenedPhis.insert(
+                cast<VPWidenIntOrFpInductionRecipe>(&R)->getPHINode());
+          else
+            WidenedPhis.insert(
+                cast<PHINode>(R.getVPSingleValue()->getUnderlyingValue()));
+        }
+        VPBasicBlock *MiddleVPBB = cast<VPBasicBlock>(
+            BestMainPlan->getVectorLoopRegion()->getSingleSuccessor());
+
+        VPBasicBlock *ScalarPHVPBB = nullptr;
+        if (MiddleVPBB->getNumSuccessors() == 2) {
+          // Order is strict: first is the exit block, second is the scalar
+          // preheader.
+          ScalarPHVPBB = cast<VPBasicBlock>(MiddleVPBB->getSuccessors()[1]);
+        } else {
+          ScalarPHVPBB = cast<VPBasicBlock>(MiddleVPBB->getSingleSuccessor());
+        }
+
+        for (VPRecipeBase &R :
+             *cast<VPIRBasicBlock>(ScalarPHVPBB->getSingleSuccessor())) {
+          auto *VPIRInst = cast<VPIRInstruction>(&R);
+          auto *IRI = dyn_cast<PHINode>(&VPIRInst->getInstruction());
+          if (!IRI)
+            break;
+          if (WidenedPhis.contains(IRI) ||
+              !LVL.getInductionVars().contains(IRI))
+            continue;
+          VPRecipeBase *ResumePhi =
+              VPIRInst->getOperand(0)->getDefiningRecipe();
+          VPIRInst->setOperand(0, BestMainPlan->getOrAddLiveIn(
+                                      Constant::getNullValue(IRI->getType())));
+          ResumePhi->eraseFromParent();
+        }
+        VPlanTransforms::removeDeadRecipes(*BestMainPlan);
+
         auto ExpandedSCEVs = LVP.executePlan(EPI.MainLoopVF, EPI.MainLoopUF,
                                              *BestMainPlan, MainILV, DT, false);
         ++LoopsVectorized;
@@ -10293,7 +10364,6 @@ bool LoopVectorizePass::processLoop(Loop *L) {
         // edges from the first pass.
         EPI.MainLoopVF = EPI.EpilogueVF;
         EPI.MainLoopUF = EPI.EpilogueUF;
-        VPlan &BestEpiPlan = LVP.getPlanFor(EPI.EpilogueVF);
         EpilogueVectorizerEpilogueLoop EpilogILV(L, PSE, LI, DT, TLI, TTI, AC,
                                                  ORE, EPI, &LVL, &CM, BFI, PSI,
                                                  Checks, BestEpiPlan);
