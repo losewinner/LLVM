@@ -420,6 +420,118 @@ AST_MATCHER(CXXConstructExpr, isSafeSpanTwoParamConstruct) {
   return false;
 }
 
+class MaxValueEval : public RecursiveASTVisitor<MaxValueEval> {
+
+  std::vector<llvm::APInt> val;
+  ASTContext &Context;
+  llvm::APInt Max;
+  unsigned bit_width;
+
+public:
+  typedef RecursiveASTVisitor<MaxValueEval> VisitorBase;
+
+  explicit MaxValueEval(ASTContext &Ctx, const Expr *exp) : Context(Ctx) {
+    bit_width = Ctx.getIntWidth(exp->getType());
+    Max = llvm::APInt::getSignedMaxValue(bit_width);
+    val.clear();
+  }
+
+  bool findMatch(Expr *exp) {
+    TraverseStmt(exp);
+    return true;
+  }
+
+  bool VisitDeclRefExpr(DeclRefExpr *dre) {
+    val.push_back(Max);
+    return false;
+  }
+
+  bool VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
+    val.push_back(Max);
+    return false;
+  }
+
+  bool EvaluateExpression(Expr *exp) {
+    Expr::EvalResult EVResult;
+    if (exp->EvaluateAsInt(EVResult, Context)) {
+      llvm::APSInt Result = EVResult.Val.getInt();
+      val.push_back(Result);
+      return true;
+    }
+    return false;
+  }
+
+  bool VisitBinaryOperator(BinaryOperator *E) {
+
+    if (EvaluateExpression(E)) {
+      return false;
+    } else {
+      TraverseStmt(E->getLHS());
+      llvm::APInt LHS = val.back();
+      val.pop_back();
+
+      TraverseStmt(E->getRHS());
+      llvm::APInt RHS = val.back();
+      val.pop_back();
+      llvm::APInt Result = Max;
+
+      switch (E->getOpcode()) {
+      case BO_And:
+      case BO_AndAssign:
+        Result = LHS & RHS;
+        break;
+
+      case BO_Or:
+      case BO_OrAssign:
+        Result = LHS | RHS;
+        break;
+
+      case BO_Shl:
+      case BO_ShlAssign:
+        if (RHS != Max.getLimitedValue())
+          Result = LHS << RHS.getLimitedValue();
+        break;
+
+      case BO_Shr:
+      case BO_ShrAssign:
+        if (RHS == Max.getLimitedValue())
+          Result = LHS;
+        else
+          Result = LHS.getLimitedValue() >> RHS.getLimitedValue();
+        break;
+
+      case BO_Rem:
+      case BO_RemAssign:
+        if (LHS.getLimitedValue() < RHS.getLimitedValue())
+          Result = LHS;
+        else
+          Result = --RHS;
+        break;
+
+      default:
+        break;
+      }
+      val.push_back(Result);
+      return false;
+    }
+    return true;
+  }
+
+  bool VisitExpr(Expr *E) {
+    if (EvaluateExpression(E)) {
+      return false;
+    }
+    return VisitorBase::VisitExpr(E);
+  }
+
+  APInt getValue() {
+    if (val.size() == 1)
+      return val[0];
+    else // A pattern we didn't consider was encountered
+      return Max;
+  }
+};
+
 AST_MATCHER(ArraySubscriptExpr, isSafeArraySubscript) {
   // FIXME: Proper solution:
   //  - refactor Sema::CheckArrayAccess
@@ -439,14 +551,13 @@ AST_MATCHER(ArraySubscriptExpr, isSafeArraySubscript) {
   if (!CATy)
     return false;
 
-  if (const auto *IdxLit = dyn_cast<IntegerLiteral>(Node.getIdx())) {
-    const APInt ArrIdx = IdxLit->getValue();
-    // FIXME: ArrIdx.isNegative() we could immediately emit an error as that's a
-    // bug
-    if (ArrIdx.isNonNegative() &&
-        ArrIdx.getLimitedValue() < CATy->getLimitedSize())
-      return true;
-  }
+  MaxValueEval Vis(Finder->getASTContext(), Node.getIdx());
+  Vis.findMatch(const_cast<Expr *>(Node.getIdx()));
+  APInt result = Vis.getValue();
+
+  if (result.isNonNegative() &&
+      result.getLimitedValue() < CATy->getLimitedSize())
+    return true;
 
   return false;
 }
