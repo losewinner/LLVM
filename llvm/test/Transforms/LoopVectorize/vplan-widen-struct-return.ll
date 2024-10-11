@@ -19,8 +19,8 @@ define void @struct_return_f32_widen(ptr noalias %in, ptr noalias writeonly %out
 ; CHECK-NEXT:      vp<%4> = vector-pointer ir<%arrayidx>
 ; CHECK-NEXT:      WIDEN ir<%in_val> = load vp<%4>
 ; CHECK-NEXT:      WIDEN-CALL ir<%call> = call  @foo(ir<%in_val>) (using library function: fixed_vec_foo)
-; CHECK-NEXT:      WIDEN ir<%extract_a> = extractvalue ir<%call>
-; CHECK-NEXT:      WIDEN ir<%extract_b> = extractvalue ir<%call>
+; CHECK-NEXT:      WIDEN ir<%extract_a> = extractvalue ir<%call>, ir<0>
+; CHECK-NEXT:      WIDEN ir<%extract_b> = extractvalue ir<%call>, ir<1>
 ; CHECK-NEXT:      CLONE ir<%arrayidx2> = getelementptr inbounds ir<%out_a>, vp<%3>
 ; CHECK-NEXT:      vp<%5> = vector-pointer ir<%arrayidx2>
 ; CHECK-NEXT:      WIDEN store vp<%5>, ir<%extract_a>
@@ -71,8 +71,8 @@ define void @struct_return_f32_replicate(ptr noalias %in, ptr noalias writeonly 
 ; CHECK-NEXT:      vp<%4> = vector-pointer ir<%arrayidx>
 ; CHECK-NEXT:      WIDEN ir<%in_val> = load vp<%4>
 ; CHECK-NEXT:      REPLICATE ir<%call> = call @foo(ir<%in_val>)
-; CHECK-NEXT:      WIDEN ir<%extract_a> = extractvalue ir<%call>
-; CHECK-NEXT:      WIDEN ir<%extract_b> = extractvalue ir<%call>
+; CHECK-NEXT:      WIDEN ir<%extract_a> = extractvalue ir<%call>, ir<0>
+; CHECK-NEXT:      WIDEN ir<%extract_b> = extractvalue ir<%call>, ir<1>
 ; CHECK-NEXT:      CLONE ir<%arrayidx2> = getelementptr inbounds ir<%out_a>, vp<%3>
 ; CHECK-NEXT:      vp<%5> = vector-pointer ir<%arrayidx2>
 ; CHECK-NEXT:      WIDEN store vp<%5>, ir<%extract_a>

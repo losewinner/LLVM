@@ -1314,9 +1314,11 @@ void VPWidenRecipe::execute(VPTransformState &State) {
     break;
   }
   case Instruction::ExtractValue: {
+    assert(getNumOperands() == 2 && "expected single level extractvalue");
     Value *Op = State.get(getOperand(0));
-    Value *Extract = Builder.CreateExtractValue(
-        Op, cast<ExtractValueInst>(getUnderlyingValue())->getIndices());
+    auto *CI = cast<ConstantInt>(getOperand(1)->getLiveInIRValue());
+    unsigned Idx = CI->getZExtValue();
+    Value *Extract = Builder.CreateExtractValue(Op, Idx);
     State.set(this, Extract);
     break;
   }
