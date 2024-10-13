@@ -69,6 +69,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/RISCVISAUtils.h"
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/xxhash.h"
 #include "llvm/TargetParser/RISCVISAInfo.h"
@@ -453,6 +454,18 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   if (Context.getTargetInfo().getTriple().getArch() == llvm::Triple::x86)
     getModule().addModuleFlag(llvm::Module::Error, "NumRegisterParameters",
                               CodeGenOpts.NumRegisterParameters);
+
+  if (CodeGenOpts.CFProtectionBranch &&
+      getTarget().checkCFProtectionBranchSupported(getDiags())) {
+    auto Scheme = CodeGenOpts.getCFBranchLabelScheme();
+    if (getTarget().checkCFBranchLabelSchemeSupported(Scheme, getDiags())) {
+      if (Scheme == CFBranchLabelSchemeKind::Default)
+        Scheme = getTarget().getDefaultCFBranchLabelScheme();
+
+      UseRISCVZicfilpFuncSigCFI =
+          (Scheme == CFBranchLabelSchemeKind::FuncSig && getTriple().isRISCV());
+    }
+  }
 }
 
 CodeGenModule::~CodeGenModule() {}
@@ -912,6 +925,8 @@ void CodeGenModule::Release() {
   }
   if (LangOpts.Sanitize.has(SanitizerKind::KCFI))
     finalizeKCFITypes();
+  if (UseRISCVZicfilpFuncSigCFI)
+    finalizeRISCVZicfilpFuncSigLabels();
   emitAtAvailableLinkGuard();
   if (Context.getTargetInfo().getTriple().isWasm())
     EmitMainVoidAlias();
@@ -2829,12 +2844,55 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
       F->addTypeMetadata(0, llvm::ConstantAsMetadata::get(CrossDsoTypeId));
 }
 
+uint32_t
+CodeGenModule::calcRISCVZicfilpFuncSigLabel(const FunctionType &FT,
+                                            const bool IsCXXInstanceMethod,
+                                            const bool IsCXXVirtualMethod) {
+  std::string OutName;
+  llvm::raw_string_ostream Out(OutName);
+  MangleContext &MC = getCXXABI().getMangleContext();
+  cast<ItaniumMangleContext>(MC).mangleForRISCVZicfilpFuncSigLabel(
+      FT, IsCXXInstanceMethod, IsCXXVirtualMethod, Out);
+  return llvm::RISCVISAUtils::zicfilpFuncSigHash(OutName);
+}
+
+uint32_t CodeGenModule::calcRISCVZicfilpFuncSigLabel(const FunctionDecl &FD) {
+  if (FD.isMain())
+    // All main functions use `int main(int, char**)` for label calculation
+    // according to psABI spec. This value is the pre-calculated label.
+    return 0xd0639;
+
+  if (isa<CXXDestructorDecl>(FD))
+    // All destructors use `void (void*)` for label calculation according to the
+    // psABI spec. This value is the pre-calculated label.
+    return 0x639c2;
+
+  bool IsCXXInstanceMethod = false;
+  bool IsCXXVirtualMethod = false;
+  if (const auto *const MD = dyn_cast<CXXMethodDecl>(&FD)) {
+    IsCXXInstanceMethod = MD->isInstance();
+    IsCXXVirtualMethod = MD->isVirtual();
+  }
+  return calcRISCVZicfilpFuncSigLabel(*FD.getFunctionType(),
+                                      IsCXXInstanceMethod, IsCXXVirtualMethod);
+}
+
 void CodeGenModule::setKCFIType(const FunctionDecl *FD, llvm::Function *F) {
   llvm::LLVMContext &Ctx = F->getContext();
   llvm::MDBuilder MDB(Ctx);
   F->setMetadata(llvm::LLVMContext::MD_kcfi_type,
                  llvm::MDNode::get(
                      Ctx, MDB.createConstant(CreateKCFITypeId(FD->getType()))));
+}
+
+void CodeGenModule::setRISCVZicfilpFuncSigLabel(const FunctionDecl *FD,
+                                                llvm::Function *F) {
+  llvm::LLVMContext &Ctx = F->getContext();
+  llvm::MDBuilder MDB(Ctx);
+  F->setMetadata(
+      "riscv_lpad_label",
+      llvm::MDNode::get(Ctx, MDB.createConstant(llvm::ConstantInt::get(
+                                 Int32Ty, calcRISCVZicfilpFuncSigLabel(*FD)))));
 }
 
 static bool allowKCFIIdentifier(StringRef Name) {
@@ -2874,6 +2932,29 @@ void CodeGenModule::finalizeKCFITypes() {
                        Name + ", " + Twine(Type->getZExtValue()) + "\n")
                           .str();
     M.appendModuleInlineAsm(Asm);
+  }
+}
+
+void CodeGenModule::finalizeRISCVZicfilpFuncSigLabels() {
+  llvm::Module &M = getModule();
+  for (llvm::Function &F : M.functions())
+    finalizeRISCVZicfilpFuncSigLabel(F);
+}
+
+void CodeGenModule::finalizeRISCVZicfilpFuncSigLabel(llvm::Function &F) {
+  const unsigned MDKindID = F.getContext().getMDKindID("riscv_lpad_label");
+  if (!F.hasAddressTaken() && F.hasLocalLinkage()) {
+    F.eraseMetadata(MDKindID);
+    return;
+  }
+
+  const llvm::MDNode *MD = F.getMetadata(MDKindID);
+  if (!MD) {
+    GlobalDecl GD;
+    if (!lookupRepresentativeDecl(F.getName(), GD))
+      return;
+
+    setRISCVZicfilpFuncSigLabel(cast<FunctionDecl>(GD.getDecl()), &F);
   }
 }
 
@@ -2961,6 +3042,9 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
 
   if (LangOpts.Sanitize.has(SanitizerKind::KCFI))
     setKCFIType(FD, F);
+
+  if (UseRISCVZicfilpFuncSigCFI)
+    setRISCVZicfilpFuncSigLabel(FD, F);
 
   if (getLangOpts().OpenMP && FD->hasAttr<OMPDeclareSimdDeclAttr>())
     getOpenMPRuntime().emitDeclareSimdFunction(FD, F);
