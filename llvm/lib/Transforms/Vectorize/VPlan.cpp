@@ -319,16 +319,20 @@ Value *VPTransformState::get(VPValue *Def, bool NeedsScalar) {
     LastLane = 0;
   }
 
-  auto *LastInst = cast<Instruction>(get(Def, LastLane));
-  // Set the insert point after the last scalarized instruction or after the
-  // last PHI, if LastInst is a PHI. This ensures the insertelement sequence
-  // will directly follow the scalar definitions.
+  auto *LastDef = get(Def, LastLane);
   auto OldIP = Builder.saveIP();
-  auto NewIP =
-      isa<PHINode>(LastInst)
-          ? BasicBlock::iterator(LastInst->getParent()->getFirstNonPHI())
-          : std::next(BasicBlock::iterator(LastInst));
-  Builder.SetInsertPoint(&*NewIP);
+  if (auto *LastInst = dyn_cast<Instruction>(LastDef)) {
+    // TODO: Remove once VPDerivedIVReicpe can be simplified, which requires
+    // vector trip count being modeled in VPlan.
+    // Set the insert point after the last scalarized instruction or after the
+    // last PHI, if LastInst is a PHI. This ensures the insertelement sequence
+    // will directly follow the scalar definitions.
+    auto NewIP =
+        isa<PHINode>(LastInst)
+            ? BasicBlock::iterator(LastInst->getParent()->getFirstNonPHI())
+            : std::next(BasicBlock::iterator(LastInst));
+    Builder.SetInsertPoint(&*NewIP);
+  }
 
   // However, if we are vectorizing, we need to construct the vector values.
   // If the value is known to be uniform after vectorization, we can just
@@ -343,7 +347,7 @@ Value *VPTransformState::get(VPValue *Def, bool NeedsScalar) {
   } else {
     // Initialize packing with insertelements to start from undef.
     assert(!VF.isScalable() && "VF is assumed to be non scalable.");
-    Value *Undef = PoisonValue::get(VectorType::get(LastInst->getType(), VF));
+    Value *Undef = PoisonValue::get(VectorType::get(LastDef->getType(), VF));
     set(Def, Undef);
     for (unsigned Lane = 0; Lane < VF.getKnownMinValue(); ++Lane)
       packScalarIntoVectorValue(Def, Lane);
@@ -456,10 +460,17 @@ void VPIRBasicBlock::execute(VPTransformState *State) {
   State->Builder.SetInsertPoint(getIRBasicBlock()->getTerminator());
   executeRecipes(State, getIRBasicBlock());
   if (getSingleSuccessor()) {
-    assert(isa<UnreachableInst>(getIRBasicBlock()->getTerminator()));
-    auto *Br = State->Builder.CreateBr(getIRBasicBlock());
-    Br->setOperand(0, nullptr);
-    getIRBasicBlock()->getTerminator()->eraseFromParent();
+    auto *SuccVPIRBB = dyn_cast<VPIRBasicBlock>(getSingleSuccessor());
+    if (SuccVPIRBB && SuccVPIRBB->getIRBasicBlock() ==
+                          getIRBasicBlock()->getSingleSuccessor()) {
+      cast<BranchInst>(getIRBasicBlock()->getTerminator())
+          ->setOperand(0, nullptr);
+    } else {
+      assert(isa<UnreachableInst>(getIRBasicBlock()->getTerminator()));
+      auto *Br = State->Builder.CreateBr(getIRBasicBlock());
+      Br->setOperand(0, nullptr);
+      getIRBasicBlock()->getTerminator()->eraseFromParent();
+    }
   }
 
   for (VPBlockBase *PredVPBlock : getHierarchicalPredecessors()) {
@@ -843,10 +854,6 @@ void VPRegionBlock::print(raw_ostream &O, const Twine &Indent,
 #endif
 
 VPlan::~VPlan() {
-  for (auto &KV : LiveOuts)
-    delete KV.second;
-  LiveOuts.clear();
-
   if (Entry) {
     VPValue DummyValue;
     for (VPBlockBase *Block : vp_depth_first_shallow(Entry))
@@ -909,6 +916,9 @@ VPlanPtr VPlan::createInitialVPlan(Type *InductionTy,
   VPBlockUtils::insertBlockAfter(MiddleVPBB, TopRegion);
 
   VPBasicBlock *ScalarPH = new VPBasicBlock("scalar.ph");
+  VPBasicBlock *ScalarHeader =
+      VPIRBasicBlock::fromBasicBlock(TheLoop->getHeader());
+  VPBlockUtils::connectBlocks(ScalarPH, ScalarHeader);
   if (!RequiresScalarEpilogueCheck) {
     VPBlockUtils::connectBlocks(MiddleVPBB, ScalarPH);
     return Plan;
@@ -1058,6 +1068,8 @@ void VPlan::execute(VPTransformState *State) {
   BrInst->insertBefore(MiddleBB->getTerminator());
   MiddleBB->getTerminator()->eraseFromParent();
   State->CFG.DTU.applyUpdates({{DominatorTree::Delete, MiddleBB, ScalarPh}});
+  State->CFG.DTU.applyUpdates(
+      {{DominatorTree::Delete, ScalarPh, ScalarPh->getSingleSuccessor()}});
 
   // Generate code in the loop pre-header and body.
   for (VPBlockBase *Block : vp_depth_first_shallow(Entry))
@@ -1176,12 +1188,6 @@ void VPlan::print(raw_ostream &O) const {
     Block->print(O, "", SlotTracker);
   }
 
-  if (!LiveOuts.empty())
-    O << "\n";
-  for (const auto &KV : LiveOuts) {
-    KV.second->print(O, SlotTracker);
-  }
-
   O << "}\n";
 }
 
@@ -1217,11 +1223,6 @@ void VPlan::printDOT(raw_ostream &O) const {
 LLVM_DUMP_METHOD
 void VPlan::dump() const { print(dbgs()); }
 #endif
-
-void VPlan::addLiveOut(PHINode *PN, VPValue *V) {
-  assert(LiveOuts.count(PN) == 0 && "an exit value for PN already exists");
-  LiveOuts.insert({PN, new VPLiveOut(PN, V)});
-}
 
 static void remapOperands(VPBlockBase *Entry, VPBlockBase *NewEntry,
                           DenseMap<VPValue *, VPValue *> &Old2NewVPValues) {
@@ -1289,10 +1290,6 @@ VPlan *VPlan::duplicate() {
 
   remapOperands(Preheader, NewPreheader, Old2NewVPValues);
   remapOperands(Entry, NewEntry, Old2NewVPValues);
-
-  // Clone live-outs.
-  for (const auto &[_, LO] : LiveOuts)
-    NewPlan->addLiveOut(LO->getPhi(), Old2NewVPValues[LO->getOperand(0)]);
 
   // Initialize remaining fields of cloned VPlan.
   NewPlan->VFs = VFs;
