@@ -410,6 +410,8 @@ clang-format
 
 - Adds ``BreakBinaryOperations`` option.
 
+- Adds ``AllowShortNamespacesOnASingleLine`` option.
+
 libclang
 --------
 - Add ``clang_isBeforeInTranslationUnit``. Given two source locations, it determines
