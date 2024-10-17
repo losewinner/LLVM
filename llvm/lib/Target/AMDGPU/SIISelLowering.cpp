@@ -16890,3 +16890,11 @@ SITargetLowering::lowerIdempotentRMWIntoFencedLoad(AtomicRMWInst *AI) const {
   AI->eraseFromParent();
   return LI;
 }
+
+bool SITargetLowering::hasAndNot(SDValue Op) const {
+  if (Op->isDivergent())
+    return false;
+
+  EVT VT = Op.getValueType();
+  return VT == MVT::i32 || VT == MVT::i64;
+}
