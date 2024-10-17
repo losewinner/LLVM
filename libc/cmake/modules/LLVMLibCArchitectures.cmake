@@ -84,7 +84,7 @@ if(NOT (libc_compiler_info_result EQUAL "0"))
   message(FATAL_ERROR "libc build: error querying compiler info from the "
                       "compiler: ${libc_compiler_info}")
 endif()
-string(REGEX MATCH "Target: [-_a-z0-9.]+[ \r\n]+"
+string(REGEX MATCH "Target: [-_a-zA-Z0-9.]+[ \r\n]+"
        libc_compiler_target_info ${libc_compiler_info})
 if(NOT libc_compiler_target_info)
   message(FATAL_ERROR "libc build: could not read compiler target info from:\n"
@@ -205,6 +205,13 @@ if(explicit_target_triple AND
          LIBC_COMPILE_OPTIONS_DEFAULT "--target=${explicit_target_triple}")
   endif()
 endif()
+
+
+# Windows does not support full mode build.
+if (LIBC_TARGET_OS_IS_WINDOWS AND LLVM_LIBC_FULL_BUILD)
+  message(FATAL_ERROR "Windows does not support full mode build.")
+endif ()
+
 
 message(STATUS
         "Building libc for ${LIBC_TARGET_ARCHITECTURE} on ${LIBC_TARGET_OS} with

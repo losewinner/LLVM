@@ -25,6 +25,7 @@
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
 #include "llvm/Passes/OptimizationLevel.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
@@ -299,8 +300,6 @@ extern cl::opt<std::string> UseCtxProfile;
 
 namespace llvm {
 extern cl::opt<bool> EnableMemProfContextDisambiguation;
-
-extern cl::opt<bool> EnableInferAlignmentPass;
 } // namespace llvm
 
 PipelineTuningOptions::PipelineTuningOptions() {
@@ -976,7 +975,8 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
 
   if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
     MainCGPipeline.addPass(CoroSplitPass(Level != OptimizationLevel::O0));
-    MainCGPipeline.addPass(CoroAnnotationElidePass());
+    MainCGPipeline.addPass(
+        createCGSCCToFunctionPassAdaptor(CoroAnnotationElidePass()));
   }
 
   // Make sure we don't affect potential future NoRerun CGSCC adaptors.
@@ -1014,6 +1014,11 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
   IP.EnableDeferral = false;
 
   MPM.addPass(ModuleInlinerPass(IP, UseInlineAdvisor, Phase));
+  if (!UseCtxProfile.empty() && Phase == ThinOrFullLTOPhase::ThinLTOPostLink) {
+    MPM.addPass(GlobalOptPass());
+    MPM.addPass(GlobalDCEPass());
+    MPM.addPass(PGOCtxProfFlatteningPass());
+  }
 
   MPM.addPass(createModuleToFunctionPassAdaptor(
       buildFunctionSimplificationPipeline(Level, Phase),
@@ -1022,8 +1027,7 @@ PassBuilder::buildModuleInlinerPipeline(OptimizationLevel Level,
   if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
     MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
         CoroSplitPass(Level != OptimizationLevel::O0)));
-    MPM.addPass(
-        createModuleToPostOrderCGSCCPassAdaptor(CoroAnnotationElidePass()));
+    MPM.addPass(createModuleToFunctionPassAdaptor(CoroAnnotationElidePass()));
   }
 
   return MPM;
@@ -1175,8 +1179,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Enable contextual profiling instrumentation.
   const bool IsCtxProfGen = !IsPGOInstrGen && IsPreLink &&
                             PGOCtxProfLoweringPass::isCtxIRPGOInstrEnabled();
-  const bool IsCtxProfUse = !UseCtxProfile.empty() && !PGOOpt &&
-                            Phase == ThinOrFullLTOPhase::ThinLTOPreLink;
+  const bool IsCtxProfUse =
+      !UseCtxProfile.empty() && Phase == ThinOrFullLTOPhase::ThinLTOPreLink;
 
   if (IsPGOInstrGen || IsPGOInstrUse || IsMemprofUse || IsCtxProfGen ||
       IsCtxProfUse)
@@ -1244,8 +1248,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   FPM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
 
-  if (EnableInferAlignmentPass)
-    FPM.addPass(InferAlignmentPass());
+  FPM.addPass(InferAlignmentPass());
   if (IsFullLTO) {
     // The vectorizer may have significantly shortened a loop body; unroll
     // again. Unroll small loops to hide loop backedge latency and saturate any
@@ -1363,8 +1366,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
   }
 
-  if (EnableInferAlignmentPass)
-    FPM.addPass(InferAlignmentPass());
+  FPM.addPass(InferAlignmentPass());
   FPM.addPass(InstCombinePass());
 
   // This is needed for two reasons:
@@ -1667,7 +1669,7 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
   // In pre-link, for ctx prof use, we stop here with an instrumented IR. We let
   // thinlto use the contextual info to perform imports; then use the contextual
   // profile in the post-thinlink phase.
-  if (!UseCtxProfile.empty() && !PGOOpt) {
+  if (!UseCtxProfile.empty()) {
     addRequiredLTOPreLinkPasses(MPM);
     return MPM;
   }
@@ -1708,7 +1710,8 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
     // For ThinLTO we must apply the context disambiguation decisions early, to
     // ensure we can correctly match the callsites to summary data.
     if (EnableMemProfContextDisambiguation)
-      MPM.addPass(MemProfContextDisambiguation(ImportSummary));
+      MPM.addPass(MemProfContextDisambiguation(
+          ImportSummary, PGOOpt && PGOOpt->Action == PGOOptions::SampleUse));
 
     // These passes import type identifier resolutions for whole-program
     // devirtualization and CFI. They must run early because other passes may
@@ -1740,11 +1743,14 @@ ModulePassManager PassBuilder::buildThinLTODefaultPipeline(
     MPM.addPass(GlobalDCEPass());
     return MPM;
   }
-
-  // Add the core simplification pipeline.
-  MPM.addPass(buildModuleSimplificationPipeline(
-      Level, ThinOrFullLTOPhase::ThinLTOPostLink));
-
+  if (!UseCtxProfile.empty()) {
+    MPM.addPass(
+        buildModuleInlinerPipeline(Level, ThinOrFullLTOPhase::ThinLTOPostLink));
+  } else {
+    // Add the core simplification pipeline.
+    MPM.addPass(buildModuleSimplificationPipeline(
+        Level, ThinOrFullLTOPhase::ThinLTOPostLink));
+  }
   // Now add the optimization pipeline.
   MPM.addPass(buildModuleOptimizationPipeline(
       Level, ThinOrFullLTOPhase::ThinLTOPostLink));
@@ -1918,7 +1924,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // amount of additional cloning required to distinguish the allocation
   // contexts.
   if (EnableMemProfContextDisambiguation)
-    MPM.addPass(MemProfContextDisambiguation());
+    MPM.addPass(MemProfContextDisambiguation(
+        /*Summary=*/nullptr,
+        PGOOpt && PGOOpt->Action == PGOOptions::SampleUse));
 
   // Optimize globals again after we ran the inliner.
   MPM.addPass(GlobalOptPass());
