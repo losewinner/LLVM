@@ -3285,7 +3285,7 @@ bool FunctionDecl::isImmediateEscalating() const {
   if (isDefaulted() && !isConsteval())
     return true;
 
-  if (auto *CD = dyn_cast<CXXConstructorDecl>(this);
+  if (const auto *CD = dyn_cast<CXXConstructorDecl>(this);
       CD && CD->isInheritingConstructor())
     return CD->getInheritedConstructor()
         .getConstructor()
@@ -3311,7 +3311,7 @@ bool FunctionDecl::isImmediateFunction() const {
   if (isImmediateEscalating() && BodyContainsImmediateEscalatingExpressions())
     return true;
 
-  if (auto *CD = dyn_cast<CXXConstructorDecl>(this);
+  if (const auto *CD = dyn_cast<CXXConstructorDecl>(this);
       CD && CD->isInheritingConstructor())
     return CD->getInheritedConstructor()
         .getConstructor()
