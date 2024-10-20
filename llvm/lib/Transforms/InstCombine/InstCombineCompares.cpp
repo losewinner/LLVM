@@ -7892,23 +7892,27 @@ static Instruction *foldFCmpReciprocalAndZero(FCmpInst &I, Instruction *LHSI,
   return new FCmpInst(Pred, LHSI->getOperand(1), RHSC, "", &I);
 }
 
-// Fold trunc(x) < constant --> x < constant if possible.
+// Fold fptrunc(x) < constant --> x < constant if possible.
 static Instruction *foldFCmpFpTrunc(FCmpInst &I, Instruction *LHSI,
                                     Constant *RHSC) {
   FCmpInst::Predicate Pred = I.getPredicate();
   bool RoundDown = false;
 
-  if ((Pred == FCmpInst::FCMP_OGE) || (Pred == FCmpInst::FCMP_UGE) ||
-      (Pred == FCmpInst::FCMP_OLT) || (Pred == FCmpInst::FCMP_ULT))
+  if (Pred == FCmpInst::FCMP_OGE || Pred == FCmpInst::FCMP_UGE ||
+      Pred == FCmpInst::FCMP_OLT || Pred == FCmpInst::FCMP_ULT)
     RoundDown = true;
-  else if ((Pred == FCmpInst::FCMP_OGT) || (Pred == FCmpInst::FCMP_UGT) ||
-           (Pred == FCmpInst::FCMP_OLE) || (Pred == FCmpInst::FCMP_ULE))
+  else if (Pred == FCmpInst::FCMP_OGT || Pred == FCmpInst::FCMP_UGT ||
+           Pred == FCmpInst::FCMP_OLE || Pred == FCmpInst::FCMP_ULE)
     RoundDown = false;
   else
     return nullptr;
 
   const APFloat *RValue;
   if (!match(RHSC, m_APFloat(RValue)))
+    return nullptr;
+
+  // RHSC should not be nan or infinity.
+  if (RValue->isNaN() || RValue->isInfinity())
     return nullptr;
 
   Type *LType = LHSI->getOperand(0)->getType();
@@ -7928,16 +7932,26 @@ static Instruction *foldFCmpFpTrunc(FCmpInst &I, Instruction *LHSI,
   ExtNextRValue.convert(LEleType->getFltSemantics(),
                         APFloat::rmNearestTiesToEven, &lossInfo);
 
+  // Binary search to find the maximal (or minimal) value after RValue promotion.
+  // RValue can't have special comparison rules, which means nan or inf is not
+  // allowed here.
   APFloat RoundValue{LEleType->getFltSemantics()};
   {
     APFloat Two{LEleType->getFltSemantics(), 2};
+
+    // The (negative) maximum of RValue will become infinity when rounded up (down).
+    // Set the limit of ExtNextRValue.
+    if (NextRValue.isInfinity()) {
+      ExtNextRValue = ExtRValue * Two;
+    }
+
     APFloat LowBound = RoundDown ? ExtNextRValue : ExtRValue;
     APFloat UpBound = RoundDown ? ExtRValue : ExtNextRValue;
 
     while (true) {
-      APFloat DupUpBound = UpBound;
-      DupUpBound.next(true);
-      if (DupUpBound == LowBound) {
+      APFloat UpBoundNext = UpBound;
+      UpBoundNext.next(true);
+      if (UpBoundNext == LowBound) {
         RoundValue = RoundDown ? UpBound : LowBound;
         break;
       }
