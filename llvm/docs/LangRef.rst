@@ -16575,7 +16575,11 @@ type.
 Semantics:
 """"""""""
 Follows the IEEE754 2008 semantics for minNum.
-This also matches the behavior of libm's fmin.
+This also matches the current (C23) behavior of libm's fmin.
+
+Historically, libc returns NUM for NUM vs (sNaN or qNaN), and may return
+sNaN for qNaN vs sNaN. Withe recent libc versions, libc follows IEEE754-2008:
+NUM vs sNaN -> qNaN; NUM vs qNaN -> NUM; qNaN vs sNaN -> qNaN; sNaN vs sNaN -> qNaN.
 
 If either operand is a qNaN, returns the other non-NaN operand. Returns
 NaN only if both operands are NaN or either operand is sNaN.
@@ -16618,7 +16622,11 @@ type.
 Semantics:
 """"""""""
 Follows the IEEE754 2008 semantics for maxNum.
-This also matches the behavior of libm's fmax.
+This also matches the current (C23) behavior of libm's fmax.
+
+Historically, libc returns NUM for NUM vs (sNaN or qNaN), and may return
+sNaN for qNaN vs sNaN. Withe recent libc versions, libc follows IEEE754-2008:
+NUM vs sNaN -> qNaN; NUM vs qNaN -> NUM; qNaN vs sNaN -> qNaN; sNaN vs sNaN -> qNaN.
 
 If either operand is a NaN, returns the other non-NaN operand. Returns
 NaN only if both operands are NaN or either operand is sNaN.
