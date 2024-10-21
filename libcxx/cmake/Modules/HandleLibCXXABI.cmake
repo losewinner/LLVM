@@ -20,7 +20,7 @@ include(GNUInstallDirs)
 # since we would end up also adding the system-provided C++ Standard Library to
 # the search path. Instead, what we do is copy just the ABI library headers to
 # a private directory and add just that path when we build libc++.
-function(import_private_headers target include_dirs headers)
+function(_import_private_headers target include_dirs headers)
   if (NOT ${include_dirs})
     message(FATAL_ERROR "Missing include paths for the selected ABI library!")
   endif()
@@ -58,15 +58,14 @@ function(import_private_headers target include_dirs headers)
   target_include_directories(${target} INTERFACE "${LIBCXX_BINARY_DIR}/private-abi-headers/${target}")
 endfunction()
 
-# This function creates an imported static library named <target>.
-# It imports a library named <name> searched at the given <path>.
-function(import_static_library target path name)
-  add_library(${target} STATIC IMPORTED GLOBAL)
-  find_library(file
-    NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}${name}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    PATHS "${path}"
-    NO_CACHE)
-  set_target_properties(${target} PROPERTIES IMPORTED_LOCATION "${file}")
+# This function adds linker flags to a <target> appropriate for merging the object
+# files of another static <library> into whoever links against <target>.
+function(_merge_static_library target library)
+  if (APPLE)
+    target_link_options(${target} INTERFACE "-Wl,-force_load" "${library}")
+  else()
+    target_link_options(${target} INTERFACE "-Wl,--whole-archive" "-Wl,-Bstatic" "${library}" "-Wl,-Bdynamic" "-Wl,--no-whole-archive")
+  endif()
 endfunction()
 
 # This function creates a library target for linking against an external ABI library.
@@ -75,7 +74,7 @@ endfunction()
 # <name>: The name of the library file to search for (e.g. c++abi, stdc++, cxxrt, supc++)
 # <type>: Whether to set up a static or a shared library (e.g. SHARED or STATIC)
 # <merged>: Whether to include the ABI library's object files directly into libc++. Only makes sense for a static ABI library.
-function(import_external_abi_library target name type merged)
+function(_import_external_abi_library target name type merged)
   if (${merged} AND "${type}" STREQUAL "SHARED")
     message(FATAL_ERROR "Can't import an external ABI library for merging when requesting a shared ABI library.")
   endif()
@@ -83,21 +82,23 @@ function(import_external_abi_library target name type merged)
   if ("${type}" STREQUAL "SHARED")
     add_library(${target} INTERFACE IMPORTED GLOBAL)
     set_target_properties(${target} PROPERTIES IMPORTED_LIBNAME "${name}")
+
   elseif ("${type}" STREQUAL "STATIC")
+    add_library(${target}-imported STATIC IMPORTED GLOBAL)
+    find_library(file
+      NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}${name}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      PATHS "${LIBCXX_CXX_ABI_LIBRARY_PATH}"
+      NO_CACHE)
+    if (NOT "${file}")
+      message(FATAL_ERROR "Failed to find static library ${name} at path ${LIBCXX_CXX_ABI_LIBRARY_PATH}")
+    endif()
+    set_target_properties(${target}-imported PROPERTIES IMPORTED_LOCATION "${file}")
+
+    add_library(${target} INTERFACE)
     if (${merged})
-      import_static_library(${target}-impl "${LIBCXX_CXX_ABI_LIBRARY_PATH}" ${name})
-      add_library(${target} INTERFACE)
-      if (APPLE)
-        target_link_options(${target} INTERFACE
-          "-Wl,-force_load" "$<TARGET_PROPERTY:${target}-impl,IMPORTED_LOCATION>")
-      else()
-        target_link_options(${target} INTERFACE
-          "-Wl,--whole-archive" "-Wl,-Bstatic"
-          "$<TARGET_PROPERTY:${target}-impl,IMPORTED_LOCATION>"
-          "-Wl,-Bdynamic" "-Wl,--no-whole-archive")
-      endif()
+      _merge_static_library(${target} "$<TARGET_PROPERTY:${target}-imported,IMPORTED_LOCATION>")
     else()
-      import_static_library(${target} "${LIBCXX_CXX_ABI_LIBRARY_PATH}" ${name})
+      target_link_libraries(${target} INTERFACE ${target}-imported)
     endif()
   endif()
 endfunction()
@@ -133,22 +134,22 @@ function(setup_abi_library abi_target linked_into input)
 
   # Link against a system-provided libstdc++
   if ("${stdlib}" STREQUAL "libstdc++")
-    import_external_abi_library(${abi_target} stdc++ ${search_type} ${merged})
-    import_private_headers(${abi_target} "${LIBCXX_CXX_ABI_INCLUDE_PATHS}"
+    _import_external_abi_library(${abi_target} stdc++ ${search_type} ${merged})
+    _import_private_headers(${abi_target} "${LIBCXX_CXX_ABI_INCLUDE_PATHS}"
       "cxxabi.h;bits/c++config.h;bits/os_defines.h;bits/cpu_defines.h;bits/cxxabi_tweaks.h;bits/cxxabi_forced.h")
     target_compile_definitions(${abi_target} INTERFACE "-DLIBSTDCXX" "-D__GLIBCXX__")
 
   # Link against a system-provided libsupc++
   elseif ("${stdlib}" STREQUAL "libsupc++")
-    import_external_abi_library(${abi_target} supc++ ${search_type} ${merged})
-    import_private_headers(${abi_target} "${LIBCXX_CXX_ABI_INCLUDE_PATHS}"
+    _import_external_abi_library(${abi_target} supc++ ${search_type} ${merged})
+    _import_private_headers(${abi_target} "${LIBCXX_CXX_ABI_INCLUDE_PATHS}"
       "cxxabi.h;bits/c++config.h;bits/os_defines.h;bits/cpu_defines.h;bits/cxxabi_tweaks.h;bits/cxxabi_forced.h")
     target_compile_definitions(${abi_target} INTERFACE "-D__GLIBCXX__")
 
   # Link against a system-provided libcxxrt
   elseif ("${stdlib}" STREQUAL "libcxxrt")
-    import_external_abi_library(${abi_target} cxxrt ${search_type} ${merged})
-    import_private_headers(${abi_target} "${LIBCXX_CXX_ABI_INCLUDE_PATHS}"
+    _import_external_abi_library(${abi_target} cxxrt ${search_type} ${merged})
+    _import_private_headers(${abi_target} "${LIBCXX_CXX_ABI_INCLUDE_PATHS}"
       "cxxabi.h;unwind.h;unwind-arm.h;unwind-itanium.h")
     target_compile_definitions(${abi_target} INTERFACE "-DLIBCXXRT")
 
@@ -159,18 +160,18 @@ function(setup_abi_library abi_target linked_into input)
 
   # Link against a system-provided libc++abi
   elseif ("${stdlib}" STREQUAL "system-libcxxabi")
-    import_external_abi_library(${abi_target} c++abi ${search_type} ${merged})
-    import_private_headers(${abi_target} "${LIBCXX_CXX_ABI_INCLUDE_PATHS}"
+    _import_external_abi_library(${abi_target} c++abi ${search_type} ${merged})
+    _import_private_headers(${abi_target} "${LIBCXX_CXX_ABI_INCLUDE_PATHS}"
       "cxxabi.h;__cxxabi_config.h")
     target_compile_definitions(${abi_target} INTERFACE "-DLIBCXX_BUILDING_LIBCXXABI")
 
   # Link against the in-tree libc++abi.
   elseif ("${stdlib}" STREQUAL "libcxxabi")
     if (${merged})
-      get_target_property(_outdir cxxabi_static ARCHIVE_OUTPUT_DIRECTORY)
-      get_target_property(_outname cxxabi_static OUTPUT_NAME)
-      set(LIBCXX_CXX_ABI_LIBRARY_PATH "${_outdir}")
-      import_external_abi_library(${abi_target} "${_outname}" STATIC TRUE)
+      add_library(${abi_target} INTERFACE)
+      _merge_static_library(${abi_target}
+        "$<TARGET_PROPERTY:cxxabi_static,LIBRARY_OUTPUT_DIRECTORY>/${CMAKE_STATIC_LIBRARY_PREFIX}$<TARGET_PROPERTY:cxxabi_static,OUTPUT_NAME>${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      target_link_libraries(${abi_target} INTERFACE cxxabi-headers)
     else()
       string(TOLOWER "${search_type}" type)
       add_library(${abi_target} INTERFACE)
