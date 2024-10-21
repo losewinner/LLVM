@@ -311,9 +311,9 @@ The following options allow building libc++ for a different ABI version.
 
   Select the ABI library to build libc++ against. This CMake option also supports "consumption specifiers", which
   specify how the selected ABI library should be consumed by libc++. The supported specifiers are:
-    - ``shared``: The selected ABI library should be used as a shared library.
-    - ``static``: The selected ABI library should be used as a static library.
-    - ``merged``: The selected ABI library should be a static library whose object files will be merged directly into the produced libc++ library.
+  - ``shared``: The selected ABI library should be used as a shared library.
+  - ``static``: The selected ABI library should be used as a static library.
+  - ``merged``: The selected ABI library should be a static library whose object files will be merged directly into the produced libc++ library.
 
   A consumption specifier is provided by appending it to the name of the library, such as ``LIBCXX_CXX_ABI=merged-libcxxabi``.
   If no consumption specifier is provided, the libc++ shared library will default to using a shared ABI library, and the
