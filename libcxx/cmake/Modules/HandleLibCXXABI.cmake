@@ -172,6 +172,7 @@ function(setup_abi_library abi_target linked_into input)
       _merge_static_library(${abi_target}
         "$<TARGET_PROPERTY:cxxabi_static,LIBRARY_OUTPUT_DIRECTORY>/${CMAKE_STATIC_LIBRARY_PREFIX}$<TARGET_PROPERTY:cxxabi_static,OUTPUT_NAME>${CMAKE_STATIC_LIBRARY_SUFFIX}")
       target_link_libraries(${abi_target} INTERFACE cxxabi-headers)
+      add_dependencies(${abi_target} cxxabi_static)
     else()
       string(TOLOWER "${search_type}" type)
       add_library(${abi_target} INTERFACE)
