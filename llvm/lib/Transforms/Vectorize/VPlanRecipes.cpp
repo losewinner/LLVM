@@ -641,8 +641,6 @@ Value *VPInstruction::generate(VPTransformState &State) {
     return NewPhi;
   }
   case VPInstruction::CSAMaskPhi: {
-    IRBuilder<>::InsertPointGuard Guard(State.Builder);
-    State.Builder.SetInsertPoint(State.CFG.PrevBB->getFirstNonPHI());
     BasicBlock *PreheaderBB = State.CFG.getPreheaderBBFor(this);
     Value *InitMask = State.get(getOperand(0));
     PHINode *MaskPhi =
