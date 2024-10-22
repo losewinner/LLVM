@@ -5066,3 +5066,17 @@ llvm::json::Value
 Target::ReportStatistics(const lldb_private::StatisticsOptions &options) {
   return m_stats.ToJSON(*this, options);
 }
+
+bool Target::SectionLoadListIsEmpty() const {
+  return const_cast<Target *>(this)->GetSectionLoadList().IsEmpty();
+}
+
+lldb::addr_t Target::GetSectionLoadAddress(const lldb::SectionSP &section_sp) {
+  return GetSectionLoadList().GetSectionLoadAddress(section_sp);
+}
+
+void Target::ClearSectionLoadList() { GetSectionLoadList().Clear(); }
+
+void Target::DumpSectionLoadList(Stream &s) {
+  GetSectionLoadList().Dump(s, this);
+}
