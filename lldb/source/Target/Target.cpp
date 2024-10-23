@@ -5067,9 +5067,7 @@ Target::ReportStatistics(const lldb_private::StatisticsOptions &options) {
   return m_stats.ToJSON(*this, options);
 }
 
-bool Target::SectionLoadListIsEmpty() const {
-  return const_cast<Target *>(this)->GetSectionLoadList().IsEmpty();
-}
+bool Target::HasLoadedSections() { return !GetSectionLoadList().IsEmpty(); }
 
 lldb::addr_t Target::GetSectionLoadAddress(const lldb::SectionSP &section_sp) {
   return GetSectionLoadList().GetSectionLoadAddress(section_sp);
