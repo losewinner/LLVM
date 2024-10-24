@@ -15,7 +15,6 @@ using namespace clang::ast_matchers;
 using namespace clang::ast_matchers::internal;
 
 namespace clang::tidy::modernize {
-
 UseIntegerSignComparisonCheck::UseIntegerSignComparisonCheck(
     StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
@@ -120,17 +119,17 @@ void UseIntegerSignComparisonCheck::check(
     return;
 
   const BinaryOperator::Opcode OpCode = BinaryOp->getOpcode();
-  const auto *Lhs = BinaryOp->getLHS()->IgnoreParenImpCasts();
-  const auto *Rhs = BinaryOp->getRHS()->IgnoreParenImpCasts();
-  if (Lhs == nullptr || Rhs == nullptr)
+  const auto *LHS = BinaryOp->getLHS()->IgnoreParenImpCasts();
+  const auto *RHS = BinaryOp->getRHS()->IgnoreParenImpCasts();
+  if (LHS == nullptr || RHS == nullptr)
     return;
 
   const StringRef LhsString(Lexer::getSourceText(
-      CharSourceRange::getTokenRange(Lhs->getSourceRange()),
+      CharSourceRange::getTokenRange(LHS->getSourceRange()),
       *Result.SourceManager, getLangOpts()));
 
   const StringRef RhsString(Lexer::getSourceText(
-      CharSourceRange::getTokenRange(Rhs->getSourceRange()),
+      CharSourceRange::getTokenRange(RHS->getSourceRange()),
       *Result.SourceManager, getLangOpts()));
 
   DiagnosticBuilder Diag =
@@ -142,12 +141,10 @@ void UseIntegerSignComparisonCheck::check(
     return;
 
   std::string CmpNamespace;
-  if (getLangOpts().CPlusPlus17 && IsQtApplication) {
-    CmpNamespace = std::string("q20::") + parseOpCode(OpCode);
-  }
-
   if (getLangOpts().CPlusPlus20) {
     CmpNamespace = std::string("std::") + parseOpCode(OpCode);
+  } else if (getLangOpts().CPlusPlus17 && IsQtApplication) {
+    CmpNamespace = std::string("q20::") + parseOpCode(OpCode);
   }
 
   // Use qt-use-integer-sign-comparison when C++17 is available and only for Qt
