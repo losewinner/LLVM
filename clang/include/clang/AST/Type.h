@@ -3373,7 +3373,7 @@ public:
     return T->getTypeClass() == CountAttributed;
   }
 
-  StringRef GetAttributeName(bool WithMacroPrefix) const;
+  StringRef getAttributeName(bool WithMacroPrefix) const;
 };
 
 /// Represents a type which was implicitly adjusted by the semantic
