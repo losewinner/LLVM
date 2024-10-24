@@ -1,4 +1,4 @@
-//===-- QtTidyModule.cpp - clang-tidy ----------------------===//
+//===--- QtTidyModule.cpp - clang-tidy ------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -26,8 +26,10 @@ public:
     ClangTidyOptions Options;
     ClangTidyOptions::OptionMap &Opts = Options.CheckOptions;
 
-    Opts["qt-integer-sign-comparison."
-         "IsQtApplication"] = "true";
+    Opts["qt-integer-sign-comparison.IncludeStyle"] = "llvm";
+    Opts["qt-integer-sign-comparison.IsQtApplication"] = "true";
+    Opts["qt-integer-sign-comparison.StringsMatchHeader"] =
+        "<QtCore/q20utility.h>";
 
     return Options;
   }

@@ -39,6 +39,7 @@ private:
 
   utils::IncludeInserter IncludeInserter;
   bool IsQtApplication = false;
+  const StringRef StringsMatchHeader;
 };
 
 } // namespace clang::tidy::modernize

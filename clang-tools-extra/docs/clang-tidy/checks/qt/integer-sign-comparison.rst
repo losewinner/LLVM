@@ -3,9 +3,9 @@
 qt-integer-sign-comparison
 =============================
 
-The check detects comparison between signed and unsigned integer values.
-If C++20 is supported, the check suggests a std related fix-it.
-If C++17 is supported, the check suggests a Qt related fix-it.
+The qt-integer-sign-comparison check is an alias, please see
+:doc:`modernize-use-integer-sign-comparison <../modernize/use-integer-sign-comparison>`
+for more information.
 
 Examples of fixes created by the check:
 
@@ -62,3 +62,7 @@ Options
 
   When `true` (default `false`), then it is assumed that the code being analyzed
   is the Qt-based code.
+
+.. option:: StringsMatchHeader
+  A string specifying a include header file to be added by fix-it. Default
+  is `<utility>`.

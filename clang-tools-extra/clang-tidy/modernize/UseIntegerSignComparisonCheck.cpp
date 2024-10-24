@@ -22,11 +22,13 @@ UseIntegerSignComparisonCheck::UseIntegerSignComparisonCheck(
       IncludeInserter(Options.getLocalOrGlobal("IncludeStyle",
                                                utils::IncludeSorter::IS_LLVM),
                       areDiagsSelfContained()),
-      IsQtApplication(Options.get("IsQtApplication", false)) {}
+      IsQtApplication(Options.get("IsQtApplication", false)),
+      StringsMatchHeader(Options.get("StringsMatchHeader", "<utility>")) {}
 
 void UseIntegerSignComparisonCheck::storeOptions(
     ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "IsQtApplication", IsQtApplication);
+  Options.store(Opts, "StringsMatchHeader", StringsMatchHeader);
 }
 
 void UseIntegerSignComparisonCheck::registerMatchers(MatchFinder *Finder) {
@@ -84,7 +86,7 @@ UseIntegerSignComparisonCheck::parseOpCode(BinaryOperator::Opcode code) const {
   case BO_NE:
     return std::string("cmp_not_equal");
   default:
-    return std::string();
+    return {};
   }
 }
 
@@ -107,7 +109,7 @@ void UseIntegerSignComparisonCheck::check(
   if (!SignedCastExpression->isValueDependent() &&
       SignedCastExpression->getSubExpr()->EvaluateAsInt(EVResult,
                                                         *Result.Context)) {
-    llvm::APSInt SValue = EVResult.Val.getInt();
+    const llvm::APSInt SValue = EVResult.Val.getInt();
     if (SValue.isNonNegative())
       return;
   }
@@ -117,18 +119,18 @@ void UseIntegerSignComparisonCheck::check(
   if (BinaryOp == nullptr)
     return;
 
-  auto OpCode = BinaryOp->getOpcode();
-  const auto *LHS = BinaryOp->getLHS()->IgnoreParenImpCasts();
-  const auto *RHS = BinaryOp->getRHS()->IgnoreParenImpCasts();
-  if (LHS == nullptr || RHS == nullptr)
+  const BinaryOperator::Opcode OpCode = BinaryOp->getOpcode();
+  const auto *Lhs = BinaryOp->getLHS()->IgnoreParenImpCasts();
+  const auto *Rhs = BinaryOp->getRHS()->IgnoreParenImpCasts();
+  if (Lhs == nullptr || Rhs == nullptr)
     return;
 
-  StringRef LHSString(Lexer::getSourceText(
-      CharSourceRange::getTokenRange(LHS->getSourceRange()),
+  const StringRef LhsString(Lexer::getSourceText(
+      CharSourceRange::getTokenRange(Lhs->getSourceRange()),
       *Result.SourceManager, getLangOpts()));
 
-  StringRef RHSString(Lexer::getSourceText(
-      CharSourceRange::getTokenRange(RHS->getSourceRange()),
+  const StringRef RhsString(Lexer::getSourceText(
+      CharSourceRange::getTokenRange(Rhs->getSourceRange()),
       *Result.SourceManager, getLangOpts()));
 
   DiagnosticBuilder Diag =
@@ -140,14 +142,11 @@ void UseIntegerSignComparisonCheck::check(
     return;
 
   std::string CmpNamespace;
-  std::string CmpInclude;
   if (getLangOpts().CPlusPlus17 && IsQtApplication) {
-    CmpInclude = "<QtCore/q20utility.h>";
     CmpNamespace = std::string("q20::") + parseOpCode(OpCode);
   }
 
   if (getLangOpts().CPlusPlus20) {
-    CmpInclude = "<utility>";
     CmpNamespace = std::string("std::") + parseOpCode(OpCode);
   }
 
@@ -157,13 +156,13 @@ void UseIntegerSignComparisonCheck::check(
       CharSourceRange::getTokenRange(BinaryOp->getBeginLoc(),
                                      BinaryOp->getEndLoc()),
       StringRef(std::string(CmpNamespace) + std::string("(") +
-                std::string(LHSString) + std::string(", ") +
-                std::string(RHSString) + std::string(")")));
+                std::string(LhsString) + std::string(", ") +
+                std::string(RhsString) + std::string(")")));
 
   // If there is no include for cmp_{*} functions, we'll add it.
   Diag << IncludeInserter.createIncludeInsertion(
       Result.SourceManager->getFileID(BinaryOp->getBeginLoc()),
-      StringRef(CmpInclude));
+      StringsMatchHeader);
 }
 
 } // namespace clang::tidy::modernize

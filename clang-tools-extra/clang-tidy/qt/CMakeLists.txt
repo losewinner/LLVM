@@ -14,7 +14,7 @@ add_clang_library(clangTidyQtModule
   DEPENDS
   omp_gen
   ClangDriverOptions
-  )
+)
 
 clang_target_link_libraries(clangTidyQtModule
   PRIVATE
@@ -23,4 +23,4 @@ clang_target_link_libraries(clangTidyQtModule
   clangBasic
   clangLex
   clangTooling
-  )
+)

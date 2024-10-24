@@ -3,8 +3,11 @@
 modernize-use-integer-sign-comparison
 =====================================
 
-The check detects comparison between signed and unsigned integer values.
-If C++20 is supported, the check suggests a fix-it.
+Performs comparisons between signed and unsigned integer types
+mathematically correct. If C++20 is supported a fix-it replaces
+integers comparisons to std::cmp_equal, std::cmp_not_equal,
+std::cmp_less, std::cmp_greater, std::cmp_less_equal and
+std::cmp_greater_equal functions.
 
 Examples of fixes created by the check:
 
@@ -33,11 +36,3 @@ becomes
 
         return 1;
     }
-
-Options
--------
-
-.. option:: IncludeStyle
-
-   A string specifying which include-style is used, `llvm` or `google`. Default
-   is `llvm`.
