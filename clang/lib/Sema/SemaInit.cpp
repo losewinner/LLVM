@@ -8214,8 +8214,7 @@ ExprResult InitializationSequence::Perform(Sema &S,
         // first error.
         S.BoundsSafetyCheckInitialization(Entity, Kind,
                                           AssignmentAction::Initializing,
-                                          Step->Type,
-                                          CurInit.get());
+                                          Step->Type, CurInit.get());
       }
       break;
     }
