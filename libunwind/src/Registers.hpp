@@ -1838,18 +1838,18 @@ protected:
   inline uint64_t auth(uint64_t ptr, uint64_t salt) const {
     register uint64_t x17 __asm("x17") = ptr;
     register uint64_t x16 __asm("x16") = salt;
-    asm("hint  0xc" // autia1716
-        : "+r"(x17)
-        : "r"(x16)
-        :);
+    asm volatile ("hint  0xc" // autia1716
+                  : "+r"(x17)
+                  : "r"(x16)
+                  :);
 
     uint64_t checkValue = ptr;
     // Support for machines without FPAC.
     // Strip the upper bits with `XPACLRI` and compare with the
     // authenticated value.
-    asm("mov   x30, %[checkValue]     \r\n"
-        "hint  0x7                    \r\n"
-        "mov   %[checkValue], x30     \r\n"
+    asm volatile ("mov   x30, %[checkValue]     \r\n" \
+                  "hint  0x7                    \r\n" \
+                  "mov   %[checkValue], x30     \r\n" \
         : [checkValue] "+r"(checkValue)
         :
         : "x30");
@@ -1862,7 +1862,7 @@ protected:
   inline void updatePC(uint64_t value) {
     register uint64_t x17 __asm("x17") = value;
     register uint64_t x16 __asm("x16") = getAuthSalt();
-    asm("hint 0x8" : "+r"(x17) : "r"(x16)); // pacia1716
+    asm volatile("hint 0x8" : "+r"(x17) : "r"(x16)); // pacia1716
     _registers.__pc = x17;
   }
 #else //! defined(_LIBUNWIND_IS_NATIVE_ONLY)
