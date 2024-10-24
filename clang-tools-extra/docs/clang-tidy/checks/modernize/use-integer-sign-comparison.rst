@@ -5,9 +5,9 @@ modernize-use-integer-sign-comparison
 
 Performs comparisons between signed and unsigned integer types
 mathematically correct. If C++20 is supported a fix-it replaces
-integers comparisons to std::cmp_equal, std::cmp_not_equal,
-std::cmp_less, std::cmp_greater, std::cmp_less_equal and
-std::cmp_greater_equal functions.
+integers comparisons to ``std::cmp_equal``, ``std::cmp_not_equal``,
+``std::cmp_less``, ``std::cmp_greater``, ``std::cmp_less_equal`` and
+``std::cmp_greater_equal`` functions.
 
 Examples of fixes created by the check:
 

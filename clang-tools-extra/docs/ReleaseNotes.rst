@@ -128,9 +128,9 @@ New checks
 
   Performs comparisons between signed and unsigned integer types
   mathematically correct. If C++20 is supported a fix-it replaces
-  integers comparisons to std::cmp_equal, std::cmp_not_equal,
-  std::cmp_less, std::cmp_greater, std::cmp_less_equal and
-  std::cmp_greater_equal functions.
+  integers comparisons to ``std::cmp_equal``, ``std::cmp_not_equal``,
+  ``std::cmp_less``, ``std::cmp_greater``, ``std::cmp_less_equal`` and
+  ``std::cmp_greater_equal`` functions.
 
 - New :doc:`portability-template-virtual-member-function
   <clang-tidy/checks/portability/template-virtual-member-function>` check.
@@ -150,8 +150,9 @@ New check aliases
   :doc:`modernize-use-integer-sign-comparison
   <clang-tidy/checks/modernize/use-integer-sign-comparison>` check.
   If C++17 is supported, the fix-it replaces integers comparisons to
-  q20::cmp_equal, q20::cmp_not_equal, q20::cmp_less, q20::cmp_greater,
-  q20::cmp_less_equal and q20::cmp_greater_equal functions.
+  ``q20::cmp_equal``, ``q20::cmp_not_equal``, ``q20::cmp_less``,
+  ``q20::cmp_greater``, ``q20::cmp_less_equal`` and ``q20::cmp_greater_equal``
+  functions.
   The check assumes the analysed code is Qt-based code.
 
 Changes in existing checks

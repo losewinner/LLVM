@@ -119,8 +119,8 @@ void UseIntegerSignComparisonCheck::check(
     return;
 
   const BinaryOperator::Opcode OpCode = BinaryOp->getOpcode();
-  const auto *LHS = BinaryOp->getLHS()->IgnoreParenImpCasts();
-  const auto *RHS = BinaryOp->getRHS()->IgnoreParenImpCasts();
+  const Expr *LHS = BinaryOp->getLHS()->IgnoreParenImpCasts();
+  const Expr *RHS = BinaryOp->getRHS()->IgnoreParenImpCasts();
   if (LHS == nullptr || RHS == nullptr)
     return;
 
