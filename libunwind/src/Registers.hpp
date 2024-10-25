@@ -1839,23 +1839,25 @@ protected:
     uint64_t ret;
     register uint64_t x17 __asm("x17") = ptr;
     register uint64_t x16 __asm("x16") = salt;
-    asm volatile ("hint  0xc" // autia1716
-                  : "+r"(x17)
-                  : "r"(x16)
-                  :);
+    asm volatile("hint  0xc" // autia1716
+                 : "+r"(x17)
+                 : "r"(x16)
+                 :);
     ret = x17;
     uint64_t checkValue = ptr;
     // Support for machines without FPAC.
     // Strip the upper bits with `XPACLRI` and compare with the
     // authenticated value.
-    asm volatile ("mov   x30, %[checkValue]     \r\n" \
-                  "hint  0x7                    \r\n" \
-                  "mov   %[checkValue], x30     \r\n" \
+    asm volatile("mov   x30, %[checkValue]     \r\n" \
+                 "hint  0x7                    \r\n" \
+                 "mov   %[checkValue], x30     \r\n" \
         : [checkValue] "+r"(checkValue)
         :
         : "x30");
-    if (x17 != checkValue)
+    if (x17 != checkValue) {
+      _LIBUNWIND_LOG("x17 %llx, strip %llx, ptr %llc", x17, checkValue, ptr);
       _LIBUNWIND_ABORT("IP PAC authentication failure");
+    }
     return ret;
   }
 
