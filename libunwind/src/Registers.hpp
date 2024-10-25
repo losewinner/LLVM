@@ -1855,7 +1855,7 @@ protected:
         :
         : "x30");
     if (x17 != checkValue) {
-      _LIBUNWIND_LOG("x17 %llx, strip %llx, ptr %llc", x17, checkValue, ptr);
+      _LIBUNWIND_LOG("x17 %llx, strip %llx, ptr %llx", x17, checkValue, ptr);
       _LIBUNWIND_ABORT("IP PAC authentication failure");
     }
     return ret;
