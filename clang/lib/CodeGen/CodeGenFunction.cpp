@@ -43,6 +43,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/CRC.h"
 #include "llvm/Support/xxhash.h"
@@ -2076,6 +2077,7 @@ void CodeGenFunction::EmitBranchOnBoolExpr(
     Weights = createProfileWeights(TrueCount, CurrentCount - TrueCount);
   }
 
+  // [jderezende] TODO: Emit branch metadata marking it as flatten/branch, if exists.
   Builder.CreateCondBr(CondV, TrueBlock, FalseBlock, Weights, Unpredictable);
 }
 
