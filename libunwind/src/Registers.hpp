@@ -1836,29 +1836,13 @@ protected:
   // Authenticate the given pointer and return with the raw value
   // if the authentication is succeeded.
   inline uint64_t auth(uint64_t ptr, uint64_t salt) const {
-    uint64_t ret;
     register uint64_t x17 __asm("x17") = ptr;
     register uint64_t x16 __asm("x16") = salt;
     asm volatile("hint  0xc" // autia1716
                  : "+r"(x17)
                  : "r"(x16)
                  :);
-    ret = x17;
-    uint64_t checkValue = ptr;
-    // Support for machines without FPAC.
-    // Strip the upper bits with `XPACLRI` and compare with the
-    // authenticated value.
-    asm volatile("mov   x30, %[checkValue]     \r\n" \
-                 "hint  0x7                    \r\n" \
-                 "mov   %[checkValue], x30     \r\n" \
-        : [checkValue] "+r"(checkValue)
-        :
-        : "x30");
-    if (x17 != checkValue) {
-      _LIBUNWIND_LOG("x17 %llx, strip %llx, ptr %llx", x17, checkValue, ptr);
-      _LIBUNWIND_ABORT("IP PAC authentication failure");
-    }
-    return ret;
+    return x17;
   }
 
   // Sign the PC with the A-KEY and the current salt.
