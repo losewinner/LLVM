@@ -18,7 +18,7 @@
   ; CHECK-NEXT:    .cfi_def_cfa s0, 0
   ; CHECK-NEXT:    addi sp, sp, -272
   ; CHECK-NEXT:    sd a0, 8(sp)
-  ; CHECK-NEXT:    csrr a0, vlenb
+  ; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
   ; CHECK-NEXT:    sd a1, 0(sp)
   ; CHECK-NEXT:    li a1, 3
   ; CHECK-NEXT:    slli a1, a1, 10

@@ -9,8 +9,7 @@ define target("riscv.vector.tuple", <vscale x 8 x i8>, 5) @load_store_m1x5(targe
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrrs a0, vlenb, zero
-; CHECK-NEXT:    slli a0, a0, 3
+; CHECK-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a0
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; CHECK-NEXT:    addi a0, sp, 16
@@ -31,8 +30,7 @@ define target("riscv.vector.tuple", <vscale x 8 x i8>, 5) @load_store_m1x5(targe
 ; CHECK-NEXT:    vl1re8.v v10, (a3)
 ; CHECK-NEXT:    vl1re8.v v11, (a4)
 ; CHECK-NEXT:    vl1re8.v v12, (a1)
-; CHECK-NEXT:    csrrs a0, vlenb, zero
-; CHECK-NEXT:    slli a0, a0, 3
+; CHECK-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    jalr zero, 0(ra)
@@ -50,8 +48,7 @@ define target("riscv.vector.tuple", <vscale x 16 x i8>, 2) @load_store_m2x2(targ
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrrs a0, vlenb, zero
-; CHECK-NEXT:    slli a0, a0, 2
+; CHECK-NEXT:    vsetvli a0, zero, e8, m4, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a0
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x04, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 4 * vlenb
 ; CHECK-NEXT:    addi a0, sp, 16
@@ -64,8 +61,7 @@ define target("riscv.vector.tuple", <vscale x 16 x i8>, 2) @load_store_m2x2(targ
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vl2re8.v v8, (a0)
 ; CHECK-NEXT:    vl2re8.v v10, (a1)
-; CHECK-NEXT:    csrrs a0, vlenb, zero
-; CHECK-NEXT:    slli a0, a0, 2
+; CHECK-NEXT:    vsetvli a0, zero, e8, m4, ta, ma
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    jalr zero, 0(ra)
@@ -83,8 +79,7 @@ define target("riscv.vector.tuple", <vscale x 32 x i8>, 2) @load_store_m4x2(targ
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrrs a0, vlenb, zero
-; CHECK-NEXT:    slli a0, a0, 3
+; CHECK-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a0
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; CHECK-NEXT:    addi a0, sp, 16
@@ -97,8 +92,7 @@ define target("riscv.vector.tuple", <vscale x 32 x i8>, 2) @load_store_m4x2(targ
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    vl4re8.v v8, (a0)
 ; CHECK-NEXT:    vl4re8.v v12, (a1)
-; CHECK-NEXT:    csrrs a0, vlenb, zero
-; CHECK-NEXT:    slli a0, a0, 3
+; CHECK-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    jalr zero, 0(ra)

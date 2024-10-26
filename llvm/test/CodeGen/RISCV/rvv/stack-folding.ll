@@ -9,7 +9,7 @@ define i64 @i64(<vscale x 1 x i64> %v, i1 %c) {
 ; RV32:       # %bb.0:
 ; RV32-NEXT:    addi sp, sp, -16
 ; RV32-NEXT:    .cfi_def_cfa_offset 16
-; RV32-NEXT:    csrr a1, vlenb
+; RV32-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; RV32-NEXT:    sub sp, sp, a1
 ; RV32-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; RV32-NEXT:    addi a1, sp, 16
@@ -29,7 +29,7 @@ define i64 @i64(<vscale x 1 x i64> %v, i1 %c) {
 ; RV32-NEXT:  .LBB0_2: # %falsebb
 ; RV32-NEXT:    li a1, 0
 ; RV32-NEXT:  .LBB0_3: # %falsebb
-; RV32-NEXT:    csrr a2, vlenb
+; RV32-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; RV32-NEXT:    add sp, sp, a2
 ; RV32-NEXT:    addi sp, sp, 16
 ; RV32-NEXT:    ret
@@ -38,7 +38,7 @@ define i64 @i64(<vscale x 1 x i64> %v, i1 %c) {
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    addi sp, sp, -16
 ; RV64-NEXT:    .cfi_def_cfa_offset 16
-; RV64-NEXT:    csrr a1, vlenb
+; RV64-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; RV64-NEXT:    sub sp, sp, a1
 ; RV64-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; RV64-NEXT:    addi a1, sp, 16
@@ -50,7 +50,7 @@ define i64 @i64(<vscale x 1 x i64> %v, i1 %c) {
 ; RV64-NEXT:  # %bb.1: # %truebb
 ; RV64-NEXT:    ld a0, 16(sp) # 8-byte Folded Reload
 ; RV64-NEXT:  .LBB0_2: # %falsebb
-; RV64-NEXT:    csrr a1, vlenb
+; RV64-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; RV64-NEXT:    add sp, sp, a1
 ; RV64-NEXT:    addi sp, sp, 16
 ; RV64-NEXT:    ret
@@ -68,7 +68,7 @@ define i32 @i32(<vscale x 2 x i32> %v, i1 %c) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrr a1, vlenb
+; CHECK-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a1
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; CHECK-NEXT:    addi a1, sp, 16
@@ -80,7 +80,7 @@ define i32 @i32(<vscale x 2 x i32> %v, i1 %c) {
 ; CHECK-NEXT:  # %bb.1: # %truebb
 ; CHECK-NEXT:    lw a0, 16(sp) # 8-byte Folded Reload
 ; CHECK-NEXT:  .LBB1_2: # %falsebb
-; CHECK-NEXT:    csrr a1, vlenb
+; CHECK-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    add sp, sp, a1
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    ret
@@ -98,7 +98,7 @@ define i16 @i16(<vscale x 4 x i16> %v, i1 %c) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrr a1, vlenb
+; CHECK-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a1
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; CHECK-NEXT:    addi a1, sp, 16
@@ -110,7 +110,7 @@ define i16 @i16(<vscale x 4 x i16> %v, i1 %c) {
 ; CHECK-NEXT:  # %bb.1: # %truebb
 ; CHECK-NEXT:    lh a0, 16(sp) # 8-byte Folded Reload
 ; CHECK-NEXT:  .LBB2_2: # %falsebb
-; CHECK-NEXT:    csrr a1, vlenb
+; CHECK-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    add sp, sp, a1
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    ret
@@ -128,7 +128,7 @@ define i8 @i8(<vscale x 8 x i8> %v, i1 %c) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrr a1, vlenb
+; CHECK-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a1
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; CHECK-NEXT:    addi a1, sp, 16
@@ -140,7 +140,7 @@ define i8 @i8(<vscale x 8 x i8> %v, i1 %c) {
 ; CHECK-NEXT:  # %bb.1: # %truebb
 ; CHECK-NEXT:    lb a0, 16(sp) # 8-byte Folded Reload
 ; CHECK-NEXT:  .LBB3_2: # %falsebb
-; CHECK-NEXT:    csrr a1, vlenb
+; CHECK-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    add sp, sp, a1
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    ret
@@ -158,7 +158,7 @@ define double @f64(<vscale x 1 x double> %v, i1 %c) {
 ; RV32:       # %bb.0:
 ; RV32-NEXT:    addi sp, sp, -16
 ; RV32-NEXT:    .cfi_def_cfa_offset 16
-; RV32-NEXT:    csrr a1, vlenb
+; RV32-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; RV32-NEXT:    sub sp, sp, a1
 ; RV32-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; RV32-NEXT:    addi a1, sp, 16
@@ -173,7 +173,7 @@ define double @f64(<vscale x 1 x double> %v, i1 %c) {
 ; RV32-NEXT:  .LBB4_2: # %falsebb
 ; RV32-NEXT:    fcvt.d.w fa0, zero
 ; RV32-NEXT:  .LBB4_3: # %falsebb
-; RV32-NEXT:    csrr a0, vlenb
+; RV32-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV32-NEXT:    add sp, sp, a0
 ; RV32-NEXT:    addi sp, sp, 16
 ; RV32-NEXT:    ret
@@ -182,7 +182,7 @@ define double @f64(<vscale x 1 x double> %v, i1 %c) {
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    addi sp, sp, -16
 ; RV64-NEXT:    .cfi_def_cfa_offset 16
-; RV64-NEXT:    csrr a1, vlenb
+; RV64-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; RV64-NEXT:    sub sp, sp, a1
 ; RV64-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; RV64-NEXT:    addi a1, sp, 16
@@ -197,7 +197,7 @@ define double @f64(<vscale x 1 x double> %v, i1 %c) {
 ; RV64-NEXT:  .LBB4_2: # %falsebb
 ; RV64-NEXT:    fmv.d.x fa0, zero
 ; RV64-NEXT:  .LBB4_3: # %falsebb
-; RV64-NEXT:    csrr a0, vlenb
+; RV64-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV64-NEXT:    add sp, sp, a0
 ; RV64-NEXT:    addi sp, sp, 16
 ; RV64-NEXT:    ret
@@ -215,7 +215,7 @@ define float @f32(<vscale x 2 x float> %v, i1 %c) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrr a1, vlenb
+; CHECK-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a1
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; CHECK-NEXT:    addi a1, sp, 16
@@ -230,7 +230,7 @@ define float @f32(<vscale x 2 x float> %v, i1 %c) {
 ; CHECK-NEXT:  .LBB5_2: # %falsebb
 ; CHECK-NEXT:    fmv.w.x fa0, zero
 ; CHECK-NEXT:  .LBB5_3: # %falsebb
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    ret
@@ -248,7 +248,7 @@ define half @f16(<vscale x 1 x half> %v, i1 %c) {
 ; ZFMIN:       # %bb.0:
 ; ZFMIN-NEXT:    addi sp, sp, -16
 ; ZFMIN-NEXT:    .cfi_def_cfa_offset 16
-; ZFMIN-NEXT:    csrr a1, vlenb
+; ZFMIN-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; ZFMIN-NEXT:    sub sp, sp, a1
 ; ZFMIN-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; ZFMIN-NEXT:    addi a1, sp, 16
@@ -263,7 +263,7 @@ define half @f16(<vscale x 1 x half> %v, i1 %c) {
 ; ZFMIN-NEXT:  .LBB6_2: # %falsebb
 ; ZFMIN-NEXT:    fmv.h.x fa0, zero
 ; ZFMIN-NEXT:  .LBB6_3: # %falsebb
-; ZFMIN-NEXT:    csrr a0, vlenb
+; ZFMIN-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; ZFMIN-NEXT:    add sp, sp, a0
 ; ZFMIN-NEXT:    addi sp, sp, 16
 ; ZFMIN-NEXT:    ret
@@ -272,7 +272,7 @@ define half @f16(<vscale x 1 x half> %v, i1 %c) {
 ; NOZFMIN:       # %bb.0:
 ; NOZFMIN-NEXT:    addi sp, sp, -16
 ; NOZFMIN-NEXT:    .cfi_def_cfa_offset 16
-; NOZFMIN-NEXT:    csrr a1, vlenb
+; NOZFMIN-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; NOZFMIN-NEXT:    sub sp, sp, a1
 ; NOZFMIN-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; NOZFMIN-NEXT:    addi a1, sp, 16
@@ -290,7 +290,7 @@ define half @f16(<vscale x 1 x half> %v, i1 %c) {
 ; NOZFMIN-NEXT:    lui a0, 1048560
 ; NOZFMIN-NEXT:  .LBB6_3: # %falsebb
 ; NOZFMIN-NEXT:    fmv.w.x fa0, a0
-; NOZFMIN-NEXT:    csrr a0, vlenb
+; NOZFMIN-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; NOZFMIN-NEXT:    add sp, sp, a0
 ; NOZFMIN-NEXT:    addi sp, sp, 16
 ; NOZFMIN-NEXT:    ret
@@ -308,7 +308,7 @@ define bfloat @bf16(<vscale x 2 x bfloat> %v, i1 %c) {
 ; ZFMIN:       # %bb.0:
 ; ZFMIN-NEXT:    addi sp, sp, -16
 ; ZFMIN-NEXT:    .cfi_def_cfa_offset 16
-; ZFMIN-NEXT:    csrr a1, vlenb
+; ZFMIN-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; ZFMIN-NEXT:    sub sp, sp, a1
 ; ZFMIN-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; ZFMIN-NEXT:    addi a1, sp, 16
@@ -324,7 +324,7 @@ define bfloat @bf16(<vscale x 2 x bfloat> %v, i1 %c) {
 ; ZFMIN-NEXT:  .LBB7_2: # %falsebb
 ; ZFMIN-NEXT:    fmv.h.x fa0, zero
 ; ZFMIN-NEXT:  .LBB7_3: # %falsebb
-; ZFMIN-NEXT:    csrr a0, vlenb
+; ZFMIN-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; ZFMIN-NEXT:    add sp, sp, a0
 ; ZFMIN-NEXT:    addi sp, sp, 16
 ; ZFMIN-NEXT:    ret
@@ -333,7 +333,7 @@ define bfloat @bf16(<vscale x 2 x bfloat> %v, i1 %c) {
 ; NOZFMIN:       # %bb.0:
 ; NOZFMIN-NEXT:    addi sp, sp, -16
 ; NOZFMIN-NEXT:    .cfi_def_cfa_offset 16
-; NOZFMIN-NEXT:    csrr a1, vlenb
+; NOZFMIN-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; NOZFMIN-NEXT:    sub sp, sp, a1
 ; NOZFMIN-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 1 * vlenb
 ; NOZFMIN-NEXT:    addi a1, sp, 16
@@ -351,7 +351,7 @@ define bfloat @bf16(<vscale x 2 x bfloat> %v, i1 %c) {
 ; NOZFMIN-NEXT:    lui a0, 1048560
 ; NOZFMIN-NEXT:  .LBB7_3: # %falsebb
 ; NOZFMIN-NEXT:    fmv.w.x fa0, a0
-; NOZFMIN-NEXT:    csrr a0, vlenb
+; NOZFMIN-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; NOZFMIN-NEXT:    add sp, sp, a0
 ; NOZFMIN-NEXT:    addi sp, sp, 16
 ; NOZFMIN-NEXT:    ret

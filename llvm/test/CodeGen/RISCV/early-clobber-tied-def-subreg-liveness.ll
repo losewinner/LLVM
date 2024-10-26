@@ -16,7 +16,7 @@ define void @_Z3foov() {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a1, a0, 3
 ; CHECK-NEXT:    add a0, a1, a0
 ; CHECK-NEXT:    sub sp, sp, a0
@@ -82,7 +82,7 @@ define void @_Z3foov() {
 ; CHECK-NEXT:    lui a0, %hi(var_47)
 ; CHECK-NEXT:    addi a0, a0, %lo(var_47)
 ; CHECK-NEXT:    vsseg4e16.v v8, (a0)
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a1, a0, 3
 ; CHECK-NEXT:    add a0, a1, a0
 ; CHECK-NEXT:    add sp, sp, a0

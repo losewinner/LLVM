@@ -205,7 +205,7 @@ define <4 x half> @splat_idx_v4f16(<4 x half> %v, i64 %idx) {
 ; RV32-ZFHMIN-NEXT:    .cfi_def_cfa_offset 48
 ; RV32-ZFHMIN-NEXT:    sw ra, 44(sp) # 4-byte Folded Spill
 ; RV32-ZFHMIN-NEXT:    .cfi_offset ra, -4
-; RV32-ZFHMIN-NEXT:    csrr a1, vlenb
+; RV32-ZFHMIN-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; RV32-ZFHMIN-NEXT:    sub sp, sp, a1
 ; RV32-ZFHMIN-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x30, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 48 + 1 * vlenb
 ; RV32-ZFHMIN-NEXT:    addi a1, sp, 32
@@ -221,7 +221,7 @@ define <4 x half> @splat_idx_v4f16(<4 x half> %v, i64 %idx) {
 ; RV32-ZFHMIN-NEXT:    vse16.v v8, (a1)
 ; RV32-ZFHMIN-NEXT:    lh a0, 0(a0)
 ; RV32-ZFHMIN-NEXT:    vmv.v.x v8, a0
-; RV32-ZFHMIN-NEXT:    csrr a0, vlenb
+; RV32-ZFHMIN-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV32-ZFHMIN-NEXT:    add sp, sp, a0
 ; RV32-ZFHMIN-NEXT:    lw ra, 44(sp) # 4-byte Folded Reload
 ; RV32-ZFHMIN-NEXT:    addi sp, sp, 48
@@ -233,7 +233,7 @@ define <4 x half> @splat_idx_v4f16(<4 x half> %v, i64 %idx) {
 ; RV64-ZFHMIN-NEXT:    .cfi_def_cfa_offset 48
 ; RV64-ZFHMIN-NEXT:    sd ra, 40(sp) # 8-byte Folded Spill
 ; RV64-ZFHMIN-NEXT:    .cfi_offset ra, -8
-; RV64-ZFHMIN-NEXT:    csrr a1, vlenb
+; RV64-ZFHMIN-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; RV64-ZFHMIN-NEXT:    sub sp, sp, a1
 ; RV64-ZFHMIN-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x30, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 48 + 1 * vlenb
 ; RV64-ZFHMIN-NEXT:    addi a1, sp, 32
@@ -249,7 +249,7 @@ define <4 x half> @splat_idx_v4f16(<4 x half> %v, i64 %idx) {
 ; RV64-ZFHMIN-NEXT:    vse16.v v8, (a1)
 ; RV64-ZFHMIN-NEXT:    lh a0, 0(a0)
 ; RV64-ZFHMIN-NEXT:    vmv.v.x v8, a0
-; RV64-ZFHMIN-NEXT:    csrr a0, vlenb
+; RV64-ZFHMIN-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV64-ZFHMIN-NEXT:    add sp, sp, a0
 ; RV64-ZFHMIN-NEXT:    ld ra, 40(sp) # 8-byte Folded Reload
 ; RV64-ZFHMIN-NEXT:    addi sp, sp, 48

@@ -23,8 +23,7 @@ body: |
     ; CHECK-NEXT: {{  $}}
     ; CHECK-NEXT: $x2 = frame-setup ADDI $x2, -16
     ; CHECK-NEXT: frame-setup CFI_INSTRUCTION def_cfa_offset 16
-    ; CHECK-NEXT: $x12 = frame-setup PseudoReadVLENB
-    ; CHECK-NEXT: $x12 = frame-setup SLLI killed $x12, 3
+    ; CHECK-NEXT: $x12 = frame-setup PseudoReadMulVLENB 8, implicit-def $vl, implicit-def $vtype
     ; CHECK-NEXT: $x2 = frame-setup SUB $x2, killed $x12
     ; CHECK-NEXT: frame-setup CFI_INSTRUCTION escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22
     ; CHECK-NEXT: dead $x0 = PseudoVSETVLI killed renamable $x11, 216 /* e64, m1, ta, ma */, implicit-def $vl, implicit-def $vtype
@@ -60,8 +59,7 @@ body: |
     ; CHECK-NEXT: $x11 = ADD killed $x11, killed $x12
     ; CHECK-NEXT: $v13 = VL1RE8_V killed $x11 :: (load unknown-size from %stack.0, align 8)
     ; CHECK-NEXT: VS1R_V killed $v8, killed renamable $x10
-    ; CHECK-NEXT: $x10 = frame-destroy PseudoReadVLENB
-    ; CHECK-NEXT: $x10 = frame-destroy SLLI killed $x10, 3
+    ; CHECK-NEXT: $x10 = frame-destroy PseudoReadMulVLENB 8, implicit-def $vl, implicit-def $vtype
     ; CHECK-NEXT: $x2 = frame-destroy ADD $x2, killed $x10
     ; CHECK-NEXT: $x2 = frame-destroy ADDI $x2, 16
     ; CHECK-NEXT: PseudoRET

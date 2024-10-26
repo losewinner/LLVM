@@ -158,7 +158,7 @@ define {<8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>} @load_
 ; RV32:       # %bb.0:
 ; RV32-NEXT:    addi sp, sp, -16
 ; RV32-NEXT:    .cfi_def_cfa_offset 16
-; RV32-NEXT:    csrr a2, vlenb
+; RV32-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; RV32-NEXT:    li a3, 84
 ; RV32-NEXT:    mul a2, a2, a3
 ; RV32-NEXT:    sub sp, sp, a2
@@ -629,7 +629,7 @@ define {<8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>} @load_
 ; RV32-NEXT:    addi a1, a1, 16
 ; RV32-NEXT:    vl4r.v v8, (a1) # Unknown-size Folded Reload
 ; RV32-NEXT:    vse32.v v8, (a0)
-; RV32-NEXT:    csrr a0, vlenb
+; RV32-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV32-NEXT:    li a1, 84
 ; RV32-NEXT:    mul a0, a0, a1
 ; RV32-NEXT:    add sp, sp, a0
@@ -640,7 +640,7 @@ define {<8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>} @load_
 ; RV64:       # %bb.0:
 ; RV64-NEXT:    addi sp, sp, -16
 ; RV64-NEXT:    .cfi_def_cfa_offset 16
-; RV64-NEXT:    csrr a2, vlenb
+; RV64-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; RV64-NEXT:    slli a3, a2, 6
 ; RV64-NEXT:    add a2, a3, a2
 ; RV64-NEXT:    sub sp, sp, a2
@@ -1064,7 +1064,7 @@ define {<8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>, <8 x i64>} @load_
 ; RV64-NEXT:    addi a1, a1, 16
 ; RV64-NEXT:    vl4r.v v8, (a1) # Unknown-size Folded Reload
 ; RV64-NEXT:    vse64.v v8, (a0)
-; RV64-NEXT:    csrr a0, vlenb
+; RV64-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV64-NEXT:    slli a1, a0, 6
 ; RV64-NEXT:    add a0, a1, a0
 ; RV64-NEXT:    add sp, sp, a0

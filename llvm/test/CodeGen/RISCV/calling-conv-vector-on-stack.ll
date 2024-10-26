@@ -11,8 +11,7 @@ define void @bar() nounwind {
 ; CHECK-NEXT:    sd s0, 80(sp) # 8-byte Folded Spill
 ; CHECK-NEXT:    sd s1, 72(sp) # 8-byte Folded Spill
 ; CHECK-NEXT:    addi s0, sp, 96
-; CHECK-NEXT:    csrr a0, vlenb
-; CHECK-NEXT:    slli a0, a0, 3
+; CHECK-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a0
 ; CHECK-NEXT:    andi sp, sp, -64
 ; CHECK-NEXT:    mv s1, sp

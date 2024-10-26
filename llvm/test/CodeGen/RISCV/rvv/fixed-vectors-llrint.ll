@@ -43,8 +43,7 @@ define <2 x i64> @llrint_v2i64_v2f32(<2 x float> %x) {
 ; RV32-NEXT:    .cfi_def_cfa_offset 32
 ; RV32-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    .cfi_offset ra, -4
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 1
+; RV32-NEXT:    vsetvli a0, zero, e8, m2, ta, ma
 ; RV32-NEXT:    sub sp, sp, a0
 ; RV32-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x20, 0x22, 0x11, 0x02, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 32 + 2 * vlenb
 ; RV32-NEXT:    addi a0, sp, 16
@@ -72,8 +71,7 @@ define <2 x i64> @llrint_v2i64_v2f32(<2 x float> %x) {
 ; RV32-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
 ; RV32-NEXT:    vslide1down.vx v8, v8, a0
 ; RV32-NEXT:    vslide1down.vx v8, v8, a1
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 1
+; RV32-NEXT:    vsetvli a0, zero, e8, m2, ta, ma
 ; RV32-NEXT:    add sp, sp, a0
 ; RV32-NEXT:    lw ra, 28(sp) # 4-byte Folded Reload
 ; RV32-NEXT:    addi sp, sp, 32
@@ -103,7 +101,7 @@ define <3 x i64> @llrint_v3i64_v3f32(<3 x float> %x) {
 ; RV32-NEXT:    .cfi_def_cfa_offset 32
 ; RV32-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    .cfi_offset ra, -4
-; RV32-NEXT:    csrr a0, vlenb
+; RV32-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV32-NEXT:    slli a1, a0, 1
 ; RV32-NEXT:    add a0, a1, a0
 ; RV32-NEXT:    sub sp, sp, a0
@@ -167,7 +165,7 @@ define <3 x i64> @llrint_v3i64_v3f32(<3 x float> %x) {
 ; RV32-NEXT:    vsetivli zero, 8, e32, m2, ta, ma
 ; RV32-NEXT:    vslide1down.vx v8, v8, a0
 ; RV32-NEXT:    vslide1down.vx v8, v8, a1
-; RV32-NEXT:    csrr a0, vlenb
+; RV32-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV32-NEXT:    slli a1, a0, 1
 ; RV32-NEXT:    add a0, a1, a0
 ; RV32-NEXT:    add sp, sp, a0
@@ -211,7 +209,7 @@ define <4 x i64> @llrint_v4i64_v4f32(<4 x float> %x) {
 ; RV32-NEXT:    .cfi_def_cfa_offset 32
 ; RV32-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    .cfi_offset ra, -4
-; RV32-NEXT:    csrr a0, vlenb
+; RV32-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV32-NEXT:    slli a1, a0, 1
 ; RV32-NEXT:    add a0, a1, a0
 ; RV32-NEXT:    sub sp, sp, a0
@@ -275,7 +273,7 @@ define <4 x i64> @llrint_v4i64_v4f32(<4 x float> %x) {
 ; RV32-NEXT:    vsetivli zero, 8, e32, m2, ta, ma
 ; RV32-NEXT:    vslide1down.vx v8, v8, a0
 ; RV32-NEXT:    vslide1down.vx v8, v8, a1
-; RV32-NEXT:    csrr a0, vlenb
+; RV32-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV32-NEXT:    slli a1, a0, 1
 ; RV32-NEXT:    add a0, a1, a0
 ; RV32-NEXT:    add sp, sp, a0
@@ -323,8 +321,7 @@ define <8 x i64> @llrint_v8i64_v8f32(<8 x float> %x) {
 ; RV32-NEXT:    .cfi_offset s0, -8
 ; RV32-NEXT:    addi s0, sp, 208
 ; RV32-NEXT:    .cfi_def_cfa s0, 0
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 1
+; RV32-NEXT:    vsetvli a0, zero, e8, m2, ta, ma
 ; RV32-NEXT:    sub sp, sp, a0
 ; RV32-NEXT:    andi sp, sp, -64
 ; RV32-NEXT:    addi a0, sp, 192
@@ -467,8 +464,7 @@ define <16 x i64> @llrint_v16i64_v16f32(<16 x float> %x) {
 ; RV32-NEXT:    .cfi_offset s0, -8
 ; RV32-NEXT:    addi s0, sp, 400
 ; RV32-NEXT:    .cfi_def_cfa s0, 0
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 2
+; RV32-NEXT:    vsetvli a0, zero, e8, m4, ta, ma
 ; RV32-NEXT:    sub sp, sp, a0
 ; RV32-NEXT:    andi sp, sp, -128
 ; RV32-NEXT:    addi a0, sp, 384
@@ -703,8 +699,7 @@ define <2 x i64> @llrint_v2i64_v2f64(<2 x double> %x) {
 ; RV32-NEXT:    .cfi_def_cfa_offset 32
 ; RV32-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    .cfi_offset ra, -4
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 1
+; RV32-NEXT:    vsetvli a0, zero, e8, m2, ta, ma
 ; RV32-NEXT:    sub sp, sp, a0
 ; RV32-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x20, 0x22, 0x11, 0x02, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 32 + 2 * vlenb
 ; RV32-NEXT:    addi a0, sp, 16
@@ -732,8 +727,7 @@ define <2 x i64> @llrint_v2i64_v2f64(<2 x double> %x) {
 ; RV32-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
 ; RV32-NEXT:    vslide1down.vx v8, v8, a0
 ; RV32-NEXT:    vslide1down.vx v8, v8, a1
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 1
+; RV32-NEXT:    vsetvli a0, zero, e8, m2, ta, ma
 ; RV32-NEXT:    add sp, sp, a0
 ; RV32-NEXT:    lw ra, 28(sp) # 4-byte Folded Reload
 ; RV32-NEXT:    addi sp, sp, 32
@@ -762,8 +756,7 @@ define <4 x i64> @llrint_v4i64_v4f64(<4 x double> %x) {
 ; RV32-NEXT:    .cfi_def_cfa_offset 32
 ; RV32-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    .cfi_offset ra, -4
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 2
+; RV32-NEXT:    vsetvli a0, zero, e8, m4, ta, ma
 ; RV32-NEXT:    sub sp, sp, a0
 ; RV32-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x20, 0x22, 0x11, 0x04, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 32 + 4 * vlenb
 ; RV32-NEXT:    csrr a0, vlenb
@@ -825,8 +818,7 @@ define <4 x i64> @llrint_v4i64_v4f64(<4 x double> %x) {
 ; RV32-NEXT:    vsetivli zero, 8, e32, m2, ta, ma
 ; RV32-NEXT:    vslide1down.vx v8, v8, a0
 ; RV32-NEXT:    vslide1down.vx v8, v8, a1
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 2
+; RV32-NEXT:    vsetvli a0, zero, e8, m4, ta, ma
 ; RV32-NEXT:    add sp, sp, a0
 ; RV32-NEXT:    lw ra, 28(sp) # 4-byte Folded Reload
 ; RV32-NEXT:    addi sp, sp, 32
@@ -868,8 +860,7 @@ define <8 x i64> @llrint_v8i64_v8f64(<8 x double> %x) {
 ; RV32-NEXT:    .cfi_offset s0, -8
 ; RV32-NEXT:    addi s0, sp, 272
 ; RV32-NEXT:    .cfi_def_cfa s0, 0
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 2
+; RV32-NEXT:    vsetvli a0, zero, e8, m4, ta, ma
 ; RV32-NEXT:    sub sp, sp, a0
 ; RV32-NEXT:    andi sp, sp, -64
 ; RV32-NEXT:    addi a0, sp, 256

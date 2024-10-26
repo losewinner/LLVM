@@ -17,8 +17,7 @@ define void @foo(ptr nocapture noundef %p1) {
 ; CHECK-NEXT:    .cfi_offset s2, -32
 ; CHECK-NEXT:    addi s0, sp, 192
 ; CHECK-NEXT:    .cfi_def_cfa s0, 0
-; CHECK-NEXT:    csrr a1, vlenb
-; CHECK-NEXT:    slli a1, a1, 1
+; CHECK-NEXT:    vsetvli a1, zero, e8, m2, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a1
 ; CHECK-NEXT:    andi sp, sp, -64
 ; CHECK-NEXT:    mv s1, sp

@@ -24,8 +24,7 @@ define void @vid(ptr %p) {
 ; PRERA:       # %bb.0:
 ; PRERA-NEXT:    addi sp, sp, -16
 ; PRERA-NEXT:    .cfi_def_cfa_offset 16
-; PRERA-NEXT:    csrr a1, vlenb
-; PRERA-NEXT:    slli a1, a1, 3
+; PRERA-NEXT:    vsetvli a1, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    sub sp, sp, a1
 ; PRERA-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; PRERA-NEXT:    vsetvli a1, zero, e64, m8, ta, ma
@@ -43,8 +42,7 @@ define void @vid(ptr %p) {
 ; PRERA-NEXT:    vl8r.v v16, (a1) # Unknown-size Folded Reload
 ; PRERA-NEXT:    vs8r.v v16, (a0)
 ; PRERA-NEXT:    vs8r.v v8, (a0)
-; PRERA-NEXT:    csrr a0, vlenb
-; PRERA-NEXT:    slli a0, a0, 3
+; PRERA-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    add sp, sp, a0
 ; PRERA-NEXT:    addi sp, sp, 16
 ; PRERA-NEXT:    ret
@@ -70,8 +68,7 @@ define void @vid_passthru(ptr %p, <vscale x 8 x i64> %v) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrr a1, vlenb
-; CHECK-NEXT:    slli a1, a1, 3
+; CHECK-NEXT:    vsetvli a1, zero, e8, m8, ta, ma
 ; CHECK-NEXT:    sub sp, sp, a1
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; CHECK-NEXT:    vsetivli zero, 1, e64, m8, tu, ma
@@ -89,8 +86,7 @@ define void @vid_passthru(ptr %p, <vscale x 8 x i64> %v) {
 ; CHECK-NEXT:    vl8r.v v16, (a1) # Unknown-size Folded Reload
 ; CHECK-NEXT:    vs8r.v v16, (a0)
 ; CHECK-NEXT:    vs8r.v v8, (a0)
-; CHECK-NEXT:    csrr a0, vlenb
-; CHECK-NEXT:    slli a0, a0, 3
+; CHECK-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    ret
@@ -132,8 +128,7 @@ define void @vmv.v.i(ptr %p) {
 ; PRERA:       # %bb.0:
 ; PRERA-NEXT:    addi sp, sp, -16
 ; PRERA-NEXT:    .cfi_def_cfa_offset 16
-; PRERA-NEXT:    csrr a1, vlenb
-; PRERA-NEXT:    slli a1, a1, 3
+; PRERA-NEXT:    vsetvli a1, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    sub sp, sp, a1
 ; PRERA-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; PRERA-NEXT:    vsetvli a1, zero, e64, m8, ta, ma
@@ -151,8 +146,7 @@ define void @vmv.v.i(ptr %p) {
 ; PRERA-NEXT:    vl8r.v v16, (a1) # Unknown-size Folded Reload
 ; PRERA-NEXT:    vs8r.v v16, (a0)
 ; PRERA-NEXT:    vs8r.v v8, (a0)
-; PRERA-NEXT:    csrr a0, vlenb
-; PRERA-NEXT:    slli a0, a0, 3
+; PRERA-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    add sp, sp, a0
 ; PRERA-NEXT:    addi sp, sp, 16
 ; PRERA-NEXT:    ret
@@ -179,8 +173,7 @@ define void @vmv.v.x_needs_extended(ptr %p, i64 %x) {
 ; POSTRA:       # %bb.0:
 ; POSTRA-NEXT:    addi sp, sp, -16
 ; POSTRA-NEXT:    .cfi_def_cfa_offset 16
-; POSTRA-NEXT:    csrr a2, vlenb
-; POSTRA-NEXT:    slli a2, a2, 3
+; POSTRA-NEXT:    vsetvli a2, zero, e8, m8, ta, ma
 ; POSTRA-NEXT:    sub sp, sp, a2
 ; POSTRA-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; POSTRA-NEXT:    vsetvli a2, zero, e64, m8, ta, ma
@@ -198,8 +191,7 @@ define void @vmv.v.x_needs_extended(ptr %p, i64 %x) {
 ; POSTRA-NEXT:    vs8r.v v16, (a0)
 ; POSTRA-NEXT:    vl8r.v v8, (a1) # Unknown-size Folded Reload
 ; POSTRA-NEXT:    vs8r.v v8, (a0)
-; POSTRA-NEXT:    csrr a0, vlenb
-; POSTRA-NEXT:    slli a0, a0, 3
+; POSTRA-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; POSTRA-NEXT:    add sp, sp, a0
 ; POSTRA-NEXT:    addi sp, sp, 16
 ; POSTRA-NEXT:    ret
@@ -208,8 +200,7 @@ define void @vmv.v.x_needs_extended(ptr %p, i64 %x) {
 ; PRERA:       # %bb.0:
 ; PRERA-NEXT:    addi sp, sp, -16
 ; PRERA-NEXT:    .cfi_def_cfa_offset 16
-; PRERA-NEXT:    csrr a2, vlenb
-; PRERA-NEXT:    slli a2, a2, 3
+; PRERA-NEXT:    vsetvli a2, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    sub sp, sp, a2
 ; PRERA-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; PRERA-NEXT:    vsetvli a2, zero, e64, m8, ta, ma
@@ -227,8 +218,7 @@ define void @vmv.v.x_needs_extended(ptr %p, i64 %x) {
 ; PRERA-NEXT:    vl8r.v v16, (a1) # Unknown-size Folded Reload
 ; PRERA-NEXT:    vs8r.v v16, (a0)
 ; PRERA-NEXT:    vs8r.v v8, (a0)
-; PRERA-NEXT:    csrr a0, vlenb
-; PRERA-NEXT:    slli a0, a0, 3
+; PRERA-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    add sp, sp, a0
 ; PRERA-NEXT:    addi sp, sp, 16
 ; PRERA-NEXT:    ret
@@ -271,8 +261,7 @@ define void @vmv.v.x_live(ptr %p, i64 %x) {
 ; PRERA:       # %bb.0:
 ; PRERA-NEXT:    addi sp, sp, -16
 ; PRERA-NEXT:    .cfi_def_cfa_offset 16
-; PRERA-NEXT:    csrr a2, vlenb
-; PRERA-NEXT:    slli a2, a2, 3
+; PRERA-NEXT:    vsetvli a2, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    sub sp, sp, a2
 ; PRERA-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; PRERA-NEXT:    vsetvli a2, zero, e64, m8, ta, ma
@@ -291,8 +280,7 @@ define void @vmv.v.x_live(ptr %p, i64 %x) {
 ; PRERA-NEXT:    vs8r.v v16, (a0)
 ; PRERA-NEXT:    vs8r.v v8, (a0)
 ; PRERA-NEXT:    sd a1, 0(a0)
-; PRERA-NEXT:    csrr a0, vlenb
-; PRERA-NEXT:    slli a0, a0, 3
+; PRERA-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    add sp, sp, a0
 ; PRERA-NEXT:    addi sp, sp, 16
 ; PRERA-NEXT:    ret
@@ -336,8 +324,7 @@ define void @vfmv.v.f(ptr %p, double %x) {
 ; PRERA:       # %bb.0:
 ; PRERA-NEXT:    addi sp, sp, -16
 ; PRERA-NEXT:    .cfi_def_cfa_offset 16
-; PRERA-NEXT:    csrr a1, vlenb
-; PRERA-NEXT:    slli a1, a1, 3
+; PRERA-NEXT:    vsetvli a1, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    sub sp, sp, a1
 ; PRERA-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; PRERA-NEXT:    vsetvli a1, zero, e64, m8, ta, ma
@@ -356,8 +343,7 @@ define void @vfmv.v.f(ptr %p, double %x) {
 ; PRERA-NEXT:    vs8r.v v16, (a0)
 ; PRERA-NEXT:    vs8r.v v8, (a0)
 ; PRERA-NEXT:    fsd fa0, 0(a0)
-; PRERA-NEXT:    csrr a0, vlenb
-; PRERA-NEXT:    slli a0, a0, 3
+; PRERA-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    add sp, sp, a0
 ; PRERA-NEXT:    addi sp, sp, 16
 ; PRERA-NEXT:    ret
@@ -401,8 +387,7 @@ define void @vmv.s.x(ptr %p, i64 %x) {
 ; PRERA:       # %bb.0:
 ; PRERA-NEXT:    addi sp, sp, -16
 ; PRERA-NEXT:    .cfi_def_cfa_offset 16
-; PRERA-NEXT:    csrr a2, vlenb
-; PRERA-NEXT:    slli a2, a2, 3
+; PRERA-NEXT:    vsetvli a2, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    sub sp, sp, a2
 ; PRERA-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; PRERA-NEXT:    vsetvli a2, zero, e64, m1, ta, ma
@@ -421,8 +406,7 @@ define void @vmv.s.x(ptr %p, i64 %x) {
 ; PRERA-NEXT:    vs8r.v v16, (a0)
 ; PRERA-NEXT:    vs8r.v v8, (a0)
 ; PRERA-NEXT:    sd a1, 0(a0)
-; PRERA-NEXT:    csrr a0, vlenb
-; PRERA-NEXT:    slli a0, a0, 3
+; PRERA-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    add sp, sp, a0
 ; PRERA-NEXT:    addi sp, sp, 16
 ; PRERA-NEXT:    ret
@@ -466,8 +450,7 @@ define void @vfmv.s.f(ptr %p, double %x) {
 ; PRERA:       # %bb.0:
 ; PRERA-NEXT:    addi sp, sp, -16
 ; PRERA-NEXT:    .cfi_def_cfa_offset 16
-; PRERA-NEXT:    csrr a1, vlenb
-; PRERA-NEXT:    slli a1, a1, 3
+; PRERA-NEXT:    vsetvli a1, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    sub sp, sp, a1
 ; PRERA-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; PRERA-NEXT:    vsetvli a1, zero, e64, m1, ta, ma
@@ -486,8 +469,7 @@ define void @vfmv.s.f(ptr %p, double %x) {
 ; PRERA-NEXT:    vs8r.v v16, (a0)
 ; PRERA-NEXT:    vs8r.v v8, (a0)
 ; PRERA-NEXT:    fsd fa0, 0(a0)
-; PRERA-NEXT:    csrr a0, vlenb
-; PRERA-NEXT:    slli a0, a0, 3
+; PRERA-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; PRERA-NEXT:    add sp, sp, a0
 ; PRERA-NEXT:    addi sp, sp, 16
 ; PRERA-NEXT:    ret

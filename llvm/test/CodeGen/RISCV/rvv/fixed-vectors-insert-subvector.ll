@@ -743,7 +743,7 @@ define void @insert_v2i64_nxv16i64_hi(ptr %psv, ptr %out) {
 ; RV32VLA-NEXT:    .cfi_offset s0, -8
 ; RV32VLA-NEXT:    addi s0, sp, 80
 ; RV32VLA-NEXT:    .cfi_def_cfa s0, 0
-; RV32VLA-NEXT:    csrr a2, vlenb
+; RV32VLA-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; RV32VLA-NEXT:    slli a2, a2, 4
 ; RV32VLA-NEXT:    sub sp, sp, a2
 ; RV32VLA-NEXT:    andi sp, sp, -64
@@ -776,7 +776,7 @@ define void @insert_v2i64_nxv16i64_hi(ptr %psv, ptr %out) {
 ; RV64VLA-NEXT:    .cfi_offset s0, -16
 ; RV64VLA-NEXT:    addi s0, sp, 80
 ; RV64VLA-NEXT:    .cfi_def_cfa s0, 0
-; RV64VLA-NEXT:    csrr a2, vlenb
+; RV64VLA-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; RV64VLA-NEXT:    slli a2, a2, 4
 ; RV64VLA-NEXT:    sub sp, sp, a2
 ; RV64VLA-NEXT:    andi sp, sp, -64

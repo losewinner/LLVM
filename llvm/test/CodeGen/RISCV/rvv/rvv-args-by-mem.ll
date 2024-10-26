@@ -32,7 +32,7 @@ define <vscale x 16 x i32> @foo(i32 %0, i32 %1, i32 %2, i32 %3, i32 %4, i32 %5, 
 ; CHECK-NEXT:    .cfi_offset s1, -24
 ; CHECK-NEXT:    addi s0, sp, 96
 ; CHECK-NEXT:    .cfi_def_cfa s0, 0
-; CHECK-NEXT:    csrr t0, vlenb
+; CHECK-NEXT:    vsetvli t0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli t0, t0, 4
 ; CHECK-NEXT:    sub sp, sp, t0
 ; CHECK-NEXT:    andi sp, sp, -64

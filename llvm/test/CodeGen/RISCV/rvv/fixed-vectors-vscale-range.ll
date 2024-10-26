@@ -7,7 +7,7 @@ define <512 x i8> @vadd_v512i8_zvl128(<512 x i8> %a, <512 x i8> %b) #0 {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrr a2, vlenb
+; CHECK-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    li a4, 48
 ; CHECK-NEXT:    mul a2, a2, a4
 ; CHECK-NEXT:    sub sp, sp, a2
@@ -103,7 +103,7 @@ define <512 x i8> @vadd_v512i8_zvl128(<512 x i8> %a, <512 x i8> %b) #0 {
 ; CHECK-NEXT:    vse8.v v8, (a1)
 ; CHECK-NEXT:    addi a0, a0, 128
 ; CHECK-NEXT:    vse8.v v24, (a0)
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    li a1, 48
 ; CHECK-NEXT:    mul a0, a0, a1
 ; CHECK-NEXT:    add sp, sp, a0

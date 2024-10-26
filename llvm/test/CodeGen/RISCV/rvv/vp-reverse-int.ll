@@ -513,7 +513,7 @@ define <vscale x 128 x i8> @test_vp_reverse_nxv128i8(<vscale x 128 x i8> %src, i
 ; CHECK-NEXT:    .cfi_offset s0, -16
 ; CHECK-NEXT:    addi s0, sp, 80
 ; CHECK-NEXT:    .cfi_def_cfa s0, 0
-; CHECK-NEXT:    csrr a3, vlenb
+; CHECK-NEXT:    vsetvli a3, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a3, a3, 4
 ; CHECK-NEXT:    sub sp, sp, a3
 ; CHECK-NEXT:    andi sp, sp, -64
