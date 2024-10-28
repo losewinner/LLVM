@@ -33,7 +33,7 @@ void constant_idx_safe0(unsigned idx) {
   buffer[0] = 0;
 }
 
-int array[10]; // expected-warning 3{{'array' is an unsafe buffer that does not perform bounds checks}}
+int array[10]; // expected-warning 4{{'array' is an unsafe buffer that does not perform bounds checks}}
 
 void masked_idx1(unsigned long long idx) {
   // Bitwise and operation
@@ -68,13 +68,27 @@ void masked_idx3(unsigned long long idx) {
   array[idx >> 63];
 }
 
+typedef unsigned long long uint64_t;
+typedef unsigned int uint32_t;
+typedef unsigned char uint8_t;
+
+void type_conversions(uint64_t idx1, uint32_t idx2, uint8_t idx3) {
+  array[(uint32_t)idx1 & 3];
+  array[idx2 & 3];
+  array[(uint32_t)idx1 + idx2]; // expected-note{{used in buffer access here}}
+  array[idx3 & 3];
+  array[idx1 + idx2]; // expected-note{{used in buffer access here}}
+  array[idx2 + idx1]; // expected-note{{used in buffer access here}}
+}
+
 int array2[5];
 
-void masked_idx_false(unsigned long long idx) {
+void masked_idx_safe(unsigned long long idx) {
   array2[6 & 5]; // no warning
   array2[6 & idx & (idx + 1) & 5]; // no warning
   array2[6 & idx & 5 & (idx + 1) | 4]; // no warning 
 }
+
 
 void constant_idx_unsafe(unsigned idx) {
   int buffer[10];       // expected-warning{{'buffer' is an unsafe buffer that does not perform bounds checks}}
