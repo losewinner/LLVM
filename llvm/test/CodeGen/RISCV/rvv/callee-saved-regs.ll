@@ -6,14 +6,14 @@ define <vscale x 1 x i32> @test_vector_std(<vscale x 1 x i32> %va) nounwind {
 ; SPILL-O2-LABEL: test_vector_std:
 ; SPILL-O2:       # %bb.0: # %entry
 ; SPILL-O2-NEXT:    addi sp, sp, -16
-; SPILL-O2-NEXT:    csrr a0, vlenb
+; SPILL-O2-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; SPILL-O2-NEXT:    sub sp, sp, a0
 ; SPILL-O2-NEXT:    addi a0, sp, 16
 ; SPILL-O2-NEXT:    vs1r.v v8, (a0) # Unknown-size Folded Spill
 ; SPILL-O2-NEXT:    #APP
 ; SPILL-O2-NEXT:    #NO_APP
 ; SPILL-O2-NEXT:    vl1r.v v8, (a0) # Unknown-size Folded Reload
-; SPILL-O2-NEXT:    csrr a0, vlenb
+; SPILL-O2-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; SPILL-O2-NEXT:    add sp, sp, a0
 ; SPILL-O2-NEXT:    addi sp, sp, 16
 ; SPILL-O2-NEXT:    ret
@@ -28,7 +28,7 @@ define riscv_vector_cc <vscale x 1 x i32> @test_vector_callee(<vscale x 1 x i32>
 ; SPILL-O2-LABEL: test_vector_callee:
 ; SPILL-O2:       # %bb.0: # %entry
 ; SPILL-O2-NEXT:    addi sp, sp, -16
-; SPILL-O2-NEXT:    csrr a0, vlenb
+; SPILL-O2-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; SPILL-O2-NEXT:    slli a0, a0, 4
 ; SPILL-O2-NEXT:    sub sp, sp, a0
 ; SPILL-O2-NEXT:    csrr a0, vlenb
@@ -80,7 +80,7 @@ define riscv_vector_cc <vscale x 1 x i32> @test_vector_callee(<vscale x 1 x i32>
 ; SPILL-O2-NEXT:    add a0, sp, a0
 ; SPILL-O2-NEXT:    addi a0, a0, 16
 ; SPILL-O2-NEXT:    vl8r.v v24, (a0) # Unknown-size Folded Reload
-; SPILL-O2-NEXT:    csrr a0, vlenb
+; SPILL-O2-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; SPILL-O2-NEXT:    slli a0, a0, 4
 ; SPILL-O2-NEXT:    add sp, sp, a0
 ; SPILL-O2-NEXT:    addi sp, sp, 16

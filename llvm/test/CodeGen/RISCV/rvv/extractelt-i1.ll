@@ -135,7 +135,7 @@ define i1 @extractelt_nxv128i1(ptr %x, i64 %idx) nounwind {
 ; RV32-NEXT:    sw ra, 76(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    sw s0, 72(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    addi s0, sp, 80
-; RV32-NEXT:    csrr a3, vlenb
+; RV32-NEXT:    vsetvli a3, zero, e8, m1, ta, ma
 ; RV32-NEXT:    slli a3, a3, 4
 ; RV32-NEXT:    sub sp, sp, a3
 ; RV32-NEXT:    andi sp, sp, -64
@@ -175,7 +175,7 @@ define i1 @extractelt_nxv128i1(ptr %x, i64 %idx) nounwind {
 ; RV64-NEXT:    sd ra, 72(sp) # 8-byte Folded Spill
 ; RV64-NEXT:    sd s0, 64(sp) # 8-byte Folded Spill
 ; RV64-NEXT:    addi s0, sp, 80
-; RV64-NEXT:    csrr a3, vlenb
+; RV64-NEXT:    vsetvli a3, zero, e8, m1, ta, ma
 ; RV64-NEXT:    slli a3, a3, 4
 ; RV64-NEXT:    sub sp, sp, a3
 ; RV64-NEXT:    andi sp, sp, -64

@@ -606,8 +606,7 @@ define void @test_srem_vec(ptr %X) nounwind {
 ; RV32MV-NEXT:    sw s2, 48(sp) # 4-byte Folded Spill
 ; RV32MV-NEXT:    sw s3, 44(sp) # 4-byte Folded Spill
 ; RV32MV-NEXT:    sw s4, 40(sp) # 4-byte Folded Spill
-; RV32MV-NEXT:    csrr a1, vlenb
-; RV32MV-NEXT:    slli a1, a1, 1
+; RV32MV-NEXT:    vsetvli a1, zero, e8, m2, ta, ma
 ; RV32MV-NEXT:    sub sp, sp, a1
 ; RV32MV-NEXT:    mv s0, a0
 ; RV32MV-NEXT:    lbu a1, 12(a0)
@@ -712,8 +711,7 @@ define void @test_srem_vec(ptr %X) nounwind {
 ; RV32MV-NEXT:    sw a2, 4(s0)
 ; RV32MV-NEXT:    sw a0, 8(s0)
 ; RV32MV-NEXT:    sb a3, 12(s0)
-; RV32MV-NEXT:    csrr a0, vlenb
-; RV32MV-NEXT:    slli a0, a0, 1
+; RV32MV-NEXT:    vsetvli a0, zero, e8, m2, ta, ma
 ; RV32MV-NEXT:    add sp, sp, a0
 ; RV32MV-NEXT:    lw ra, 60(sp) # 4-byte Folded Reload
 ; RV32MV-NEXT:    lw s0, 56(sp) # 4-byte Folded Reload

@@ -199,7 +199,7 @@ define void @test_compresstore_v256i8(ptr %p, <256 x i1> %mask, <256 x i8> %data
 ; RV64:       # %bb.0: # %entry
 ; RV64-NEXT:    addi sp, sp, -16
 ; RV64-NEXT:    .cfi_def_cfa_offset 16
-; RV64-NEXT:    csrr a2, vlenb
+; RV64-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; RV64-NEXT:    slli a2, a2, 4
 ; RV64-NEXT:    sub sp, sp, a2
 ; RV64-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x10, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 16 * vlenb
@@ -238,7 +238,7 @@ define void @test_compresstore_v256i8(ptr %p, <256 x i1> %mask, <256 x i8> %data
 ; RV64-NEXT:    add a0, a0, a1
 ; RV64-NEXT:    vsetvli zero, a2, e8, m8, ta, ma
 ; RV64-NEXT:    vse8.v v16, (a0)
-; RV64-NEXT:    csrr a0, vlenb
+; RV64-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV64-NEXT:    slli a0, a0, 4
 ; RV64-NEXT:    add sp, sp, a0
 ; RV64-NEXT:    addi sp, sp, 16

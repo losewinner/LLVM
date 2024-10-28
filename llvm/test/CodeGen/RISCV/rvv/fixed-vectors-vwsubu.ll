@@ -249,7 +249,7 @@ define <128 x i16> @vwsubu_v128i16(ptr %x, ptr %y) nounwind {
 ; CHECK-LABEL: vwsubu_v128i16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
-; CHECK-NEXT:    csrr a2, vlenb
+; CHECK-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a2, a2, 4
 ; CHECK-NEXT:    sub sp, sp, a2
 ; CHECK-NEXT:    li a2, 128
@@ -277,7 +277,7 @@ define <128 x i16> @vwsubu_v128i16(ptr %x, ptr %y) nounwind {
 ; CHECK-NEXT:    add a0, sp, a0
 ; CHECK-NEXT:    addi a0, a0, 16
 ; CHECK-NEXT:    vl8r.v v16, (a0) # Unknown-size Folded Reload
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a0, a0, 4
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
@@ -294,7 +294,7 @@ define <64 x i32> @vwsubu_v64i32(ptr %x, ptr %y) nounwind {
 ; CHECK-LABEL: vwsubu_v64i32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
-; CHECK-NEXT:    csrr a2, vlenb
+; CHECK-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a2, a2, 4
 ; CHECK-NEXT:    sub sp, sp, a2
 ; CHECK-NEXT:    li a2, 64
@@ -322,7 +322,7 @@ define <64 x i32> @vwsubu_v64i32(ptr %x, ptr %y) nounwind {
 ; CHECK-NEXT:    add a0, sp, a0
 ; CHECK-NEXT:    addi a0, a0, 16
 ; CHECK-NEXT:    vl8r.v v16, (a0) # Unknown-size Folded Reload
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a0, a0, 4
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
@@ -339,7 +339,7 @@ define <32 x i64> @vwsubu_v32i64(ptr %x, ptr %y) nounwind {
 ; CHECK-LABEL: vwsubu_v32i64:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
-; CHECK-NEXT:    csrr a2, vlenb
+; CHECK-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a2, a2, 4
 ; CHECK-NEXT:    sub sp, sp, a2
 ; CHECK-NEXT:    li a2, 32
@@ -366,7 +366,7 @@ define <32 x i64> @vwsubu_v32i64(ptr %x, ptr %y) nounwind {
 ; CHECK-NEXT:    add a0, sp, a0
 ; CHECK-NEXT:    addi a0, a0, 16
 ; CHECK-NEXT:    vl8r.v v16, (a0) # Unknown-size Folded Reload
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a0, a0, 4
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16

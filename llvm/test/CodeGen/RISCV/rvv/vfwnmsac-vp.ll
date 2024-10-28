@@ -568,8 +568,7 @@ define <vscale x 16 x float> @vfnmsac_vv_nxv16f32(<vscale x 16 x half> %a, <vsca
 ; ZVFHMIN:       # %bb.0:
 ; ZVFHMIN-NEXT:    addi sp, sp, -16
 ; ZVFHMIN-NEXT:    .cfi_def_cfa_offset 16
-; ZVFHMIN-NEXT:    csrr a1, vlenb
-; ZVFHMIN-NEXT:    slli a1, a1, 3
+; ZVFHMIN-NEXT:    vsetvli a1, zero, e8, m8, ta, ma
 ; ZVFHMIN-NEXT:    sub sp, sp, a1
 ; ZVFHMIN-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; ZVFHMIN-NEXT:    addi a1, sp, 16
@@ -582,8 +581,7 @@ define <vscale x 16 x float> @vfnmsac_vv_nxv16f32(<vscale x 16 x half> %a, <vsca
 ; ZVFHMIN-NEXT:    vsetvli zero, zero, e32, m8, ta, ma
 ; ZVFHMIN-NEXT:    vfnmsub.vv v24, v16, v8, v0.t
 ; ZVFHMIN-NEXT:    vmv.v.v v8, v24
-; ZVFHMIN-NEXT:    csrr a0, vlenb
-; ZVFHMIN-NEXT:    slli a0, a0, 3
+; ZVFHMIN-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; ZVFHMIN-NEXT:    add sp, sp, a0
 ; ZVFHMIN-NEXT:    addi sp, sp, 16
 ; ZVFHMIN-NEXT:    ret

@@ -59,8 +59,7 @@ define i64 @ctz_nxv8i1_no_range(<vscale x 8 x i16> %a) {
 ; RV32-NEXT:    .cfi_def_cfa_offset 48
 ; RV32-NEXT:    sw ra, 44(sp) # 4-byte Folded Spill
 ; RV32-NEXT:    .cfi_offset ra, -4
-; RV32-NEXT:    csrr a0, vlenb
-; RV32-NEXT:    slli a0, a0, 1
+; RV32-NEXT:    vsetvli a0, zero, e8, m2, ta, ma
 ; RV32-NEXT:    sub sp, sp, a0
 ; RV32-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x30, 0x22, 0x11, 0x02, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 48 + 2 * vlenb
 ; RV32-NEXT:    addi a0, sp, 32
@@ -97,8 +96,7 @@ define i64 @ctz_nxv8i1_no_range(<vscale x 8 x i16> %a) {
 ; RV32-NEXT:    sub a1, a1, a4
 ; RV32-NEXT:    sub a1, a1, a3
 ; RV32-NEXT:    sub a0, a0, a2
-; RV32-NEXT:    csrr a2, vlenb
-; RV32-NEXT:    slli a2, a2, 1
+; RV32-NEXT:    vsetvli a2, zero, e8, m2, ta, ma
 ; RV32-NEXT:    add sp, sp, a2
 ; RV32-NEXT:    lw ra, 44(sp) # 4-byte Folded Reload
 ; RV32-NEXT:    addi sp, sp, 48

@@ -132,7 +132,7 @@ body:             |
   ; CHECK-NEXT:   frame-setup CFI_INSTRUCTION offset $x1, -24
   ; CHECK-NEXT:   frame-setup CFI_INSTRUCTION offset $x8, -32
   ; CHECK-NEXT:   frame-setup CFI_INSTRUCTION offset $x9, -40
-  ; CHECK-NEXT:   $x10 = frame-setup PseudoReadVLENB
+  ; CHECK-NEXT:   $x10 = frame-setup PseudoReadMulVLENB 1, implicit-def $vl, implicit-def $vtype
   ; CHECK-NEXT:   $x2 = frame-setup SUB $x2, killed $x10
   ; CHECK-NEXT:   frame-setup CFI_INSTRUCTION escape 0x0f, 0x0e, 0x72, 0x00, 0x11, 0xd0, 0x00, 0x22, 0x11, 0x01, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22
   ; CHECK-NEXT:   renamable $x8 = COPY $x14

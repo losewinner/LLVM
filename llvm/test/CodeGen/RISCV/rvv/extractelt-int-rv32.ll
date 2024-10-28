@@ -871,7 +871,7 @@ define i32 @extractelt_nxv32i32_neg1(<vscale x 32 x i32> %v) {
 ; CHECK-NEXT:    .cfi_offset s0, -8
 ; CHECK-NEXT:    addi s0, sp, 80
 ; CHECK-NEXT:    .cfi_def_cfa s0, 0
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a0, a0, 4
 ; CHECK-NEXT:    sub sp, sp, a0
 ; CHECK-NEXT:    andi sp, sp, -64
@@ -922,7 +922,7 @@ define i32 @extractelt_nxv32i32_idx(<vscale x 32 x i32> %v, i32 %idx) {
 ; CHECK-NEXT:    .cfi_offset s0, -8
 ; CHECK-NEXT:    addi s0, sp, 80
 ; CHECK-NEXT:    .cfi_def_cfa s0, 0
-; CHECK-NEXT:    csrr a2, vlenb
+; CHECK-NEXT:    vsetvli a2, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a2, a2, 4
 ; CHECK-NEXT:    sub sp, sp, a2
 ; CHECK-NEXT:    andi sp, sp, -64

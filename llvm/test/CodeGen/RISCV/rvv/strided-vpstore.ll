@@ -624,8 +624,7 @@ define void @strided_store_nxv17f64(<vscale x 17 x double> %v, ptr %ptr, i32 sig
 ; CHECK-NEXT:  .LBB48_4:
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrr t0, vlenb
-; CHECK-NEXT:    slli t0, t0, 3
+; CHECK-NEXT:    vsetvli t0, zero, e8, m8, ta, ma
 ; CHECK-NEXT:    sub sp, sp, t0
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; CHECK-NEXT:    vl8re64.v v0, (a0)
@@ -662,8 +661,7 @@ define void @strided_store_nxv17f64(<vscale x 17 x double> %v, ptr %ptr, i32 sig
 ; CHECK-NEXT:    vl8r.v v8, (a3) # Unknown-size Folded Reload
 ; CHECK-NEXT:    vsetvli zero, a0, e64, m8, ta, ma
 ; CHECK-NEXT:    vsse64.v v8, (a1), a2, v0.t
-; CHECK-NEXT:    csrr a0, vlenb
-; CHECK-NEXT:    slli a0, a0, 3
+; CHECK-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
 ; CHECK-NEXT:    ret

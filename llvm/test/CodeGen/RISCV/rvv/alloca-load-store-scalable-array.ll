@@ -10,7 +10,7 @@ define void @test(ptr %addr) {
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    addi sp, sp, -16
 ; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    csrrs a1, vlenb, zero
+; CHECK-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a2, a1, 1
 ; CHECK-NEXT:    add a1, a2, a1
 ; CHECK-NEXT:    sub sp, sp, a1
@@ -28,7 +28,7 @@ define void @test(ptr %addr) {
 ; CHECK-NEXT:    vs1r.v v10, (a2)
 ; CHECK-NEXT:    add a0, a0, a1
 ; CHECK-NEXT:    vs1r.v v8, (a0)
-; CHECK-NEXT:    csrrs a0, vlenb, zero
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a1, a0, 1
 ; CHECK-NEXT:    add a0, a1, a0
 ; CHECK-NEXT:    add sp, sp, a0

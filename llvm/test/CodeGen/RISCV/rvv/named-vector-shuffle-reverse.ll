@@ -1962,7 +1962,7 @@ define <vscale x 12 x i64> @reverse_nxv12i64(<vscale x 12 x i64> %a) {
 ; RV32-NEXT:    .cfi_offset s0, -8
 ; RV32-NEXT:    addi s0, sp, 80
 ; RV32-NEXT:    .cfi_def_cfa s0, 0
-; RV32-NEXT:    csrr a0, vlenb
+; RV32-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV32-NEXT:    slli a0, a0, 4
 ; RV32-NEXT:    sub sp, sp, a0
 ; RV32-NEXT:    andi sp, sp, -64
@@ -2007,7 +2007,7 @@ define <vscale x 12 x i64> @reverse_nxv12i64(<vscale x 12 x i64> %a) {
 ; RV64-NEXT:    .cfi_offset s0, -16
 ; RV64-NEXT:    addi s0, sp, 80
 ; RV64-NEXT:    .cfi_def_cfa s0, 0
-; RV64-NEXT:    csrr a0, vlenb
+; RV64-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV64-NEXT:    slli a0, a0, 4
 ; RV64-NEXT:    sub sp, sp, a0
 ; RV64-NEXT:    andi sp, sp, -64

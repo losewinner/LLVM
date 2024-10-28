@@ -400,7 +400,7 @@ define void @masked_store_v32i64(ptr %val_ptr, ptr %a, ptr %m_ptr) nounwind {
 ; CHECK-LABEL: masked_store_v32i64:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
-; CHECK-NEXT:    csrr a3, vlenb
+; CHECK-NEXT:    vsetvli a3, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a3, a3, 4
 ; CHECK-NEXT:    sub sp, sp, a3
 ; CHECK-NEXT:    vsetivli zero, 16, e64, m8, ta, ma
@@ -430,7 +430,7 @@ define void @masked_store_v32i64(ptr %val_ptr, ptr %a, ptr %m_ptr) nounwind {
 ; CHECK-NEXT:    addi a1, sp, 16
 ; CHECK-NEXT:    vl8r.v v8, (a1) # Unknown-size Folded Reload
 ; CHECK-NEXT:    vse64.v v8, (a0), v0.t
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a0, a0, 4
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
@@ -483,7 +483,7 @@ define void @masked_store_v64i32(ptr %val_ptr, ptr %a, ptr %m_ptr) nounwind {
 ; CHECK-LABEL: masked_store_v64i32:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
-; CHECK-NEXT:    csrr a3, vlenb
+; CHECK-NEXT:    vsetvli a3, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a3, a3, 4
 ; CHECK-NEXT:    sub sp, sp, a3
 ; CHECK-NEXT:    li a3, 32
@@ -514,7 +514,7 @@ define void @masked_store_v64i32(ptr %val_ptr, ptr %a, ptr %m_ptr) nounwind {
 ; CHECK-NEXT:    addi a1, sp, 16
 ; CHECK-NEXT:    vl8r.v v8, (a1) # Unknown-size Folded Reload
 ; CHECK-NEXT:    vse32.v v8, (a0), v0.t
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a0, a0, 4
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
@@ -549,7 +549,7 @@ define void @masked_store_v128i16(ptr %val_ptr, ptr %a, ptr %m_ptr) nounwind {
 ; CHECK-LABEL: masked_store_v128i16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
-; CHECK-NEXT:    csrr a3, vlenb
+; CHECK-NEXT:    vsetvli a3, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a3, a3, 4
 ; CHECK-NEXT:    sub sp, sp, a3
 ; CHECK-NEXT:    li a3, 64
@@ -580,7 +580,7 @@ define void @masked_store_v128i16(ptr %val_ptr, ptr %a, ptr %m_ptr) nounwind {
 ; CHECK-NEXT:    addi a1, sp, 16
 ; CHECK-NEXT:    vl8r.v v8, (a1) # Unknown-size Folded Reload
 ; CHECK-NEXT:    vse16.v v8, (a0), v0.t
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a0, a0, 4
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16
@@ -597,7 +597,7 @@ define void @masked_store_v256i8(ptr %val_ptr, ptr %a, ptr %m_ptr) nounwind {
 ; CHECK-LABEL: masked_store_v256i8:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    addi sp, sp, -16
-; CHECK-NEXT:    csrr a3, vlenb
+; CHECK-NEXT:    vsetvli a3, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a3, a3, 4
 ; CHECK-NEXT:    sub sp, sp, a3
 ; CHECK-NEXT:    li a3, 128
@@ -628,7 +628,7 @@ define void @masked_store_v256i8(ptr %val_ptr, ptr %a, ptr %m_ptr) nounwind {
 ; CHECK-NEXT:    addi a1, sp, 16
 ; CHECK-NEXT:    vl8r.v v8, (a1) # Unknown-size Folded Reload
 ; CHECK-NEXT:    vse8.v v8, (a0), v0.t
-; CHECK-NEXT:    csrr a0, vlenb
+; CHECK-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; CHECK-NEXT:    slli a0, a0, 4
 ; CHECK-NEXT:    add sp, sp, a0
 ; CHECK-NEXT:    addi sp, sp, 16

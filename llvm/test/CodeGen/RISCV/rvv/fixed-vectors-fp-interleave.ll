@@ -240,8 +240,7 @@ define <64 x float> @interleave_v32f32(<32 x float> %x, <32 x float> %y) {
 ; V128:       # %bb.0:
 ; V128-NEXT:    addi sp, sp, -16
 ; V128-NEXT:    .cfi_def_cfa_offset 16
-; V128-NEXT:    csrr a0, vlenb
-; V128-NEXT:    slli a0, a0, 3
+; V128-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; V128-NEXT:    sub sp, sp, a0
 ; V128-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x08, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 8 * vlenb
 ; V128-NEXT:    vmv8r.v v0, v16
@@ -272,8 +271,7 @@ define <64 x float> @interleave_v32f32(<32 x float> %x, <32 x float> %y) {
 ; V128-NEXT:    vwmaccu.vx v0, a0, v8
 ; V128-NEXT:    vmv8r.v v8, v0
 ; V128-NEXT:    vmv8r.v v16, v24
-; V128-NEXT:    csrr a0, vlenb
-; V128-NEXT:    slli a0, a0, 3
+; V128-NEXT:    vsetvli a0, zero, e8, m8, ta, ma
 ; V128-NEXT:    add sp, sp, a0
 ; V128-NEXT:    addi sp, sp, 16
 ; V128-NEXT:    ret

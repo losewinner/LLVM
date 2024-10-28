@@ -13,14 +13,12 @@ define ptr @scalar_stack_align16() nounwind {
 ; RV32-ZVE64:       # %bb.0:
 ; RV32-ZVE64-NEXT:    addi sp, sp, -48
 ; RV32-ZVE64-NEXT:    sw ra, 44(sp) # 4-byte Folded Spill
-; RV32-ZVE64-NEXT:    csrr a0, vlenb
-; RV32-ZVE64-NEXT:    slli a0, a0, 1
+; RV32-ZVE64-NEXT:    vsetvli a0, zero, e8, m2, ta, ma
 ; RV32-ZVE64-NEXT:    sub sp, sp, a0
 ; RV32-ZVE64-NEXT:    addi a0, sp, 32
 ; RV32-ZVE64-NEXT:    call extern
 ; RV32-ZVE64-NEXT:    addi a0, sp, 16
-; RV32-ZVE64-NEXT:    csrr a1, vlenb
-; RV32-ZVE64-NEXT:    slli a1, a1, 1
+; RV32-ZVE64-NEXT:    vsetvli a1, zero, e8, m2, ta, ma
 ; RV32-ZVE64-NEXT:    add sp, sp, a1
 ; RV32-ZVE64-NEXT:    lw ra, 44(sp) # 4-byte Folded Reload
 ; RV32-ZVE64-NEXT:    addi sp, sp, 48
@@ -30,14 +28,12 @@ define ptr @scalar_stack_align16() nounwind {
 ; RV64-ZVE64:       # %bb.0:
 ; RV64-ZVE64-NEXT:    addi sp, sp, -48
 ; RV64-ZVE64-NEXT:    sd ra, 40(sp) # 8-byte Folded Spill
-; RV64-ZVE64-NEXT:    csrr a0, vlenb
-; RV64-ZVE64-NEXT:    slli a0, a0, 1
+; RV64-ZVE64-NEXT:    vsetvli a0, zero, e8, m2, ta, ma
 ; RV64-ZVE64-NEXT:    sub sp, sp, a0
 ; RV64-ZVE64-NEXT:    addi a0, sp, 32
 ; RV64-ZVE64-NEXT:    call extern
 ; RV64-ZVE64-NEXT:    addi a0, sp, 16
-; RV64-ZVE64-NEXT:    csrr a1, vlenb
-; RV64-ZVE64-NEXT:    slli a1, a1, 1
+; RV64-ZVE64-NEXT:    vsetvli a1, zero, e8, m2, ta, ma
 ; RV64-ZVE64-NEXT:    add sp, sp, a1
 ; RV64-ZVE64-NEXT:    ld ra, 40(sp) # 8-byte Folded Reload
 ; RV64-ZVE64-NEXT:    addi sp, sp, 48
@@ -47,12 +43,12 @@ define ptr @scalar_stack_align16() nounwind {
 ; RV32-V:       # %bb.0:
 ; RV32-V-NEXT:    addi sp, sp, -48
 ; RV32-V-NEXT:    sw ra, 44(sp) # 4-byte Folded Spill
-; RV32-V-NEXT:    csrr a0, vlenb
+; RV32-V-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV32-V-NEXT:    sub sp, sp, a0
 ; RV32-V-NEXT:    addi a0, sp, 32
 ; RV32-V-NEXT:    call extern
 ; RV32-V-NEXT:    addi a0, sp, 16
-; RV32-V-NEXT:    csrr a1, vlenb
+; RV32-V-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; RV32-V-NEXT:    add sp, sp, a1
 ; RV32-V-NEXT:    lw ra, 44(sp) # 4-byte Folded Reload
 ; RV32-V-NEXT:    addi sp, sp, 48
@@ -62,12 +58,12 @@ define ptr @scalar_stack_align16() nounwind {
 ; RV64-V:       # %bb.0:
 ; RV64-V-NEXT:    addi sp, sp, -48
 ; RV64-V-NEXT:    sd ra, 40(sp) # 8-byte Folded Spill
-; RV64-V-NEXT:    csrr a0, vlenb
+; RV64-V-NEXT:    vsetvli a0, zero, e8, m1, ta, ma
 ; RV64-V-NEXT:    sub sp, sp, a0
 ; RV64-V-NEXT:    addi a0, sp, 32
 ; RV64-V-NEXT:    call extern
 ; RV64-V-NEXT:    addi a0, sp, 16
-; RV64-V-NEXT:    csrr a1, vlenb
+; RV64-V-NEXT:    vsetvli a1, zero, e8, m1, ta, ma
 ; RV64-V-NEXT:    add sp, sp, a1
 ; RV64-V-NEXT:    ld ra, 40(sp) # 8-byte Folded Reload
 ; RV64-V-NEXT:    addi sp, sp, 48
