@@ -40,6 +40,10 @@ define_opcode(0x21, None, "lit_int")
 define_opcode(0x22, None, "lit_string")
 define_opcode(0x23, None, "lit_selector")
 
+define_opcode(0x2a, "as_int", "as_int")
+define_opcode(0x2b, "as_uint", "as_uint")
+define_opcode(0x2c, "is_null", "is_null")
+
 define_opcode(0x30, "+", "plus")
 define_opcode(0x31, "-", "minus")
 define_opcode(0x32, "*", "mul")
@@ -47,7 +51,6 @@ define_opcode(0x33, "/", "div")
 define_opcode(0x34, "%", "mod")
 define_opcode(0x35, "<<", "shl")
 define_opcode(0x36, ">>", "shr")
-define_opcode(0x37, "shra", "shra")
 
 define_opcode(0x40, "&", "and")
 define_opcode(0x41, "|", "or")
@@ -357,6 +360,11 @@ def interpret(bytecode: bytearray, control: list, data: list, tracing: bool = Fa
                 length -= 1
             data.append(s)
 
+        elif b == op_as_uint: pass
+        elif b == op_as_int: pass
+        elif b == op_is_null:
+            data.append(1 if data.pop() == None else 0)
+
         # Arithmetic, logic, etc.
         elif b == op_plus:
             data.append(data.pop() + data.pop())
@@ -376,9 +384,6 @@ def interpret(bytecode: bytearray, control: list, data: list, tracing: bool = Fa
         elif b == op_shr:
             y = data.pop()
             data.append(data.pop() >> y)
-        elif b == op_shra:
-            y = data.pop()
-            data.append(data.pop() >> y)  # FIXME
         elif b == op_and:
             data.append(data.pop() & data.pop())
         elif b == op_or:
@@ -438,7 +443,8 @@ def interpret(bytecode: bytearray, control: list, data: list, tracing: bool = Fa
                 valobj = data.pop()
                 data.append(valobj.Cast(sbtype))
             elif sel == sel_strlen:
-                data.append(len(data.pop()))
+                s = data.pop()
+                data.append(len(s) if s else 0)
             elif sel == sel_fmt:
                 fmt = data.pop()
                 n = count_fmt_params(fmt)

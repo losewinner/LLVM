@@ -19,14 +19,27 @@ def __lldb_init_module(debugger, internal_dict):
         '-x "^MyOptional<.+>$"'
     )
 
-
+def stringify(bytecode: bytearray) -> str:
+    s = ""
+    in_hex = False
+    for b in bytecode:
+        if ((b < 32 or b > 127 or chr(b) in ['"','`',"'"]) or
+            (in_hex and chr(b).lower() in
+             ['a','b','c','d','e','f','0','1','2','3','4','5','6','7','8','9'])):
+            s+= r'\x' + hex(b)[2:]
+            in_hex = True
+        else:
+            s+=chr(b)
+            in_hex = False
+    return s
+    
 def evaluate(assembler: str, data: list):
     bytecode = compile(assembler)
     trace = True
     if trace:
         print(
-            "Compiled to {0} bytes of bytecode:\n0x{1}".format(
-                len(bytecode), bytecode.hex()
+            "Compiled to {0} bytes of bytecode:\n{1}".format(
+                len(bytecode), stringify(bytecode)
             )
         )
     result = interpret(bytecode, [], data, False)  # trace)
@@ -62,22 +75,21 @@ def MyOptionalSummaryProvider(valobj, internal_dict):
     #    return val.GetValue()
     summary = ""
     summary += ' dup "Storage" @get_child_with_name call'  # valobj storage
-    summary += " dup { swap } if drop"  # storage
-    summary += ' dup "hasVal" @get_child_with_name call'  # storage
-    summary += " @get_value_as_unsigned call"  # storage int(hasVal)
-    summary += ' dup 2 = { drop "<could not read MyOptional>" } {'
-    summary += '   0 = { "None" } {'
-    summary += (
-        "     dup @get_type call 0 @get_template_argument_type call"  # storage type
-    )
-    summary += "     swap"  # type storage
+    summary += ' dup is_null ~ { swap } if drop'  # storage
+    summary += ' dup "hasVal" @get_child_with_name call'  # storage obj(hasVal)
+    summary += ' dup is_null { drop "<could not read MyOptional>" } {'
+    summary += '   @get_value_as_unsigned call'  # storage int(hasVal)
+    summary += '   0u = { "None" } {'
+    summary += '     dup @get_type call'
+    summary += '     0u @get_template_argument_type call'  # storage type
+    summary += '     swap'  # type storage
     summary += '     "value" @get_child_with_name call'  # type value
-    summary += "     swap @cast call"  # type(value)
-    summary += '     dup 0 = { "None" } {'
-    summary += "       dup @summary call { @summary call } { @get_value call } ifelse"
-    summary += "     } ifelse"
-    summary += "   } ifelse"
-    summary += " } ifelse"
+    summary += '     swap @cast call'  # type(value)
+    summary += '     dup is_null { "None" } {'
+    summary += '       dup @summary call dup @strlen call { @get_value call } { drop } ifelse'
+    summary += '     } ifelse'
+    summary += '   } ifelse'
+    summary += ' } ifelse'
     return evaluate(summary, [valobj])
 
 
