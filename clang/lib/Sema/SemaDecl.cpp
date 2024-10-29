@@ -2637,7 +2637,6 @@ void Sema::RetireNodesFromMergedDecl(Scope *S, Decl *New) {
       assert(EnumScope->isDeclScope(ECD));
       EnumScope->RemoveDecl(ECD);
       IdResolver.RemoveDecl(ECD);
-      ECD->getLexicalDeclContext()->removeDecl(ECD);
     }
   }
 }

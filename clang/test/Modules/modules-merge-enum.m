@@ -1,7 +1,7 @@
 // RUN: rm -rf %t
 // RUN: split-file %s %t
 
-// RUN: %clang -fmodules -fmodules-cache-path=%t/modcache -fsyntax-only %t/source.m
+// RUN: %clang -fmodules -fmodules-cache-path=%t/modcache -fsyntax-only %t/source.m -Xclang -ast-dump-all
 // TODO: Expect some AST shape here.
 
 
