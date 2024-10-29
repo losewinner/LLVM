@@ -2631,7 +2631,7 @@ void Sema::MergeTypedefNameDecl(Scope *S, TypedefNameDecl *New,
 void Sema::RetireNodesFromMergedDecl(Scope *S, Decl *New) {
   // If this was an unscoped enumeration, yank all of its enumerators
   // out of the scope.
-  if (auto *ED = dyn_cast<EnumDecl>(New); ED) {
+  if (auto *ED = dyn_cast<EnumDecl>(New); ED && !ED->isScoped()) {
     Scope *EnumScope = getNonFieldDeclScope(S);
     for (auto *ECD : ED->enumerators()) {
       assert(EnumScope->isDeclScope(ECD));
@@ -18062,12 +18062,14 @@ void Sema::ActOnTagStartDefinition(Scope *S, Decl *TagD) {
   AddPushedVisibilityAttribute(Tag);
 }
 
-bool Sema::ActOnDuplicateDefinition(Decl *Prev, SkipBodyInfo &SkipBody) {
+bool Sema::ActOnDuplicateDefinition(Scope *S, Decl *Prev,
+                                    SkipBodyInfo &SkipBody) {
   if (!hasStructuralCompatLayout(Prev, SkipBody.New))
     return false;
 
   // Make the previous decl visible.
   makeMergedDefinitionVisible(SkipBody.Previous);
+  RetireNodesFromMergedDecl(S, SkipBody.New);
   return true;
 }
 
