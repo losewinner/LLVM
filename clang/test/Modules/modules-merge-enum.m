@@ -1,19 +1,61 @@
 // RUN: rm -rf %t
 // RUN: split-file %s %t
 
-// RUN: %clang -fmodules -fmodules-cache-path=%t/modcache -fsyntax-only %t/source.m -Xclang -ast-dump-all
-// TODO: Expect some AST shape here.
+// RUN: %clang -fmodules -fmodules-cache-path=%t/modcache -fsyntax-only %t/source.m -Xclang -ast-dump-all 2>&1 | FileCheck %s
 
 
 //--- shared.h
 // This header is shared between two modules, but it's not a module itself.
 // The enums defined here are parsed in both modules, and merged while building ModB.
+
 typedef enum MyEnum1 { MyVal_A } MyEnum1;
+// CHECK:      |-EnumDecl 0x{{.*}} imported in ModA.ModAFile1 <undeserialized declarations> MyEnum1
+// CHECK-NEXT: | |-also in ModB
+// CHECK-NEXT: | `-EnumConstantDecl 0x{{.*}} imported in ModA.ModAFile1 referenced MyVal_A 'int'
+// CHECK-NEXT: |-TypedefDecl 0x{{.*}} imported in ModA.ModAFile1 hidden MyEnum1 'enum MyEnum1'
+// CHECK-NEXT: | `-ElaboratedType 0x{{.*}} 'enum MyEnum1' sugar imported
+// CHECK-NEXT: |   `-EnumType 0x{{.*}} 'enum MyEnum1' imported
+// CHECK-NEXT: |     `-Enum 0x{{.*}} 'MyEnum1'
+
+
 enum MyEnum2 { MyVal_B };
+// CHECK:      |-EnumDecl 0x{{.*}} imported in ModA.ModAFile1 <undeserialized declarations> MyEnum2
+// CHECK-NEXT: | |-also in ModB
+// CHECK-NEXT: | `-EnumConstantDecl 0x{{.*}} imported in ModA.ModAFile1 referenced MyVal_B 'int'
+
+
 typedef enum { MyVal_C } MyEnum3;
+// CHECK:      |-EnumDecl 0x{{.*}} imported in ModA.ModAFile1 <undeserialized declarations>
+// CHECK-NEXT: | |-also in ModB
+// CHECK-NEXT: | `-EnumConstantDecl 0x{{.*}} imported in ModA.ModAFile1 referenced MyVal_C 'int'
+// CHECK-NEXT: |-TypedefDecl 0x{{.*}} imported in ModA.ModAFile1 hidden MyEnum3 'enum MyEnum3':'MyEnum3'
+// CHECK-NEXT: | `-ElaboratedType 0x{{.*}} 'enum MyEnum3' sugar imported
+// CHECK-NEXT: |   `-EnumType 0x{{.*}} 'MyEnum3' imported
+// CHECK-NEXT: |     `-Enum 0x{{.*}} ''
+
 
 // In this case, no merging happens on the EnumDecl in Objective-C, and ASTWriter writes both EnumConstantDecls when building ModB.
 enum { MyVal_D };
+// CHECK:      |-EnumDecl 0x{{.*}} imported in ModA.ModAFile1 hidden <undeserialized declarations>
+// CHECK-NEXT: | `-EnumConstantDecl 0x{{.*}} imported in ModA.ModAFile1 hidden MyVal_D 'int'
+
+
+// Redeclarations coming from ModB.
+// CHECK:      |-TypedefDecl 0x{{.*}} prev 0x{{.*}} imported in ModB MyEnum1 'enum MyEnum1'
+// CHECK-NEXT: | `-ElaboratedType 0x{{.*}} 'enum MyEnum1' sugar imported
+// CHECK-NEXT: |   `-EnumType 0x{{.*}} 'enum MyEnum1' imported
+// CHECK-NEXT: |     `-Enum 0x{{.*}} 'MyEnum1'
+
+// CHECK:      |-EnumDecl 0x{{.*}} prev 0x{{.*}} imported in ModB <undeserialized declarations>
+// CHECK-NEXT: | |-also in ModB
+// CHECK-NEXT: | `-EnumConstantDecl 0x{{.*}} imported in ModB MyVal_C 'int'
+// CHECK-NEXT: |-TypedefDecl 0x{{.*}} prev 0x{{.*}} imported in ModB MyEnum3 'enum MyEnum3':'MyEnum3'
+// CHECK-NEXT: | `-ElaboratedType 0x{{.*}} 'enum MyEnum3' sugar imported
+// CHECK-NEXT: |   `-EnumType 0x{{.*}} 'MyEnum3' imported
+// CHECK-NEXT: |     `-Enum 0x{{.*}} ''
+
+// CHECK:      |-EnumDecl 0x{{.*}} imported in ModB <undeserialized declarations>
+// CHECK-NEXT: | `-EnumConstantDecl 0x{{.*}} first 0x{{.*}} imported in ModB referenced MyVal_D 'int'
 
 //--- module.modulemap
 module ModA {
