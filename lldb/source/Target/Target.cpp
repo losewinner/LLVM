@@ -1538,20 +1538,16 @@ static void LoadScriptingResourceForModule(const ModuleSP &module_sp,
                                                   feedback_stream.GetData());
 }
 
-// Load type summaries embedded in the binary. These are type summaries provided
-// by the authors of the code.
-static void LoadTypeSummariesForModule(ModuleSP module_sp) {
-  auto *sections = module_sp->GetSectionList();
+static void ForEachFormatterInModule(
+    Module &module, SectionType section_type,
+    std::function<void(llvm::DataExtractor, llvm::StringRef)> fn) {
+  auto *sections = module.GetSectionList();
   if (!sections)
     return;
 
-  auto summaries_sp =
-      sections->FindSectionByType(eSectionTypeLLDBTypeSummaries, true);
-  if (!summaries_sp)
+  auto section_sp = sections->FindSectionByType(section_type, true);
+  if (!section_sp)
     return;
-
-  Log *log = GetLog(LLDBLog::DataFormatters);
-  const char *module_name = module_sp->GetObjectName().GetCString();
 
   TypeCategoryImplSP category;
   DataVisualization::Categories::GetCategory(ConstString("default"), category);
@@ -1563,49 +1559,131 @@ static void LoadTypeSummariesForModule(ModuleSP module_sp) {
   //   * The remaining size of the record
   //   * The size of the type identifier
   //   * The type identifier, either a type name, or a regex
-  //   * The size of the summary string
-  //   * The summary string
+  //   * The size of the entry
+  //   * The entry
   //
   // Integers are encoded using ULEB.
   //
   // Strings are encoded with first a length (ULEB), then the string contents,
   // and lastly a null terminator. The length includes the null.
 
-  DataExtractor extractor;
-  auto section_size = summaries_sp->GetSectionData(extractor);
-  lldb::offset_t offset = 0;
-  while (offset < section_size) {
-    uint64_t version = extractor.GetULEB128(&offset);
-    uint64_t record_size = extractor.GetULEB128(&offset);
+  DataExtractor lldb_extractor;
+  auto section_size = section_sp->GetSectionData(lldb_extractor);
+  llvm::DataExtractor section = lldb_extractor.GetAsLLVM();
+  bool le = section.isLittleEndian();
+  uint8_t addr_size = section.getAddressSize();
+  llvm::DataExtractor::Cursor cursor(0);
+  while (cursor && cursor.tell() < section_size) {
+    uint64_t version = section.getULEB128(cursor);
+    uint64_t record_size = section.getULEB128(cursor);
     if (version == 1) {
-      uint64_t type_size = extractor.GetULEB128(&offset);
-      llvm::StringRef type_name = extractor.GetCStr(&offset, type_size);
-      uint64_t summary_size = extractor.GetULEB128(&offset);
-      llvm::StringRef summary_string = extractor.GetCStr(&offset, summary_size);
-      if (!type_name.empty() && !summary_string.empty()) {
-        TypeSummaryImpl::Flags flags;
-        auto summary_sp =
-            std::make_shared<StringSummaryFormat>(flags, summary_string.data());
-        FormatterMatchType match_type = eFormatterMatchExact;
-        if (summary_string.front() == '^' && summary_string.back() == '$')
-          match_type = eFormatterMatchRegex;
-        category->AddTypeSummary(type_name, match_type, summary_sp);
-        LLDB_LOGF(log, "Loaded embedded type summary for '%s' from %s.",
-                  type_name.data(), module_name);
-      } else {
-        if (type_name.empty())
-          LLDB_LOGF(log, "Missing string(s) in embedded type summary in %s.",
-                    module_name);
-      }
+      llvm::DataExtractor record(section.getData().drop_front(cursor.tell()),
+                                 le, addr_size);
+      llvm::DataExtractor::Cursor cursor(0);
+      uint64_t type_size = record.getULEB128(cursor);
+      llvm::StringRef type_name = record.getBytes(cursor, type_size);
+      llvm::Error error = cursor.takeError();
+      if (!error)
+        fn(llvm::DataExtractor(record.getData().drop_front(cursor.tell()), le,
+                               addr_size), type_name);
+      else
+        LLDB_LOG_ERROR(GetLog(LLDBLog::DataFormatters), std::move(error),
+                       "{0}");
     } else {
       // Skip unsupported record.
-      offset += record_size;
-      LLDB_LOGF(
-          log,
-          "Skipping unsupported embedded type summary of version %llu in %s.",
-          version, module_name);
+      LLDB_LOG(
+          GetLog(LLDBLog::DataFormatters),
+          "Skipping unsupported embedded type summary of version {0} in {1}.",
+          version, module.GetFileSpec());
     }
+    section.skip(cursor, record_size);
   }
+  if (!cursor)
+    LLDB_LOG_ERROR(GetLog(LLDBLog::DataFormatters), cursor.takeError(), "{0}");
+}
+
+/// Load type summaries embedded in the binary. These are type summaries provided
+/// by the authors of the code.
+static void LoadTypeSummariesForModule(ModuleSP module_sp) {
+  ForEachFormatterInModule(
+      *module_sp, eSectionTypeLLDBTypeSummaries,
+      [&](llvm::DataExtractor extractor, llvm::StringRef type_name) {
+        TypeCategoryImplSP category;
+        DataVisualization::Categories::GetCategory(ConstString("default"),
+                                                   category);
+        // The type summary record is serialized as follows.
+        //
+        //   * The size of the summary string
+        //   * The summary string
+        //
+        // Integers are encoded using ULEB.
+        llvm::DataExtractor::Cursor cursor(0);
+        uint64_t summary_size = extractor.getULEB128(cursor);
+        llvm::StringRef summary_string =
+            extractor.getBytes(cursor, summary_size);
+        if (!cursor) {
+          LLDB_LOG_ERROR(GetLog(LLDBLog::DataFormatters), cursor.takeError(),
+                         "{0}");
+          return;
+        }
+        if (type_name.empty() || summary_string.empty()) {
+          LLDB_LOG(GetLog(LLDBLog::DataFormatters),
+                   "Missing string(s) in embedded type summary in {0}.",
+                   module_sp->GetFileSpec());
+          return;
+        }
+        TypeSummaryImpl::Flags flags;
+        auto summary_sp = std::make_shared<StringSummaryFormat>(
+            flags, summary_string.str().c_str());
+        FormatterMatchType match_type = eFormatterMatchExact;
+        if (type_name.front() == '^')
+          match_type = eFormatterMatchRegex;
+        category->AddTypeSummary(type_name, match_type, summary_sp);
+        LLDB_LOG(GetLog(LLDBLog::DataFormatters),
+                 "Loaded embedded type summary for '{0}' from {1}.", type_name,
+                 module_sp->GetFileSpec());
+      });
+}
+
+/// Load data formatters embedded in the binary. These are type summaries provided
+/// by the authors of the code.
+static void LoadFormattersForModule(ModuleSP module_sp) {
+  ForEachFormatterInModule(
+      *module_sp, eSectionTypeLLDBFormatters,
+      [&](llvm::DataExtractor extractor, llvm::StringRef type_name) {
+        // * Function signature (1 byte)
+        // * Length of the program (ULEB128)
+        // * The program bytecode
+        TypeCategoryImplSP category;
+        DataVisualization::Categories::GetCategory(ConstString("default"),
+                                                   category);
+        llvm::DataExtractor::Cursor cursor(0);
+        while (cursor && cursor.tell() < extractor.size()) {
+          uint8_t signature = extractor.getU8(cursor);
+          uint64_t size = extractor.getULEB128(cursor);
+          llvm::StringRef bytecode = extractor.getBytes(cursor, size);
+          if (!cursor) {
+            LLDB_LOG_ERROR(GetLog(LLDBLog::DataFormatters), cursor.takeError(),
+                           "{0}");
+            return;
+          }
+          if (signature == 0) {
+            TypeSummaryImpl::Flags flags;
+            auto summary_sp = std::make_shared<BytecodeSummaryFormat>(
+                flags, llvm::MemoryBuffer::getMemBufferCopy(bytecode));
+            FormatterMatchType match_type = eFormatterMatchExact;
+            if (type_name.front() == '^')
+              match_type = eFormatterMatchRegex;
+            category->AddTypeSummary(type_name, match_type, summary_sp);
+            LLDB_LOG(GetLog(LLDBLog::DataFormatters),
+                     "Loaded embedded type summary for '{0}' from {1}.",
+                     type_name, module_sp->GetFileSpec());
+          } else
+            LLDB_LOG(GetLog(LLDBLog::DataFormatters),
+                     "Unsupported formatter signature {0} for '{1}' in {2}",
+                     signature, type_name, module_sp->GetFileSpec());
+        }
+      });
 }
 
 void Target::ClearModules(bool delete_locations) {
@@ -1847,6 +1925,7 @@ void Target::ModulesDidLoad(ModuleList &module_list) {
       ModuleSP module_sp(module_list.GetModuleAtIndex(idx));
       LoadScriptingResourceForModule(module_sp, this);
       LoadTypeSummariesForModule(module_sp);
+      LoadFormattersForModule(module_sp);
     }
     m_breakpoint_list.UpdateBreakpoints(module_list, true, false);
     m_internal_breakpoint_list.UpdateBreakpoints(module_list, true, false);

@@ -460,6 +460,7 @@ bool Section::ContainsOnlyDebugInfo() const {
   case eSectionTypeDWARFGNUDebugAltLink:
   case eSectionTypeCTF:
   case eSectionTypeLLDBTypeSummaries:
+  case eSectionTypeLLDBFormatters:
   case eSectionTypeSwiftModules:
     return true;
   }
