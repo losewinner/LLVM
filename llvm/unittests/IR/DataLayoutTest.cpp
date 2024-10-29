@@ -319,6 +319,12 @@ TEST(DataLayout, ParsePointerSpec) {
         FailedWithMessage("malformed specification, must be of the form "
                           "\"p[<n>]:<size>:<abi>[:<pref>[:<idx>]]\""));
 
+  // Only 'u' and 'n' flags are valid.
+  for (StringRef Str : {"pa:32:32", "px:32:32"})
+    EXPECT_THAT_EXPECTED(
+        DataLayout::parse(Str),
+        FailedWithMessage("address space must be a 24-bit integer"));
+
   // address space
   for (StringRef Str : {"p0x0:32:32", "px:32:32:32", "p16777216:32:32:32:32"})
     EXPECT_THAT_EXPECTED(
@@ -401,6 +407,13 @@ TEST(DataLayout, ParsePointerSpec) {
     EXPECT_THAT_EXPECTED(
         DataLayout::parse(Str),
         FailedWithMessage("index size cannot be larger than the pointer size"));
+
+  for (StringRef Str : {"pn:64:64", "pu:64:64", "pun:64:64", "pnu:64:64",
+                        "pn0:64:64", "pu0:64:64", "pun0:64:64", "pnu0:64:64"})
+    EXPECT_THAT_EXPECTED(
+        DataLayout::parse(Str),
+        FailedWithMessage(
+            "address space 0 cannot be non-integral or unstable"));
 }
 
 TEST(DataLayoutTest, ParseNativeIntegersSpec) {
@@ -557,17 +570,99 @@ TEST(DataLayout, GetPointerPrefAlignment) {
 
 TEST(DataLayout, IsNonIntegralAddressSpace) {
   DataLayout Default;
-  EXPECT_THAT(Default.getNonIntegralAddressSpaces(), ::testing::SizeIs(0));
+  EXPECT_THAT(Default.getNonStandardAddressSpaces(), ::testing::SizeIs(0));
   EXPECT_FALSE(Default.isNonIntegralAddressSpace(0));
   EXPECT_FALSE(Default.isNonIntegralAddressSpace(1));
 
   DataLayout Custom = cantFail(DataLayout::parse("ni:2:16777215"));
-  EXPECT_THAT(Custom.getNonIntegralAddressSpaces(),
+  EXPECT_THAT(Custom.getNonStandardAddressSpaces(),
               ::testing::ElementsAreArray({2U, 16777215U}));
   EXPECT_FALSE(Custom.isNonIntegralAddressSpace(0));
   EXPECT_FALSE(Custom.isNonIntegralAddressSpace(1));
   EXPECT_TRUE(Custom.isNonIntegralAddressSpace(2));
   EXPECT_TRUE(Custom.isNonIntegralAddressSpace(16777215));
+
+  // Pointers can be marked as non-integral using 'pn'
+  Custom = cantFail(DataLayout::parse("pn2:64:64:64:32"));
+  EXPECT_TRUE(Custom.isNonIntegralAddressSpace(2));
+  EXPECT_TRUE(Custom.hasNonIntegralRepresentation(2));
+  EXPECT_FALSE(Custom.hasUnstableRepresentation(2));
+  EXPECT_TRUE(Custom.shouldAvoidIntToPtr(2));
+  EXPECT_FALSE(Custom.shouldAvoidPtrToInt(2));
+  EXPECT_THAT(Custom.getNonStandardAddressSpaces(),
+              ::testing::ElementsAreArray({2U}));
+
+  // Pointers can be marked as unstable using 'pu'
+  Custom = cantFail(DataLayout::parse("pu2:64:64:64:32"));
+  EXPECT_TRUE(Custom.isNonIntegralAddressSpace(2));
+  EXPECT_TRUE(Custom.hasUnstableRepresentation(2));
+  EXPECT_FALSE(Custom.hasNonIntegralRepresentation(2));
+  EXPECT_TRUE(Custom.shouldAvoidPtrToInt(2));
+  EXPECT_TRUE(Custom.shouldAvoidIntToPtr(2));
+  EXPECT_THAT(Custom.getNonStandardAddressSpaces(),
+              ::testing::ElementsAreArray({2U}));
+
+  // Both properties can also be set using 'pnu'/'pun'
+  for (const auto *Layout : {"pnu2:64:64:64:32", "pun2:64:64:64:32"}) {
+    DataLayout DL = cantFail(DataLayout::parse(Layout));
+    EXPECT_TRUE(DL.isNonIntegralAddressSpace(2));
+    EXPECT_TRUE(DL.hasNonIntegralRepresentation(2));
+    EXPECT_TRUE(DL.hasUnstableRepresentation(2));
+    EXPECT_THAT(DL.getNonStandardAddressSpaces(),
+                ::testing::ElementsAreArray({2U}));
+  }
+
+  // For backwards compatibility, the ni DataLayout part overrides any p[n][u].
+  for (const auto *Layout : {"ni:2-pn2:64:64:64:32", "ni:2-pnu2:64:64:64:32",
+                             "ni:2-pu2:64:64:64:32", "pn2:64:64:64:32-ni:2",
+                             "pnu2:64:64:64:32-ni:2", "pu2:64:64:64:32-ni:2"}) {
+    DataLayout DL = cantFail(DataLayout::parse(Layout));
+    EXPECT_TRUE(DL.isNonIntegralAddressSpace(2));
+    EXPECT_TRUE(DL.hasNonIntegralRepresentation(2));
+    EXPECT_TRUE(DL.hasUnstableRepresentation(2));
+    EXPECT_THAT(DL.getNonStandardAddressSpaces(),
+                ::testing::ElementsAreArray({2U}));
+  }
+}
+
+TEST(DataLayout, NonIntegralHelpers) {
+  DataLayout DL = cantFail(
+      DataLayout::parse("pn1:128:128:128:64-pu2:32:32:32:32-pnu3:64:64:64:32"));
+  EXPECT_THAT(DL.getNonStandardAddressSpaces(),
+              ::testing::ElementsAreArray({1u, 2u, 3u}));
+  struct Result {
+    unsigned Addrspace;
+    bool NonIntegral;
+    bool Unstable;
+    unsigned Size;
+  } ExpectedResults[] = {
+      {0, false, false, 64},
+      {1, true, false, 128},
+      {2, false, true, 32},
+      {3, true, true, 64},
+  };
+  LLVMContext Ctx;
+  for (const auto &Exp : ExpectedResults) {
+    EXPECT_EQ(Exp.NonIntegral, DL.hasNonIntegralRepresentation(Exp.Addrspace));
+    EXPECT_EQ(Exp.Unstable, DL.hasUnstableRepresentation(Exp.Addrspace));
+    bool AvoidIntToPtr = Exp.Unstable || Exp.NonIntegral;
+    EXPECT_EQ(AvoidIntToPtr, DL.shouldAvoidIntToPtr(Exp.Addrspace));
+    bool AvoidPtrToInt = Exp.Unstable;
+    EXPECT_EQ(AvoidPtrToInt, DL.shouldAvoidPtrToInt(Exp.Addrspace));
+    Type *PtrTy = PointerType::get(Ctx, Exp.Addrspace);
+    Type *PtrVecTy = VectorType::get(PtrTy, 2, /*Scalable=*/false);
+    Type *ScalablePtrVecTy = VectorType::get(PtrTy, 1, /*Scalable=*/true);
+    for (Type *Ty : {PtrTy, PtrVecTy, ScalablePtrVecTy}) {
+      EXPECT_EQ(AvoidPtrToInt, DL.shouldAvoidPtrToInt(Ty));
+      EXPECT_EQ(AvoidIntToPtr, DL.shouldAvoidIntToPtr(Ty));
+      // The old API should return true for both unstable and non-integral.
+      EXPECT_EQ(Exp.Unstable || Exp.NonIntegral,
+                DL.isNonIntegralPointerType(Ty));
+    }
+    // Both helpers gracefully handle non-pointer, non-vector-of-pointers:
+    EXPECT_FALSE(DL.shouldAvoidPtrToInt(IntegerType::getInt1Ty(Ctx)));
+    EXPECT_FALSE(DL.shouldAvoidIntToPtr(IntegerType::getInt1Ty(Ctx)));
+  }
 }
 
 TEST(DataLayoutTest, CopyAssignmentInvalidatesStructLayout) {
