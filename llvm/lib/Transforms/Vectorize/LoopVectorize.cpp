@@ -8838,7 +8838,8 @@ VPRecipeBuilder::tryToCreatePartialReduction(Instruction *Reduction,
 
   SmallVector<VPValue *, 2> OrderedOperands = {BinOp, Phi};
   return new VPPartialReductionRecipe(
-      Reduction->getOpcode(), make_range(OrderedOperands.begin(), OrderedOperands.end()));
+      Reduction->getOpcode(),
+      make_range(OrderedOperands.begin(), OrderedOperands.end()));
 }
 
 void LoopVectorizationPlanner::buildVPlansWithVPRecipes(ElementCount MinVF,
@@ -9193,7 +9194,7 @@ LoopVectorizationPlanner::tryToBuildVPlanWithVPRecipes(VFRange &Range) {
   // before creating the recipes
   for (const auto &[Phi, RdxDesc] : Legal->getReductionVars())
     if (std::optional<PartialReductionChain> Chain =
-        getScaledReduction(Phi, RdxDesc, &TTI, Range, CM))
+            getScaledReduction(Phi, RdxDesc, &TTI, Range, CM))
       RecipeBuilder.addScaledReductionExitInstr(*Chain);
   RecipeBuilder.removeInvalidScaledReductionExitInstrs();
 
