@@ -60,5 +60,5 @@ Options
 
 .. option:: IsQtApplication
 
-  When `true` (default `false`), then it is assumed that the code being analyzed
-  is the Qt-based code.
+  When `true`, then it is assumed that the code being analyzed is the Qt-based code.
+  Default is `false`.
