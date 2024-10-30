@@ -9,11 +9,12 @@
 #ifndef _LIBCPP___FLAT_MAP_SORTED_UNIQUE_H
 #define _LIBCPP___FLAT_MAP_SORTED_UNIQUE_H
 
-#include <__config>
+#include <__configuration/cxx03.h>
 
-#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
-#  pragma GCC system_header
-#endif
+#if defined(_LIBCPP_CXX03_LANG) && !defined(_LIBCPP_USE_CXX03_HEADERS)
+#  include <__cxx03/locale.h>
+#else
+#  include <__config>
 
 #if _LIBCPP_STD_VER >= 23
 

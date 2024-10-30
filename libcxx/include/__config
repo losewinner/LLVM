@@ -14,6 +14,7 @@
 #include <__configuration/abi.h>
 #include <__configuration/availability.h>
 #include <__configuration/compiler.h>
+#include <__configuration/cxx03.h>
 #include <__configuration/platform.h>
 
 #ifndef _LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER
@@ -150,11 +151,6 @@ _LIBCPP_HARDENING_MODE_DEBUG
 
 #  define _LIBCPP_TOSTRING2(x) #x
 #  define _LIBCPP_TOSTRING(x) _LIBCPP_TOSTRING2(x)
-
-// NOLINTNEXTLINE(libcpp-cpp-version-check)
-#  if __cplusplus < 201103L
-#    define _LIBCPP_CXX03_LANG
-#  endif
 
 #  ifndef __has_constexpr_builtin
 #    define __has_constexpr_builtin(x) 0

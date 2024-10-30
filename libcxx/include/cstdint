@@ -140,13 +140,26 @@ Types:
 }  // std
 */
 
-#include <__config>
+#include <__configuration/cxx03.h>
 
-#include <stdint.h>
+#if defined(_LIBCPP_CXX03_LANG) && !defined(_LIBCPP_USE_CXX03_HEADERS)
+#  include <__cxx03/cstdint>
+#else
+#  include <__config>
 
-#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
-#  pragma GCC system_header
-#endif
+#  include <stdint.h>
+
+#  ifndef _LIBCPP_STDINT_H
+#   error <cstdint> tried including <stdint.h> but didn't find libc++'s <stdint.h> header. \
+          This usually means that your header search paths are not configured properly. \
+          The header search paths should contain the C++ Standard Library headers before \
+          any C Standard Library, and you are probably using compiler flags that make that \
+          not be the case.
+#  endif
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -187,5 +200,6 @@ using ::intmax_t _LIBCPP_USING_IF_EXISTS;
 using ::uintmax_t _LIBCPP_USING_IF_EXISTS;
 
 _LIBCPP_END_NAMESPACE_STD
+#endif // _LIBCPP_CXX03_LANG
 
 #endif // _LIBCPP_CSTDINT
