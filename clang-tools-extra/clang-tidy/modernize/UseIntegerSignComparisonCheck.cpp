@@ -15,11 +15,12 @@ using namespace clang::ast_matchers;
 using namespace clang::ast_matchers::internal;
 
 namespace clang::tidy::modernize {
-static BindableMatcher<clang::Stmt> intCastExpression(bool IsSigned,
-                                                      const std::string &CastBindName) {
-  auto IntTypeExpr = IsSigned
-                         ? expr(hasType(hasCanonicalType(qualType(isInteger(), isSignedInteger()))))
-                         : expr(hasType(hasCanonicalType(qualType(isInteger(), unless(isSignedInteger())))));
+static BindableMatcher<clang::Stmt>
+intCastExpression(bool IsSigned, const std::string &CastBindName) {
+  auto IntTypeExpr = IsSigned ? expr(hasType(hasCanonicalType(
+                                    qualType(isInteger(), isSignedInteger()))))
+                              : expr(hasType(hasCanonicalType(qualType(
+                                    isInteger(), unless(isSignedInteger())))));
 
   const auto ImplicitCastExpr =
       implicitCastExpr(hasSourceExpression(IntTypeExpr)).bind(CastBindName);
@@ -28,8 +29,8 @@ static BindableMatcher<clang::Stmt> intCastExpression(bool IsSigned,
   const auto StaticCastExpr = cxxStaticCastExpr(has(ImplicitCastExpr));
   const auto FunctionalCastExpr = cxxFunctionalCastExpr(has(ImplicitCastExpr));
 
-  return expr(anyOf(ImplicitCastExpr, CStyleCastExpr,
-                    StaticCastExpr, FunctionalCastExpr));
+  return expr(anyOf(ImplicitCastExpr, CStyleCastExpr, StaticCastExpr,
+                    FunctionalCastExpr));
 }
 
 static StringRef parseOpCode(BinaryOperator::Opcode Code) {
@@ -74,8 +75,7 @@ void UseIntegerSignComparisonCheck::registerMatchers(MatchFinder *Finder) {
   // that are used between signed/unsigned
   const auto CompareOperator =
       binaryOperator(hasAnyOperatorName("==", "<=", ">=", "<", ">", "!="),
-                     hasOperands(SignedIntCastExpr,
-                                 UnSignedIntCastExpr),
+                     hasOperands(SignedIntCastExpr, UnSignedIntCastExpr),
                      unless(isInTemplateInstantiation()))
           .bind("intComparison");
 
@@ -121,14 +121,23 @@ void UseIntegerSignComparisonCheck::check(
   const Expr *ExplicitRHS = nullptr;
   StringRef ExplicitLhsString, ExplicitLhsRhsString;
 
-  DiagnosticBuilder Diag = diag(BinaryOp->getBeginLoc(), "comparison between 'signed' and 'unsigned' integers");
-  if (BinaryOp->getLHS() == SignedCastExpression)
-  {
-    ExplicitLHS = SignedCastExpression->isPartOfExplicitCast() ? SignedCastExpression : nullptr;
-    ExplicitRHS = UnSignedCastExpression->isPartOfExplicitCast() ? UnSignedCastExpression : nullptr;
+  DiagnosticBuilder Diag =
+      diag(BinaryOp->getBeginLoc(),
+           "comparison between 'signed' and 'unsigned' integers");
+  if (BinaryOp->getLHS() == SignedCastExpression) {
+    ExplicitLHS = SignedCastExpression->isPartOfExplicitCast()
+                      ? SignedCastExpression
+                      : nullptr;
+    ExplicitRHS = UnSignedCastExpression->isPartOfExplicitCast()
+                      ? UnSignedCastExpression
+                      : nullptr;
   } else {
-    ExplicitRHS = SignedCastExpression->isPartOfExplicitCast() ? SignedCastExpression : nullptr;
-    ExplicitLHS = UnSignedCastExpression->isPartOfExplicitCast() ? UnSignedCastExpression : nullptr;
+    ExplicitRHS = SignedCastExpression->isPartOfExplicitCast()
+                      ? SignedCastExpression
+                      : nullptr;
+    ExplicitLHS = UnSignedCastExpression->isPartOfExplicitCast()
+                      ? UnSignedCastExpression
+                      : nullptr;
   }
 
   if (!(getLangOpts().CPlusPlus17 && IsQtApplication) &&
@@ -148,16 +157,25 @@ void UseIntegerSignComparisonCheck::check(
   // Use qt-use-integer-sign-comparison when C++17 is available and only for Qt
   // apps. Prefer modernize-use-integer-sign-comparison when C++20 is available!
   if (ExplicitLHS) {
-    ExplicitLhsString = Lexer::getSourceText(CharSourceRange::getTokenRange(ExplicitLHS->IgnoreCasts()->getSourceRange()), *Result.SourceManager, getLangOpts());
-    Diag << FixItHint::CreateReplacement(LHS->getSourceRange(), llvm::Twine(CmpNamespace + "(" + ExplicitLhsString).str());
+    ExplicitLhsString =
+        Lexer::getSourceText(CharSourceRange::getTokenRange(
+                                 ExplicitLHS->IgnoreCasts()->getSourceRange()),
+                             *Result.SourceManager, getLangOpts());
+    Diag << FixItHint::CreateReplacement(
+        LHS->getSourceRange(),
+        llvm::Twine(CmpNamespace + "(" + ExplicitLhsString).str());
   } else {
     Diag << FixItHint::CreateInsertion(LHS->getBeginLoc(),
                                        llvm::Twine(CmpNamespace + "(").str());
   }
   Diag << FixItHint::CreateReplacement(BinaryOp->getOperatorLoc(), ", ");
   if (ExplicitRHS) {
-    ExplicitLhsRhsString = Lexer::getSourceText(CharSourceRange::getTokenRange(ExplicitRHS->IgnoreCasts()->getSourceRange()), *Result.SourceManager, getLangOpts());
-    Diag << FixItHint::CreateReplacement(RHS->getSourceRange(), llvm::Twine(ExplicitLhsRhsString + ")").str());
+    ExplicitLhsRhsString =
+        Lexer::getSourceText(CharSourceRange::getTokenRange(
+                                 ExplicitRHS->IgnoreCasts()->getSourceRange()),
+                             *Result.SourceManager, getLangOpts());
+    Diag << FixItHint::CreateReplacement(
+        RHS->getSourceRange(), llvm::Twine(ExplicitLhsRhsString + ")").str());
   } else {
     Diag << FixItHint::CreateInsertion(
         Lexer::getLocForEndOfToken(
@@ -168,8 +186,7 @@ void UseIntegerSignComparisonCheck::check(
 
   // If there is no include for cmp_{*} functions, we'll add it.
   Diag << IncludeInserter.createIncludeInsertion(
-      Result.SourceManager->getFileID(BinaryOp->getBeginLoc()),
-      CmpHeader);
+      Result.SourceManager->getFileID(BinaryOp->getBeginLoc()), CmpHeader);
 }
 
 } // namespace clang::tidy::modernize

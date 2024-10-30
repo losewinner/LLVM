@@ -55,14 +55,10 @@ Options
 
 .. option:: IncludeStyle
 
-   A string specifying which include-style is used, `llvm` or `google`. Default
-   is `llvm`.
+  A string specifying which include-style is used, `llvm` or `google`.
+  Default is `llvm`.
 
 .. option:: IsQtApplication
 
   When `true` (default `false`), then it is assumed that the code being analyzed
   is the Qt-based code.
-
-.. option:: StringsMatchHeader
-  A string specifying a include header file to be added by fix-it. Default
-  is `<utility>`.
