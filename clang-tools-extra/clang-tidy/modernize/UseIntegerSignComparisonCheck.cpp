@@ -15,19 +15,54 @@ using namespace clang::ast_matchers;
 using namespace clang::ast_matchers::internal;
 
 namespace clang::tidy::modernize {
+static BindableMatcher<clang::Stmt> intCastExpression(bool IsSigned,
+                                                      const std::string &CastBindName) {
+  auto IntTypeExpr = IsSigned
+                         ? expr(hasType(hasCanonicalType(qualType(isInteger(), isSignedInteger()))))
+                         : expr(hasType(hasCanonicalType(qualType(isInteger(), unless(isSignedInteger())))));
+
+  const auto ImplicitCastExpr =
+      implicitCastExpr(hasSourceExpression(IntTypeExpr)).bind(CastBindName);
+
+  const auto CStyleCastExpr = cStyleCastExpr(has(ImplicitCastExpr));
+  const auto StaticCastExpr = cxxStaticCastExpr(has(ImplicitCastExpr));
+  const auto FunctionalCastExpr = cxxFunctionalCastExpr(has(ImplicitCastExpr));
+
+  return expr(anyOf(ImplicitCastExpr, CStyleCastExpr,
+                    StaticCastExpr, FunctionalCastExpr));
+}
+
+static StringRef parseOpCode(BinaryOperator::Opcode Code) {
+  switch (Code) {
+  case BO_LT:
+    return "cmp_less";
+  case BO_GT:
+    return "cmp_greater";
+  case BO_LE:
+    return "cmp_less_equal";
+  case BO_GE:
+    return "cmp_greater_equal";
+  case BO_EQ:
+    return "cmp_equal";
+  case BO_NE:
+    return "cmp_not_equal";
+  default:
+    return "";
+  }
+}
+
 UseIntegerSignComparisonCheck::UseIntegerSignComparisonCheck(
     StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
       IncludeInserter(Options.getLocalOrGlobal("IncludeStyle",
                                                utils::IncludeSorter::IS_LLVM),
                       areDiagsSelfContained()),
-      IsQtApplication(Options.get("IsQtApplication", false)),
-      StringsMatchHeader(Options.get("StringsMatchHeader", "<utility>")) {}
+      IsQtApplication(Options.get("IsQtApplication", false)) {}
 
 void UseIntegerSignComparisonCheck::storeOptions(
     ClangTidyOptions::OptionMap &Opts) {
+  Options.store(Opts, "IncludeStyle", IncludeInserter.getStyle());
   Options.store(Opts, "IsQtApplication", IsQtApplication);
-  Options.store(Opts, "StringsMatchHeader", StringsMatchHeader);
 }
 
 void UseIntegerSignComparisonCheck::registerMatchers(MatchFinder *Finder) {
@@ -38,55 +73,13 @@ void UseIntegerSignComparisonCheck::registerMatchers(MatchFinder *Finder) {
   // Flag all operators "==", "<=", ">=", "<", ">", "!="
   // that are used between signed/unsigned
   const auto CompareOperator =
-      expr(binaryOperator(hasAnyOperatorName("==", "<=", ">=", "<", ">", "!="),
-                          anyOf(allOf(hasLHS(SignedIntCastExpr),
-                                      hasRHS(UnSignedIntCastExpr)),
-                                allOf(hasLHS(UnSignedIntCastExpr),
-                                      hasRHS(SignedIntCastExpr)))))
+      binaryOperator(hasAnyOperatorName("==", "<=", ">=", "<", ">", "!="),
+                     hasOperands(SignedIntCastExpr,
+                                 UnSignedIntCastExpr),
+                     unless(isInTemplateInstantiation()))
           .bind("intComparison");
 
   Finder->addMatcher(CompareOperator, this);
-}
-
-BindableMatcher<clang::Stmt> UseIntegerSignComparisonCheck::intCastExpression(
-    bool IsSigned, const std::string &CastBindName) const {
-  auto IntTypeExpr = expr();
-  if (IsSigned) {
-    IntTypeExpr = expr(hasType(qualType(isInteger(), isSignedInteger())));
-  } else {
-    IntTypeExpr =
-        expr(hasType(qualType(isInteger(), unless(isSignedInteger()))));
-  }
-
-  const auto ImplicitCastExpr =
-      implicitCastExpr(hasSourceExpression(IntTypeExpr)).bind(CastBindName);
-
-  const auto CStyleCastExpr = cStyleCastExpr(has(ImplicitCastExpr));
-  const auto StaticCastExpr = cxxStaticCastExpr(has(ImplicitCastExpr));
-  const auto FunctionalCastExpr = cxxFunctionalCastExpr(has(ImplicitCastExpr));
-
-  return traverse(TK_AsIs, expr(anyOf(ImplicitCastExpr, CStyleCastExpr,
-                                      StaticCastExpr, FunctionalCastExpr)));
-}
-
-std::string
-UseIntegerSignComparisonCheck::parseOpCode(BinaryOperator::Opcode code) const {
-  switch (code) {
-  case BO_LT:
-    return std::string("cmp_less");
-  case BO_GT:
-    return std::string("cmp_greater");
-  case BO_LE:
-    return std::string("cmp_less_equal");
-  case BO_GE:
-    return std::string("cmp_greater_equal");
-  case BO_EQ:
-    return std::string("cmp_equal");
-  case BO_NE:
-    return std::string("cmp_not_equal");
-  default:
-    return {};
-  }
 }
 
 void UseIntegerSignComparisonCheck::registerPPCallbacks(
@@ -124,42 +117,59 @@ void UseIntegerSignComparisonCheck::check(
   if (LHS == nullptr || RHS == nullptr)
     return;
 
-  const StringRef LhsString(Lexer::getSourceText(
-      CharSourceRange::getTokenRange(LHS->getSourceRange()),
-      *Result.SourceManager, getLangOpts()));
+  const Expr *ExplicitLHS = nullptr;
+  const Expr *ExplicitRHS = nullptr;
+  StringRef ExplicitLhsString, ExplicitLhsRhsString;
 
-  const StringRef RhsString(Lexer::getSourceText(
-      CharSourceRange::getTokenRange(RHS->getSourceRange()),
-      *Result.SourceManager, getLangOpts()));
-
-  DiagnosticBuilder Diag =
-      diag(BinaryOp->getBeginLoc(),
-           "comparison between 'signed' and 'unsigned' integers");
+  DiagnosticBuilder Diag = diag(BinaryOp->getBeginLoc(), "comparison between 'signed' and 'unsigned' integers");
+  if (BinaryOp->getLHS() == SignedCastExpression)
+  {
+    ExplicitLHS = SignedCastExpression->isPartOfExplicitCast() ? SignedCastExpression : nullptr;
+    ExplicitRHS = UnSignedCastExpression->isPartOfExplicitCast() ? UnSignedCastExpression : nullptr;
+  } else {
+    ExplicitRHS = SignedCastExpression->isPartOfExplicitCast() ? SignedCastExpression : nullptr;
+    ExplicitLHS = UnSignedCastExpression->isPartOfExplicitCast() ? UnSignedCastExpression : nullptr;
+  }
 
   if (!(getLangOpts().CPlusPlus17 && IsQtApplication) &&
       !getLangOpts().CPlusPlus20)
     return;
 
   std::string CmpNamespace;
+  std::string CmpHeader;
   if (getLangOpts().CPlusPlus20) {
-    CmpNamespace = std::string("std::") + parseOpCode(OpCode);
+    CmpNamespace = std::string("std::") + std::string(parseOpCode(OpCode));
+    CmpHeader = std::string("<utility>");
   } else if (getLangOpts().CPlusPlus17 && IsQtApplication) {
-    CmpNamespace = std::string("q20::") + parseOpCode(OpCode);
+    CmpNamespace = std::string("q20::") + std::string(parseOpCode(OpCode));
+    CmpHeader = std::string("<QtCore/q20utility.h>");
   }
 
   // Use qt-use-integer-sign-comparison when C++17 is available and only for Qt
   // apps. Prefer modernize-use-integer-sign-comparison when C++20 is available!
-  Diag << FixItHint::CreateReplacement(
-      CharSourceRange::getTokenRange(BinaryOp->getBeginLoc(),
-                                     BinaryOp->getEndLoc()),
-      StringRef(std::string(CmpNamespace) + std::string("(") +
-                std::string(LhsString) + std::string(", ") +
-                std::string(RhsString) + std::string(")")));
+  if (ExplicitLHS) {
+    ExplicitLhsString = Lexer::getSourceText(CharSourceRange::getTokenRange(ExplicitLHS->IgnoreCasts()->getSourceRange()), *Result.SourceManager, getLangOpts());
+    Diag << FixItHint::CreateReplacement(LHS->getSourceRange(), llvm::Twine(CmpNamespace + "(" + ExplicitLhsString).str());
+  } else {
+    Diag << FixItHint::CreateInsertion(LHS->getBeginLoc(),
+                                       llvm::Twine(CmpNamespace + "(").str());
+  }
+  Diag << FixItHint::CreateReplacement(BinaryOp->getOperatorLoc(), ", ");
+  if (ExplicitRHS) {
+    ExplicitLhsRhsString = Lexer::getSourceText(CharSourceRange::getTokenRange(ExplicitRHS->IgnoreCasts()->getSourceRange()), *Result.SourceManager, getLangOpts());
+    Diag << FixItHint::CreateReplacement(RHS->getSourceRange(), llvm::Twine(ExplicitLhsRhsString + ")").str());
+  } else {
+    Diag << FixItHint::CreateInsertion(
+        Lexer::getLocForEndOfToken(
+            Result.SourceManager->getSpellingLoc(RHS->getEndLoc()), 0,
+            *Result.SourceManager, Result.Context->getLangOpts()),
+        ")");
+  }
 
   // If there is no include for cmp_{*} functions, we'll add it.
   Diag << IncludeInserter.createIncludeInsertion(
       Result.SourceManager->getFileID(BinaryOp->getBeginLoc()),
-      StringsMatchHeader);
+      CmpHeader);
 }
 
 } // namespace clang::tidy::modernize

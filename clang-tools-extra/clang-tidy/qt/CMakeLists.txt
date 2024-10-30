@@ -3,7 +3,7 @@ set(LLVM_LINK_COMPONENTS
     Support
 )
 
-add_clang_library(clangTidyQtModule
+add_clang_library(clangTidyQtModule STATIC
   QtTidyModule.cpp
 
   LINK_LIBS

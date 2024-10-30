@@ -33,13 +33,8 @@ public:
   }
 
 private:
-  ast_matchers::internal::BindableMatcher<clang::Stmt>
-  intCastExpression(bool IsSigned, const std::string &CastBindName) const;
-  std::string parseOpCode(BinaryOperator::Opcode code) const;
-
   utils::IncludeInserter IncludeInserter;
   bool IsQtApplication = false;
-  const StringRef StringsMatchHeader;
 };
 
 } // namespace clang::tidy::modernize

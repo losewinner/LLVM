@@ -126,11 +126,8 @@ New checks
 - New :doc:`modernize-use-integer-sign-comparison
   <clang-tidy/checks/modernize/use-integer-sign-comparison>` check.
 
-  Performs comparisons between signed and unsigned integer types
-  mathematically correct. If C++20 is supported a fix-it replaces
-  integers comparisons to ``std::cmp_equal``, ``std::cmp_not_equal``,
-  ``std::cmp_less``, ``std::cmp_greater``, ``std::cmp_less_equal`` and
-  ``std::cmp_greater_equal`` functions.
+  Replace comparisons between signed and unsigned integers with their safe
+  ``std::cmp_*`` alternative.
 
 - New :doc:`portability-template-virtual-member-function
   <clang-tidy/checks/portability/template-virtual-member-function>` check.

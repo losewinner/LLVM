@@ -28,8 +28,6 @@ public:
 
     Opts["qt-integer-sign-comparison.IncludeStyle"] = "llvm";
     Opts["qt-integer-sign-comparison.IsQtApplication"] = "true";
-    Opts["qt-integer-sign-comparison.StringsMatchHeader"] =
-        "<QtCore/q20utility.h>";
 
     return Options;
   }
