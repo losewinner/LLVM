@@ -235,11 +235,6 @@ Type *VPTypeAnalysis::inferScalarTypeForRecipe(const VPReplicateRecipe *R) {
   llvm_unreachable("Unhandled opcode");
 }
 
-Type *
-VPTypeAnalysis::inferScalarTypeForRecipe(const VPPartialReductionRecipe *R) {
-  return R->getUnderlyingInstr()->getType();
-}
-
 Type *VPTypeAnalysis::inferScalarType(const VPValue *V) {
   if (Type *CachedTy = CachedTypes.lookup(V))
     return CachedTy;
@@ -268,10 +263,10 @@ Type *VPTypeAnalysis::inferScalarType(const VPValue *V) {
               [](const auto *R) { return R->getScalarType(); })
           .Case<VPReductionRecipe, VPPredInstPHIRecipe, VPWidenPHIRecipe,
                 VPScalarIVStepsRecipe, VPWidenGEPRecipe, VPVectorPointerRecipe,
-                VPReverseVectorPointerRecipe, VPWidenCanonicalIVRecipe>(
-              [this](const VPRecipeBase *R) {
-                return inferScalarType(R->getOperand(0));
-              })
+                VPReverseVectorPointerRecipe, VPWidenCanonicalIVRecipe,
+                VPPartialReductionRecipe>([this](const VPRecipeBase *R) {
+            return inferScalarType(R->getOperand(0));
+          })
           .Case<VPBlendRecipe, VPInstruction, VPWidenRecipe, VPWidenEVLRecipe,
                 VPReplicateRecipe, VPWidenCallRecipe, VPWidenMemoryRecipe,
                 VPWidenSelectRecipe, VPPartialReductionRecipe>(
