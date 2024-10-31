@@ -131,6 +131,33 @@ defm USMOPA_MPPZZ_D : sme_int_outer_product_i64<0b100, "usmopa", int_aarch64_sme
 defm USMOPS_MPPZZ_D : sme_int_outer_product_i64<0b101, "usmops", int_aarch64_sme_usmops_wide>;
 }
 
+let Predicates = [HasSME2p2] in {
+  defm SMOP4A  : sme_quarter_outer_product_i8_i32<0b0, 0b0, 0b0, "smop4a">;
+  defm SMOP4S  : sme_quarter_outer_product_i8_i32<0b0, 0b0, 0b1, "smop4s">;
+  defm SUMOP4A : sme_quarter_outer_product_i8_i32<0b0, 0b1, 0b0, "sumop4a">;
+  defm SUMOP4S : sme_quarter_outer_product_i8_i32<0b0, 0b1, 0b1, "sumop4s">;
+  defm USMOP4A : sme_quarter_outer_product_i8_i32<0b1, 0b0, 0b0, "usmop4a">;
+  defm USMOP4S : sme_quarter_outer_product_i8_i32<0b1, 0b0, 0b1, "usmop4s">;
+  defm UMOP4A  : sme_quarter_outer_product_i8_i32<0b1, 0b1, 0b0, "umop4a">;
+  defm UMOP4S  : sme_quarter_outer_product_i8_i32<0b1, 0b1, 0b1, "umop4s">;
+
+  defm SMOP4A : sme_quarter_outer_product_i16_i32<0b0, 0b0, "smop4a">;
+  defm SMOP4S : sme_quarter_outer_product_i16_i32<0b0, 0b1, "smop4s">;
+  defm UMOP4A : sme_quarter_outer_product_i16_i32<0b1, 0b0, "umop4a">;
+  defm UMOP4S : sme_quarter_outer_product_i16_i32<0b1, 0b1, "umop4s">;
+}
+
+let Predicates = [HasSME2p2, HasSMEI16I64] in {
+  defm SMOP4A : sme_quarter_outer_product_i64<0b0, 0b0, 0b0, "smop4a">;
+  defm SMOP4S : sme_quarter_outer_product_i64<0b0, 0b0, 0b1, "smop4s">;
+  defm SUMOP4A : sme_quarter_outer_product_i64<0b0, 0b1, 0b0, "sumop4a">;
+  defm SUMOP4S : sme_quarter_outer_product_i64<0b0, 0b1, 0b1, "sumop4s">;
+  defm UMOP4A : sme_quarter_outer_product_i64<0b1, 0b1, 0b0, "umop4a">;
+  defm UMOP4S : sme_quarter_outer_product_i64<0b1, 0b1, 0b1, "umop4s">;
+  defm USMOP4A : sme_quarter_outer_product_i64<0b1, 0b0, 0b0, "usmop4a">;
+  defm USMOP4S : sme_quarter_outer_product_i64<0b1, 0b0, 0b1, "usmop4s">;
+}
+
 let Predicates = [HasSME] in {
 //===----------------------------------------------------------------------===//
 // Loads and stores
@@ -1017,6 +1044,12 @@ let Predicates = [HasSME2p2] in {
   defm FMUL_2Z2Z : sme2_multi2_fmul_mm< "fmul">;
   defm FMUL_4ZZ  : sme2_multi4_fmul_sm<"fmul">;
   defm FMUL_4Z4Z : sme2_multi4_fmul_mm< "fmul">;
+
+  defm FMOP4A : sme2_fmop4as_fp32_non_widening<0, "fmop4a">;
+  defm FMOP4S : sme2_fmop4as_fp32_non_widening<1, "fmop4s">;
+
+  defm FMOP4A : sme2_fmop4as_fp16_fp32_widening<0, "fmop4a">;
+  defm FMOP4S : sme2_fmop4as_fp16_fp32_widening<1, "fmop4s">;
 } // [HasSME2p2]
 
 let Predicates = [HasSME2p2, HasSMEB16B16] in {
@@ -1051,4 +1084,9 @@ let Predicates = [HasSME2p2, HasSMEF8F32] in {
 let Predicates = [HasSME2p2, HasSMEB16B16] in {
   defm BFMOP4A : sme2_bfmop4as_non_widening<0, "bfmop4a">;
   defm BFMOP4S : sme2_bfmop4as_non_widening<1, "bfmop4s">;
+}
+
+let Predicates = [HasSME2p2, HasSMEF64F64] in {
+  defm FMOP4A : sme2_fmop4as_fp64_non_widening<0, "fmop4a">;
+  defm FMOP4S : sme2_fmop4as_fp64_non_widening<1, "fmop4s">;
 }
