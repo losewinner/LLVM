@@ -39,8 +39,8 @@ define dso_local i32 @variadics1(i32 noundef %first, ...) {
 ; CHECK-PTX-NEXT:    ld.f64 %fd4, [%rd7];
 ; CHECK-PTX-NEXT:    cvt.rn.f64.s32 %fd5, %r10;
 ; CHECK-PTX-NEXT:    add.rn.f64 %fd6, %fd5, %fd4;
-; CHECK-PTX-NEXT:    cvt.rzi.s32.f64 %r10, %fd6;
-; CHECK-PTX-NEXT:    st.param.b32 [func_retval0], %r10;
+; CHECK-PTX-NEXT:    cvt.rzi.s32.f64 %r11, %fd6;
+; CHECK-PTX-NEXT:    st.param.b32 [func_retval0], %r11;
 ; CHECK-PTX-NEXT:    ret;
 entry:
   %vlist = alloca ptr, align 8
@@ -173,13 +173,11 @@ define dso_local i32 @variadics2(i32 noundef %first, ...) {
 ; CHECK-PTX-NEXT:    shl.b16 %rs4, %rs3, 8;
 ; CHECK-PTX-NEXT:    or.b16 %rs5, %rs4, %rs2;
 ; CHECK-PTX-NEXT:    st.u16 [%SP], %rs5;
-; CHECK-PTX-NEXT:    ld.u64 %rd8, [%rd3+8];
-; CHECK-PTX-NEXT:    add.s32 %r4, %r1, %r2;
-; CHECK-PTX-NEXT:    add.s32 %r5, %r4, %r3;
-; CHECK-PTX-NEXT:    cvt.u64.u32 %rd9, %r5;
-; CHECK-PTX-NEXT:    add.s64 %rd10, %rd9, %rd8;
-; CHECK-PTX-NEXT:    cvt.u32.u64 %r6, %rd10;
-; CHECK-PTX-NEXT:    st.param.b32 [func_retval0], %r6;
+; CHECK-PTX-NEXT:    ld.u32 %r4, [%rd3+8];
+; CHECK-PTX-NEXT:    add.s32 %r5, %r1, %r2;
+; CHECK-PTX-NEXT:    add.s32 %r6, %r5, %r3;
+; CHECK-PTX-NEXT:    add.s32 %r7, %r6, %r4;
+; CHECK-PTX-NEXT:    st.param.b32 [func_retval0], %r7;
 ; CHECK-PTX-NEXT:    ret;
 entry:
   %vlist = alloca ptr, align 8
@@ -352,13 +350,12 @@ define dso_local i32 @variadics4(ptr noundef byval(%struct.S2) align 8 %first, .
 ; CHECK-PTX-NEXT:    ld.param.u64 %rd1, [variadics4_param_1];
 ; CHECK-PTX-NEXT:    add.s64 %rd2, %rd1, 7;
 ; CHECK-PTX-NEXT:    and.b64 %rd3, %rd2, -8;
-; CHECK-PTX-NEXT:    ld.u64 %rd4, [%rd3];
-; CHECK-PTX-NEXT:    ld.param.u64 %rd5, [variadics4_param_0];
-; CHECK-PTX-NEXT:    ld.param.u64 %rd6, [variadics4_param_0+8];
-; CHECK-PTX-NEXT:    add.s64 %rd7, %rd5, %rd6;
-; CHECK-PTX-NEXT:    add.s64 %rd8, %rd7, %rd4;
-; CHECK-PTX-NEXT:    cvt.u32.u64 %r1, %rd8;
-; CHECK-PTX-NEXT:    st.param.b32 [func_retval0], %r1;
+; CHECK-PTX-NEXT:    ld.u32 %r1, [%rd3];
+; CHECK-PTX-NEXT:    ld.param.u32 %r2, [variadics4_param_0];
+; CHECK-PTX-NEXT:    ld.param.u32 %r3, [variadics4_param_0+8];
+; CHECK-PTX-NEXT:    add.s32 %r4, %r2, %r3;
+; CHECK-PTX-NEXT:    add.s32 %r5, %r4, %r1;
+; CHECK-PTX-NEXT:    st.param.b32 [func_retval0], %r5;
 ; CHECK-PTX-NEXT:    ret;
 entry:
   %vlist = alloca ptr, align 8
