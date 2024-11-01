@@ -174,8 +174,16 @@ inline StringRef getInstrProfCounterBiasVarName() {
   return INSTR_PROF_QUOTE(INSTR_PROF_PROFILE_COUNTER_BIAS_VAR);
 }
 
+inline StringRef getInstrProfBitmapBiasVarName() {
+  return INSTR_PROF_QUOTE(INSTR_PROF_PROFILE_BITMAP_BIAS_VAR);
+}
+
 /// Return the marker used to separate PGO names during serialization.
 inline StringRef getInstrProfNameSeparator() { return "\01"; }
+
+/// Determines whether module targets a GPU eligable for PGO
+/// instrumentation
+bool isGPUProfTarget(const Module &M);
 
 /// Please use getIRPGOFuncName for LLVM IR instrumentation. This function is
 /// for front-end (Clang, etc) instrumentation.
@@ -283,16 +291,6 @@ void annotateValueSite(Module &M, Instruction &Inst,
 void annotateValueSite(Module &M, Instruction &Inst,
                        ArrayRef<InstrProfValueData> VDs, uint64_t Sum,
                        InstrProfValueKind ValueKind, uint32_t MaxMDCount);
-
-/// Extract the value profile data from \p Inst and returns them if \p Inst is
-/// annotated with value profile data. Returns nullptr otherwise. It's similar
-/// to `getValueProfDataFromInst` above except that an array is allocated only
-/// after a preliminary checking that the value profiles of kind `ValueKind`
-/// exist.
-std::unique_ptr<InstrProfValueData[]>
-getValueProfDataFromInst(const Instruction &Inst, InstrProfValueKind ValueKind,
-                         uint32_t MaxNumValueData, uint32_t &ActualNumValueData,
-                         uint64_t &TotalC, bool GetNoICPValue = false);
 
 // TODO: Unify metadata name 'PGOFuncName' and 'PGOName', by supporting read
 // of this metadata for backward compatibility and generating 'PGOName' only.
@@ -804,9 +802,8 @@ struct InstrProfValueSiteRecord {
   std::vector<InstrProfValueData> ValueData;
 
   InstrProfValueSiteRecord() = default;
-  template <class InputIterator>
-  InstrProfValueSiteRecord(InputIterator F, InputIterator L)
-      : ValueData(F, L) {}
+  InstrProfValueSiteRecord(std::vector<InstrProfValueData> &&VD)
+      : ValueData(VD) {}
 
   /// Sort ValueData ascending by Value
   void sortByTargetValues() {
@@ -880,7 +877,7 @@ struct InstrProfRecord {
   /// Add ValueData for ValueKind at value Site.  We do not support adding sites
   /// out of order.  Site must go up from 0 one by one.
   void addValueData(uint32_t ValueKind, uint32_t Site,
-                    InstrProfValueData *VData, uint32_t N,
+                    ArrayRef<InstrProfValueData> VData,
                     InstrProfSymtab *SymTab);
 
   /// Merge the counts in \p Other into this one.
@@ -962,7 +959,7 @@ private:
   ArrayRef<InstrProfValueSiteRecord>
   getValueSitesForKind(uint32_t ValueKind) const {
     if (!ValueData)
-      return std::nullopt;
+      return {};
     assert(IPVK_First <= ValueKind && ValueKind <= IPVK_Last &&
            "Unknown value kind!");
     return (*ValueData)[ValueKind - IPVK_First];

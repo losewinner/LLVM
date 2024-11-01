@@ -19,6 +19,7 @@
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/ProfileData/MemProf.h"
 #include "llvm/ProfileData/ProfileCommon.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compression.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/EndianStream.h"
@@ -28,6 +29,7 @@
 #include "llvm/Support/OnDiskHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstdint>
+#include <ctime>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -39,9 +41,8 @@ using namespace llvm;
 // A struct to define how the data stream should be patched. For Indexed
 // profiling, only uint64_t data type is needed.
 struct PatchItem {
-  uint64_t Pos; // Where to patch.
-  uint64_t *D;  // Pointer to an array of source data.
-  int N;        // Number of elements in \c D array.
+  uint64_t Pos;         // Where to patch.
+  ArrayRef<uint64_t> D; // An array of source data.
 };
 
 namespace llvm {
@@ -71,8 +72,8 @@ public:
       const uint64_t LastPos = FDOStream.tell();
       for (const auto &K : P) {
         FDOStream.seek(K.Pos);
-        for (int I = 0; I < K.N; I++)
-          write(K.D[I]);
+        for (uint64_t Elem : K.D)
+          write(Elem);
       }
       // Reset the stream to the last position after patching so that users
       // don't accidentally overwrite data. This makes it consistent with
@@ -82,7 +83,7 @@ public:
       raw_string_ostream &SOStream = static_cast<raw_string_ostream &>(OS);
       std::string &Data = SOStream.str(); // with flush
       for (const auto &K : P) {
-        for (int I = 0; I < K.N; I++) {
+        for (int I = 0, E = K.D.size(); I != E; I++) {
           uint64_t Bytes =
               endian::byte_swap<uint64_t, llvm::endianness::little>(K.D[I]);
           Data.replace(K.Pos + I * sizeof(uint64_t), sizeof(uint64_t),
@@ -185,13 +186,25 @@ public:
 InstrProfWriter::InstrProfWriter(
     bool Sparse, uint64_t TemporalProfTraceReservoirSize,
     uint64_t MaxTemporalProfTraceLength, bool WritePrevVersion,
-    memprof::IndexedVersion MemProfVersionRequested, bool MemProfFullSchema)
+    memprof::IndexedVersion MemProfVersionRequested, bool MemProfFullSchema,
+    bool MemprofGenerateRandomHotness,
+    unsigned MemprofGenerateRandomHotnessSeed)
     : Sparse(Sparse), MaxTemporalProfTraceLength(MaxTemporalProfTraceLength),
       TemporalProfTraceReservoirSize(TemporalProfTraceReservoirSize),
       InfoObj(new InstrProfRecordWriterTrait()),
       WritePrevVersion(WritePrevVersion),
       MemProfVersionRequested(MemProfVersionRequested),
-      MemProfFullSchema(MemProfFullSchema) {}
+      MemProfFullSchema(MemProfFullSchema),
+      MemprofGenerateRandomHotness(MemprofGenerateRandomHotness) {
+  // Set up the random number seed if requested.
+  if (MemprofGenerateRandomHotness) {
+    unsigned seed = MemprofGenerateRandomHotnessSeed
+                        ? MemprofGenerateRandomHotnessSeed
+                        : std::time(nullptr);
+    errs() << "random hotness seed = " << seed << "\n";
+    std::srand(seed);
+  }
+}
 
 InstrProfWriter::~InstrProfWriter() { delete InfoObj; }
 
@@ -274,13 +287,34 @@ void InstrProfWriter::addRecord(StringRef Name, uint64_t Hash,
 
 void InstrProfWriter::addMemProfRecord(
     const Function::GUID Id, const memprof::IndexedMemProfRecord &Record) {
-  auto [Iter, Inserted] = MemProfData.Records.insert({Id, Record});
+  auto NewRecord = Record;
+  // Provoke random hotness values if requested. We specify the lifetime access
+  // density and lifetime length that will result in a cold or not cold hotness.
+  // See the logic in getAllocType() in Analysis/MemoryProfileInfo.cpp.
+  if (MemprofGenerateRandomHotness) {
+    for (auto &Alloc : NewRecord.AllocSites) {
+      // To get a not cold context, set the lifetime access density to the
+      // maximum value and the lifetime to 0.
+      uint64_t NewTLAD = std::numeric_limits<uint64_t>::max();
+      uint64_t NewTL = 0;
+      bool IsCold = std::rand() % 2;
+      if (IsCold) {
+        // To get a cold context, set the lifetime access density to 0 and the
+        // lifetime to the maximum value.
+        NewTLAD = 0;
+        NewTL = std::numeric_limits<uint64_t>::max();
+      }
+      Alloc.Info.setTotalLifetimeAccessDensity(NewTLAD);
+      Alloc.Info.setTotalLifetime(NewTL);
+    }
+  }
+  auto [Iter, Inserted] = MemProfData.Records.insert({Id, NewRecord});
   // If we inserted a new record then we are done.
   if (Inserted) {
     return;
   }
   memprof::IndexedMemProfRecord &Existing = Iter->second;
-  Existing.merge(Record);
+  Existing.merge(NewRecord);
 }
 
 bool InstrProfWriter::addMemProfFrame(const memprof::FrameId Id,
@@ -612,7 +646,7 @@ static Error writeMemProfV0(ProfOStream &OS,
   uint64_t FrameTableOffset = writeMemProfFrames(OS, MemProfData.Frames);
 
   uint64_t Header[] = {RecordTableOffset, FramePayloadOffset, FrameTableOffset};
-  OS.patch({{HeaderUpdatePos, Header, std::size(Header)}});
+  OS.patch({{HeaderUpdatePos, Header}});
 
   return Error::success();
 }
@@ -647,7 +681,7 @@ static Error writeMemProfV1(ProfOStream &OS,
   uint64_t FrameTableOffset = writeMemProfFrames(OS, MemProfData.Frames);
 
   uint64_t Header[] = {RecordTableOffset, FramePayloadOffset, FrameTableOffset};
-  OS.patch({{HeaderUpdatePos, Header, std::size(Header)}});
+  OS.patch({{HeaderUpdatePos, Header}});
 
   return Error::success();
 }
@@ -697,7 +731,7 @@ static Error writeMemProfV2(ProfOStream &OS,
       RecordTableOffset,      FramePayloadOffset,   FrameTableOffset,
       CallStackPayloadOffset, CallStackTableOffset,
   };
-  OS.patch({{HeaderUpdatePos, Header, std::size(Header)}});
+  OS.patch({{HeaderUpdatePos, Header}});
 
   return Error::success();
 }
@@ -751,7 +785,7 @@ static Error writeMemProfV3(ProfOStream &OS,
       RecordPayloadOffset,
       RecordTableOffset,
   };
-  OS.patch({{HeaderUpdatePos, Header, std::size(Header)}});
+  OS.patch({{HeaderUpdatePos, Header}});
 
   return Error::success();
 }
@@ -989,12 +1023,14 @@ Error InstrProfWriter::writeImpl(ProfOStream &OS) {
 
   PatchItem PatchItems[] = {
       // Patch the Header fields
-      {BackPatchStartOffset, HeaderOffsets.data(), (int)HeaderOffsets.size()},
+      {BackPatchStartOffset, HeaderOffsets},
       // Patch the summary data.
-      {SummaryOffset, reinterpret_cast<uint64_t *>(TheSummary.get()),
-       (int)(SummarySize / sizeof(uint64_t))},
-      {CSSummaryOffset, reinterpret_cast<uint64_t *>(TheCSSummary.get()),
-       (int)CSSummarySize}};
+      {SummaryOffset,
+       ArrayRef<uint64_t>(reinterpret_cast<uint64_t *>(TheSummary.get()),
+                          SummarySize / sizeof(uint64_t))},
+      {CSSummaryOffset,
+       ArrayRef<uint64_t>(reinterpret_cast<uint64_t *>(TheCSSummary.get()),
+                          CSSummarySize)}};
 
   OS.patch(PatchItems);
 

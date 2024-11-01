@@ -127,6 +127,14 @@ RegionKind GraphRegionOp::getRegionKind(unsigned index) {
 }
 
 //===----------------------------------------------------------------------===//
+// IsolatedGraphRegionOp
+//===----------------------------------------------------------------------===//
+
+RegionKind IsolatedGraphRegionOp::getRegionKind(unsigned index) {
+  return RegionKind::Graph;
+}
+
+//===----------------------------------------------------------------------===//
 // AffineScopeOp
 //===----------------------------------------------------------------------===//
 
@@ -1193,7 +1201,7 @@ void TestVersionedOpA::writeProperties(mlir::DialectBytecodeWriter &writer) {
 // TestOpWithVersionedProperties
 //===----------------------------------------------------------------------===//
 
-mlir::LogicalResult TestOpWithVersionedProperties::readFromMlirBytecode(
+llvm::LogicalResult TestOpWithVersionedProperties::readFromMlirBytecode(
     mlir::DialectBytecodeReader &reader, test::VersionedProperties &prop) {
   uint64_t value1, value2 = 0;
   if (failed(reader.readVarInt(value1)))

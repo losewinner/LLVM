@@ -12,7 +12,6 @@
 #include "LinkUtils.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/CodeGen/NonRelocatableStringpool.h"
-#include "llvm/MC/MCAsmLayout.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCMachObjectWriter.h"
 #include "llvm/MC/MCObjectStreamer.h"
@@ -381,8 +380,7 @@ bool generateDsymCompanion(
   auto &Writer = static_cast<MachObjectWriter &>(MCAsm.getWriter());
 
   // Layout but don't emit.
-  MCAsmLayout Layout(MCAsm);
-  MCAsm.layout(Layout);
+  MCAsm.layout();
 
   BinaryHolder InputBinaryHolder(VFS, false);
 
@@ -525,7 +523,8 @@ bool generateDsymCompanion(
   SymtabStart = alignTo(SymtabStart, 0x1000);
 
   // We gathered all the information we need, start emitting the output file.
-  Writer.writeHeader(MachO::MH_DSYM, NumLoadCommands, LoadCommandSize, false);
+  Writer.writeHeader(MachO::MH_DSYM, NumLoadCommands, LoadCommandSize,
+                     /*SubsectionsViaSymbols=*/false);
 
   // Write the load commands.
   assert(OutFile.tell() == HeaderSize);
