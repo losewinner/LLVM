@@ -533,6 +533,8 @@ Improvements to Clang's diagnostics
 
 - Clang now diagnoses ``[[deprecated]]`` attribute usage on local variables (#GH90073).
 
+- Fix false positives when `[[gsl::Owner/Pointer]]` and `[[clang::lifetimebound]]` are used together.
+
 - Improved diagnostic message for ``__builtin_bit_cast`` size mismatch (#GH115870).
 
 Improvements to Clang's time-trace
