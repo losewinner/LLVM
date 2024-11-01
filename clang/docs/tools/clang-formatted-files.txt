@@ -537,6 +537,7 @@ clang/lib/StaticAnalyzer/Checkers/UninitializedObject/UninitializedPointee.cpp
 clang/lib/StaticAnalyzer/Checkers/WebKit/ASTUtils.cpp
 clang/lib/StaticAnalyzer/Checkers/WebKit/ASTUtils.h
 clang/lib/StaticAnalyzer/Checkers/WebKit/DiagOutputUtils.h
+clang/lib/StaticAnalyzer/Checkers/WebKit/MemoryUnsafeCastChecker.cpp
 clang/lib/StaticAnalyzer/Checkers/WebKit/PtrTypesSemantics.cpp
 clang/lib/StaticAnalyzer/Checkers/WebKit/PtrTypesSemantics.h
 clang/lib/StaticAnalyzer/Checkers/WebKit/RefCntblBaseVirtualDtorChecker.cpp
