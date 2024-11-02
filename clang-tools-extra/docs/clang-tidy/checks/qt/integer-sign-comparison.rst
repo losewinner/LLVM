@@ -11,44 +11,30 @@ Examples of fixes created by the check:
 
 .. code-block:: c++
 
-    uint func(int bla)
-    {
-        uint result;
-        if (result == bla)
-            return 0;
-
-        return 1;
-    }
+  uint func(int a, uint b) {
+    return a == b;
+  }
 
 in C++17 becomes
 
 .. code-block:: c++
 
-    <QtCore/q20utility.h>
+  <QtCore/q20utility.h>
 
-    uint func(int bla)
-    {
-        uint result;
-        if (q20::cmp_equal(result, bla))
-            return 0;
-
-        return 1;
-    }
+  uint func(int a, uint b) {
+    return (q20::cmp_equal(result, bla))
+  }
 
 in C++20 becomes
 
 .. code-block:: c++
 
-    #include <utility>
+  #include <utility>
 
-    uint func(int bla)
-    {
-        uint result;
-        if (std::cmp_equal(result, bla))
-            return 0;
+  uint func(int a, uint b) {
+    return (std::cmp_equal(result, bla))
+  }
 
-        return 1;
-    }
 
 Options
 -------
@@ -60,5 +46,5 @@ Options
 
 .. option:: IsQtApplication
 
-  When `true`, then it is assumed that the code being analyzed is the Qt-based code.
+  When `true`, it is assumed that the code being analyzed is using the Qt framework.
   Default is `false`.

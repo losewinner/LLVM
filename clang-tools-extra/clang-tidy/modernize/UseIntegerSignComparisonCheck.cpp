@@ -17,10 +17,8 @@ using namespace clang::ast_matchers::internal;
 namespace clang::tidy::modernize {
 static BindableMatcher<clang::Stmt>
 intCastExpression(bool IsSigned, const std::string &CastBindName) {
-  auto IntTypeExpr = IsSigned ? expr(hasType(hasCanonicalType(
-                                    qualType(isInteger(), isSignedInteger()))))
-                              : expr(hasType(hasCanonicalType(qualType(
-                                    isInteger(), unless(isSignedInteger())))));
+  auto IntTypeExpr = expr(hasType(hasCanonicalType(qualType(
+      isInteger(), IsSigned ? isSignedInteger() : unless(isSignedInteger())))));
 
   const auto ImplicitCastExpr =
       implicitCastExpr(hasSourceExpression(IntTypeExpr)).bind(CastBindName);
@@ -117,28 +115,32 @@ void UseIntegerSignComparisonCheck::check(
   if (LHS == nullptr || RHS == nullptr)
     return;
 
-  const Expr *ExplicitLHS = nullptr;
-  const Expr *ExplicitRHS = nullptr;
-  StringRef ExplicitLhsString, ExplicitLhsRhsString;
+  const Expr *SubExprLHS = nullptr;
+  const Expr *SubExprRHS = nullptr;
+  SourceRange R1 = SourceRange(LHS->getBeginLoc());
+  SourceRange R2 = SourceRange(BinaryOp->getOperatorLoc());
+
+  if (const auto *LHSCast = BinaryOp->getLHS() == SignedCastExpression
+                                ? SignedCastExpression
+                                : UnSignedCastExpression) {
+    if (LHSCast->isPartOfExplicitCast()) {
+      SubExprLHS = LHSCast->getSubExpr();
+      R1 = SourceRange(LHS->getBeginLoc(), SubExprLHS->getBeginLoc());
+    }
+  }
+
+  if (const auto *RHSCast = BinaryOp->getLHS() == SignedCastExpression
+                                ? UnSignedCastExpression
+                                : SignedCastExpression) {
+    if (RHSCast->isPartOfExplicitCast()) {
+      SubExprRHS = RHSCast->getSubExpr();
+      R2.setEnd(SubExprRHS->getBeginLoc());
+    }
+  }
 
   DiagnosticBuilder Diag =
       diag(BinaryOp->getBeginLoc(),
            "comparison between 'signed' and 'unsigned' integers");
-  if (BinaryOp->getLHS() == SignedCastExpression) {
-    ExplicitLHS = SignedCastExpression->isPartOfExplicitCast()
-                      ? SignedCastExpression
-                      : nullptr;
-    ExplicitRHS = UnSignedCastExpression->isPartOfExplicitCast()
-                      ? UnSignedCastExpression
-                      : nullptr;
-  } else {
-    ExplicitRHS = SignedCastExpression->isPartOfExplicitCast()
-                      ? SignedCastExpression
-                      : nullptr;
-    ExplicitLHS = UnSignedCastExpression->isPartOfExplicitCast()
-                      ? UnSignedCastExpression
-                      : nullptr;
-  }
 
   if (!(getLangOpts().CPlusPlus17 && IsQtApplication) &&
       !getLangOpts().CPlusPlus20)
@@ -147,42 +149,40 @@ void UseIntegerSignComparisonCheck::check(
   std::string CmpNamespace;
   std::string CmpHeader;
   if (getLangOpts().CPlusPlus20) {
-    CmpNamespace = std::string("std::") + std::string(parseOpCode(OpCode));
-    CmpHeader = std::string("<utility>");
+    CmpNamespace = llvm::Twine("std::" + parseOpCode(OpCode)).str();
+    CmpHeader = "<utility>";
   } else if (getLangOpts().CPlusPlus17 && IsQtApplication) {
-    CmpNamespace = std::string("q20::") + std::string(parseOpCode(OpCode));
-    CmpHeader = std::string("<QtCore/q20utility.h>");
+    CmpNamespace = llvm::Twine("q20::" + parseOpCode(OpCode)).str();
+    CmpHeader = "<QtCore/q20utility.h>";
   }
 
   // Use qt-use-integer-sign-comparison when C++17 is available and only for Qt
   // apps. Prefer modernize-use-integer-sign-comparison when C++20 is available!
-  if (ExplicitLHS) {
-    ExplicitLhsString =
+  if (SubExprLHS) {
+    StringRef ExplicitLhsString =
         Lexer::getSourceText(CharSourceRange::getTokenRange(
-                                 ExplicitLHS->IgnoreCasts()->getSourceRange()),
+                                 SubExprLHS->IgnoreCasts()->getSourceRange()),
                              *Result.SourceManager, getLangOpts());
     Diag << FixItHint::CreateReplacement(
-        LHS->getSourceRange(),
-        llvm::Twine(CmpNamespace + "(" + ExplicitLhsString).str());
+        R1, llvm::Twine(CmpNamespace + "(" + ExplicitLhsString).str());
   } else {
-    Diag << FixItHint::CreateInsertion(LHS->getBeginLoc(),
+    Diag << FixItHint::CreateInsertion(R1.getBegin(),
                                        llvm::Twine(CmpNamespace + "(").str());
   }
-  Diag << FixItHint::CreateReplacement(BinaryOp->getOperatorLoc(), ", ");
-  if (ExplicitRHS) {
-    ExplicitLhsRhsString =
-        Lexer::getSourceText(CharSourceRange::getTokenRange(
-                                 ExplicitRHS->IgnoreCasts()->getSourceRange()),
-                             *Result.SourceManager, getLangOpts());
-    Diag << FixItHint::CreateReplacement(
-        RHS->getSourceRange(), llvm::Twine(ExplicitLhsRhsString + ")").str());
-  } else {
-    Diag << FixItHint::CreateInsertion(
-        Lexer::getLocForEndOfToken(
-            Result.SourceManager->getSpellingLoc(RHS->getEndLoc()), 0,
-            *Result.SourceManager, Result.Context->getLangOpts()),
-        ")");
-  }
+
+  StringRef ExplicitLhsRhsString =
+      SubExprRHS ? Lexer::getSourceText(
+                       CharSourceRange::getTokenRange(
+                           SubExprRHS->IgnoreCasts()->getSourceRange()),
+                       *Result.SourceManager, getLangOpts())
+                 : "";
+  Diag << FixItHint::CreateReplacement(
+      R2, llvm::Twine(", " + ExplicitLhsRhsString).str());
+  Diag << FixItHint::CreateInsertion(
+      Lexer::getLocForEndOfToken(
+          Result.SourceManager->getSpellingLoc(RHS->getEndLoc()), 0,
+          *Result.SourceManager, Result.Context->getLangOpts()),
+      ")");
 
   // If there is no include for cmp_{*} functions, we'll add it.
   Diag << IncludeInserter.createIncludeInsertion(

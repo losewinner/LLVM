@@ -4,7 +4,7 @@
 #define MAX_MACRO(a, b) (a < b) ? b : a
 
 unsigned int FuncParameters(int bla) {
-    unsigned int result;
+    unsigned int result = 0;
     if (result == bla)
         return 0;
 // CHECK-MESSAGES: :[[@LINE-2]]:9: warning: comparison between 'signed' and 'unsigned' integers [modernize-use-integer-sign-comparison]

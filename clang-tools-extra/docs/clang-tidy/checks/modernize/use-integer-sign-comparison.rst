@@ -4,35 +4,26 @@ modernize-use-integer-sign-comparison
 =====================================
 
 Replace comparisons between signed and unsigned integers with their safe
-``std::cmp_*`` alternative.
+C++20 ``std::cmp_*`` alternative, if available.
+
 
 Examples of fixes created by the check:
 
 .. code-block:: c++
 
-    uint func(int bla)
-    {
-        uint result;
-        if (result == bla)
-            return 0;
-
-        return 1;
-    }
+  uint func(int a, uint b) {
+    return a == b;
+  }
 
 becomes
 
 .. code-block:: c++
 
-    #include <utility>
+  #include <utility>
 
-    uint func(int bla)
-    {
-        uint result;
-        if (std::cmp_equal(result, bla))
-            return 0;
-
-        return 1;
-    }
+  uint func(int a, uint b) {
+    return (std::cmp_equal(result, bla))
+  }
 
 Options
 -------
@@ -41,3 +32,8 @@ Options
 
   A string specifying which include-style is used, `llvm` or `google`.
   Default is `llvm`.
+
+.. option:: IsQtApplication
+
+  When `true`, it is assumed that the code being analyzed is using the Qt framework.
+  Default is `false`.

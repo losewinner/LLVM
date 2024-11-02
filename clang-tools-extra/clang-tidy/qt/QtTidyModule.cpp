@@ -14,7 +14,7 @@
 namespace clang::tidy {
 namespace qt {
 
-/// A module containing checks of the C++ Core Guidelines
+/// A module containing checks of the QT
 class QtClangTidyModule : public ClangTidyModule {
 public:
   void addCheckFactories(ClangTidyCheckFactories &CheckFactories) override {
@@ -33,9 +33,9 @@ public:
   }
 };
 
-// Register the LLVMTidyModule using this statically initialized variable.
+// Register the QtClangTidyModule using this statically initialized variable.
 static ClangTidyModuleRegistry::Add<QtClangTidyModule>
-    X("qt-module", "Adds checks for the Qt framework Guidelines.");
+    X("qt-module", "Adds checks for the QT.");
 
 } // namespace qt
 

@@ -4,7 +4,7 @@
 #define MAX_MACRO(a, b) (a < b) ? b : a
 
 unsigned int FuncParameters(int bla) {
-    unsigned int result;
+    unsigned int result = 0;
     if (result == bla)
         return 0;
 // CHECK-MESSAGES: :[[@LINE-2]]:9: warning: comparison between 'signed' and 'unsigned' integers [qt-integer-sign-comparison]
@@ -36,10 +36,10 @@ int AllComparisons() {
     int sVar = -42;
     short sArray[2] = {-1, -2};
 
-    if ((int)uVar < sVar)
+    if (uVar < (unsigned int)sVar)
         return 0;
 // CHECK-MESSAGES: :[[@LINE-2]]:9: warning: comparison between 'signed' and 'unsigned' integers [qt-integer-sign-comparison]
-// CHECK-FIXES: if (q20::cmp_less(uVar ,  sVar))
+// CHECK-FIXES: if (q20::cmp_less(uVar , sVar))
 
     (uVar != sVar) ? uVar = sVar
                    : sVar = uVar;

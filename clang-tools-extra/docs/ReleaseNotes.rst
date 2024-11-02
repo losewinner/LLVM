@@ -127,7 +127,7 @@ New checks
   <clang-tidy/checks/modernize/use-integer-sign-comparison>` check.
 
   Replace comparisons between signed and unsigned integers with their safe
-  ``std::cmp_*`` alternative.
+  C++20 ``std::cmp_*`` alternative, if available.
 
 - New :doc:`portability-template-virtual-member-function
   <clang-tidy/checks/portability/template-virtual-member-function>` check.
@@ -146,11 +146,9 @@ New check aliases
   <clang-tidy/checks/qt/integer-sign-comparison>` to
   :doc:`modernize-use-integer-sign-comparison
   <clang-tidy/checks/modernize/use-integer-sign-comparison>` check.
-  If C++17 is supported, the fix-it replaces integers comparisons to
-  ``q20::cmp_equal``, ``q20::cmp_not_equal``, ``q20::cmp_less``,
-  ``q20::cmp_greater``, ``q20::cmp_less_equal`` and ``q20::cmp_greater_equal``
-  functions.
-  The check assumes the analysed code is Qt-based code.
+
+  Replace comparisons between signed and unsigned integers with their safe
+  C++17 ``q20::cmp_*`` or C++20 ``std::cmp_*`` alternatives, if available.
 
 Changes in existing checks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
