@@ -590,10 +590,9 @@ static void breakSelfRecursivePHI(const Use *U, const PHINode *PHI,
   Value *V;
   // If the Use is a select of this phi, compute analysis on other arm to be
   // recusion.
-  // TODO: FMin/FMax
+  // TODO: Min/Max
   if (match(ValOut, m_Select(m_Value(), m_Specific(PHI), m_Value(V))) ||
-      match(ValOut, m_Select(m_Value(), m_Value(V), m_Specific(PHI))) ||
-      match(ValOut, m_c_MaxOrMin(m_Value(V), m_Specific(PHI)))) {
+      match(ValOut, m_Select(m_Value(), m_Value(V), m_Specific(PHI)))) {
     ValOut = V;
     return;
   }
