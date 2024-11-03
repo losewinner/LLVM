@@ -594,26 +594,27 @@ static void breakSelfRecursivePHI(const Use *U, const PHINode *PHI,
   if (match(ValOut, m_Select(m_Value(), m_Specific(PHI), m_Value(V))) ||
       match(ValOut, m_Select(m_Value(), m_Value(V), m_Specific(PHI)))) {
     ValOut = V;
-    return;
   }
-
-  if (DepthInOut)
-    *DepthInOut = MaxAnalysisRecursionDepth - 1;
 
   // Same for select, if this phi is 2-operand phi, compute analysis on other
   // incoming value to break recursion.
   // TODO: We could handle any number of incoming edges as long as we only have
   // two unique values.
-  if (auto *IncPhi = dyn_cast<PHINode>(ValOut);
-      IncPhi && IncPhi->getNumIncomingValues() == 2) {
+  else if (auto *IncPhi = dyn_cast<PHINode>(ValOut);
+           IncPhi && IncPhi->getNumIncomingValues() == 2) {
     for (int Idx = 0; Idx < 2; ++Idx) {
       if (IncPhi->getIncomingValue(Idx) == PHI) {
         ValOut = IncPhi->getIncomingValue(1 - Idx);
         CtxIOut = IncPhi->getIncomingBlock(1 - Idx)->getTerminator();
-        return;
+        break;
       }
     }
   }
+  // If we are going to continue recursing on a phi-node limit depth to avoid
+  // exponential explosion of work.
+  if (DepthInOut)
+    *DepthInOut = std::max(MaxAnalysisRecursionDepth - 2 + isa<PHINode>(ValOut),
+                           *DepthInOut);
 }
 
 static bool isKnownNonZeroFromAssume(const Value *V, const SimplifyQuery &Q) {
