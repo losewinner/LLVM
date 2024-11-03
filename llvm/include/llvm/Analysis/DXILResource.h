@@ -275,6 +275,9 @@ public:
   DXILResourceMap(
       SmallVectorImpl<std::pair<CallInst *, dxil::ResourceInfo>> &&CIToRI);
 
+  bool invalidate(Module &M, const PreservedAnalyses &PA,
+                  ModuleAnalysisManager::Invalidator &Inv);
+
   iterator begin() { return Resources.begin(); }
   const_iterator begin() const { return Resources.begin(); }
   iterator end() { return Resources.end(); }
