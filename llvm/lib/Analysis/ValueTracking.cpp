@@ -588,7 +588,7 @@ static void breakSelfRecursivePHI(const Use *U, const PHINode *PHI,
     return;
   CtxIOut = PHI->getIncomingBlock(*U)->getTerminator();
   Value *V;
-  // If the Use is a select of this phi, compute analysis on other arm to be
+  // If the Use is a select of this phi, compute analysis on other arm to break
   // recursion.
   // TODO: Min/Max
   if (match(ValOut, m_Select(m_Value(), m_Specific(PHI), m_Value(V))) ||
