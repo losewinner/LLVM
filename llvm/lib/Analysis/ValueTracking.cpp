@@ -588,11 +588,13 @@ static void breakSelfRecursivePHI(const Use *U, const PHINode *PHI,
     return;
   CtxIOut = PHI->getIncomingBlock(*U)->getTerminator();
   Value *V;
+  bool BrokeSelfRecursion = false;
   // If the Use is a select of this phi, compute analysis on other arm to break
   // recursion.
   // TODO: Min/Max
   if (match(ValOut, m_Select(m_Value(), m_Specific(PHI), m_Value(V))) ||
       match(ValOut, m_Select(m_Value(), m_Value(V), m_Specific(PHI)))) {
+    BrokeSelfRecursion = true;
     ValOut = V;
   }
 
@@ -606,6 +608,7 @@ static void breakSelfRecursivePHI(const Use *U, const PHINode *PHI,
       if (IncPhi->getIncomingValue(Idx) == PHI) {
         ValOut = IncPhi->getIncomingValue(1 - Idx);
         CtxIOut = IncPhi->getIncomingBlock(1 - Idx)->getTerminator();
+		BrokeSelfRecursion = true;
         break;
       }
     }
@@ -613,7 +616,8 @@ static void breakSelfRecursivePHI(const Use *U, const PHINode *PHI,
   // If we are going to continue recursing on a phi-node limit depth to avoid
   // exponential explosion of work.
   if (DepthInOut)
-    *DepthInOut = std::max(MaxAnalysisRecursionDepth - 2 + isa<PHINode>(ValOut),
+    *DepthInOut = std::max(MaxAnalysisRecursionDepth - 1 - BrokeSelfRecursion +
+                               isa<PHINode>(ValOut),
                            *DepthInOut);
 }
 
