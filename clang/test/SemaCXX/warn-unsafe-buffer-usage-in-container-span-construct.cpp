@@ -137,6 +137,44 @@ namespace construct_wt_begin_end {
   }
 } // namespace construct_wt_begin_end
 
+namespace test_alloc_size_attr {
+  void * my_alloc(unsigned size) __attribute__((alloc_size(1)));
+  void * my_alloc2(unsigned count, unsigned size) __attribute__((alloc_size(1,2)));
+
+  template<typename T>
+  void foo(std::span<T> S);
+
+  void safe(int x, unsigned y) {
+    foo(std::span<char>{(char *)my_alloc(10), 10});
+    foo(std::span<char>{(char *)my_alloc(x), x});
+    foo(std::span<char>{(char *)my_alloc(x * y), x * y});
+    foo(std::span<char>{(char *)my_alloc(x * y), y * x});
+    foo(std::span<char>{(char *)my_alloc(x * y + x), x * y + x});
+    foo(std::span<char>{(char *)my_alloc(x * y + x), x + y * x});
+
+    foo(std::span<char>{(char *)my_alloc2(x, y), x * y});
+    foo(std::span<char>{(char *)my_alloc2(x, y), y * x});
+    //foo(std::span<char>{(char *)my_alloc2(x, sizeof(char)), x}); // lets not worry about this case for now
+    foo(std::span<char>{(char *)my_alloc2(x, sizeof(char)), x * sizeof(char)});
+    //foo(std::span<char>{(char *)my_alloc2(10, sizeof(char)), 10});
+    foo(std::span<char>{(char *)my_alloc2(10, sizeof(char)), 10 * sizeof(char)});
+  }
+
+  void unsafe(int x, int y) {
+    foo(std::span<char>{(char *)my_alloc(10), 11});       // expected-warning{{the two-parameter std::span construction is unsafe as it can introduce mismatch between buffer size and the bound information}}
+    foo(std::span<char>{(char *)my_alloc(x * y), x + y}); // expected-warning{{the two-parameter std::span construction is unsafe as it can introduce mismatch between buffer size and the bound information}}
+    foo(std::span<int>{(int *)my_alloc(x), x});           // expected-warning{{the two-parameter std::span construction is unsafe as it can introduce mismatch between buffer size and the bound information}}
+    foo(std::span<char>{(char *)my_alloc2(x, y), x + y}); // expected-warning{{the two-parameter std::span construction is unsafe as it can introduce mismatch between buffer size and the bound information}}
+    foo(std::span<int>{(int *)my_alloc2(x, y),  x * y});  // expected-warning{{the two-parameter std::span construction is unsafe as it can introduce mismatch between buffer size and the bound information}}
+  }
+
+  void unsupport(int x, int y) {
+    // Casting to `T*` where sizeof(T) > 1 is not supported yet:
+    foo(std::span<long>{(long *)my_alloc(10 * sizeof(long)), 10}); // expected-warning{{the two-parameter std::span construction is unsafe as it can introduce mismatch between buffer size and the bound information}}
+    foo(std::span<long>{(long *)my_alloc2(x, sizeof(long)), x});   // expected-warning{{the two-parameter std::span construction is unsafe as it can introduce mismatch between buffer size and the bound information}}
+  }
+}
+
 namespace test_flag {
   void f(int *p) {
 #pragma clang diagnostic push
