@@ -120,6 +120,9 @@ public:
   }
 };
 
+template <class _Pointer>
+using __pointer_bool_pair = __pointer_int_pair<_Pointer, bool, __integer_width{1}>;
+
 // Make __pointer_int_pair tuple-like
 
 template <class _Pointer, class _IntType, __integer_width __int_bit_count>
