@@ -13,8 +13,8 @@ define i32 @bit_ceil_i32(i32 %x) {
 ; NOBMI-NEXT:    bsrl %eax, %eax
 ; NOBMI-NEXT:    movl $63, %ecx
 ; NOBMI-NEXT:    cmovnel %eax, %ecx
-; NOBMI-NEXT:    xorl $31, %ecx
-; NOBMI-NEXT:    negb %cl
+; NOBMI-NEXT:    xorb $-32, %cl
+; NOBMI-NEXT:    addb $33, %cl
 ; NOBMI-NEXT:    movl $1, %edx
 ; NOBMI-NEXT:    movl $1, %eax
 ; NOBMI-NEXT:    # kill: def $cl killed $cl killed $ecx
@@ -50,8 +50,8 @@ define i32 @bit_ceil_i32_plus1(i32 noundef %x) {
 ; NOBMI-NEXT:    bsrl %edi, %eax
 ; NOBMI-NEXT:    movl $63, %ecx
 ; NOBMI-NEXT:    cmovnel %eax, %ecx
-; NOBMI-NEXT:    xorl $31, %ecx
-; NOBMI-NEXT:    negb %cl
+; NOBMI-NEXT:    xorb $-32, %cl
+; NOBMI-NEXT:    addb $33, %cl
 ; NOBMI-NEXT:    movl $1, %edx
 ; NOBMI-NEXT:    movl $1, %eax
 ; NOBMI-NEXT:    # kill: def $cl killed $cl killed $ecx
@@ -89,8 +89,8 @@ define i64 @bit_ceil_i64(i64 %x) {
 ; NOBMI-NEXT:    bsrq %rax, %rax
 ; NOBMI-NEXT:    movl $127, %ecx
 ; NOBMI-NEXT:    cmovneq %rax, %rcx
-; NOBMI-NEXT:    xorl $63, %ecx
-; NOBMI-NEXT:    negb %cl
+; NOBMI-NEXT:    xorb $-64, %cl
+; NOBMI-NEXT:    addb $65, %cl
 ; NOBMI-NEXT:    movl $1, %edx
 ; NOBMI-NEXT:    movl $1, %eax
 ; NOBMI-NEXT:    # kill: def $cl killed $cl killed $rcx
@@ -125,8 +125,8 @@ define i64 @bit_ceil_i64_plus1(i64 noundef %x) {
 ; NOBMI-NEXT:    bsrq %rdi, %rax
 ; NOBMI-NEXT:    movl $127, %ecx
 ; NOBMI-NEXT:    cmovneq %rax, %rcx
-; NOBMI-NEXT:    xorl $63, %ecx
-; NOBMI-NEXT:    negb %cl
+; NOBMI-NEXT:    xorb $-64, %cl
+; NOBMI-NEXT:    addb $65, %cl
 ; NOBMI-NEXT:    movl $1, %edx
 ; NOBMI-NEXT:    movl $1, %eax
 ; NOBMI-NEXT:    # kill: def $cl killed $cl killed $rcx
