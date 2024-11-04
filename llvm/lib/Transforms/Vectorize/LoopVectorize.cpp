@@ -7698,6 +7698,10 @@ DenseMap<const SCEV *, Value *> LoopVectorizationPlanner::executePlan(
                              ILV.getOrCreateVectorTripCount(nullptr),
                              CanonicalIVStartValue, State);
 
+  // TODO: Rebase to fhahn's implementation.
+  VPlanTransforms::prepareExecute(BestVPlan);
+  dbgs() << "\n\n print plan\n";
+  BestVPlan.print(dbgs());
   BestVPlan.execute(&State);
 
   // 2.5 Collect reduction resume values.
@@ -9294,6 +9298,7 @@ VPlanPtr LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
 // Adjust AnyOf reductions; replace the reduction phi for the selected value
 // with a boolean reduction phi node to check if the condition is true in any
 // iteration. The final value is selected by the final ComputeReductionResult.
+// TODO: Implement VPMulAccHere.
 void LoopVectorizationPlanner::adjustRecipesForReductions(
     VPlanPtr &Plan, VPRecipeBuilder &RecipeBuilder, ElementCount MinVF) {
   using namespace VPlanPatternMatch;
@@ -9412,9 +9417,22 @@ void LoopVectorizationPlanner::adjustRecipesForReductions(
       if (CM.blockNeedsPredicationForAnyReason(BB))
         CondOp = RecipeBuilder.getBlockInMask(BB);
 
-      VPReductionRecipe *RedRecipe =
-          new VPReductionRecipe(RdxDesc, CurrentLinkI, PreviousLink, VecOp,
-                                CondOp, CM.useOrderedReductions(RdxDesc));
+      // VPWidenCastRecipes can folded into VPReductionRecipe
+      VPValue *A;
+      VPSingleDefRecipe *RedRecipe;
+      if (match(VecOp, m_ZExtOrSExt(m_VPValue(A))) &&
+          !VecOp->hasMoreThanOneUniqueUser()) {
+        RedRecipe = new VPExtendedReductionRecipe(
+            RdxDesc, CurrentLinkI,
+            cast<CastInst>(
+                cast<VPWidenCastRecipe>(VecOp)->getUnderlyingInstr()),
+            PreviousLink, A, CondOp, CM.useOrderedReductions(RdxDesc),
+            cast<VPWidenCastRecipe>(VecOp)->getResultType());
+      } else {
+        RedRecipe =
+            new VPReductionRecipe(RdxDesc, CurrentLinkI, PreviousLink, VecOp,
+                                  CondOp, CM.useOrderedReductions(RdxDesc));
+      }
       // Append the recipe to the end of the VPBasicBlock because we need to
       // ensure that it comes after all of it's inputs, including CondOp.
       // Note that this transformation may leave over dead recipes (including
