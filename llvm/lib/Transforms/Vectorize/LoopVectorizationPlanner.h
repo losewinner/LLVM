@@ -237,7 +237,7 @@ public:
   }
 
   VPInstruction *createAnyActive(VPValue *Cond, DebugLoc DL,
-                                    const Twine &Name) {
+                                 const Twine &Name) {
     return createInstruction(VPInstruction::AnyActive, {Cond}, DL, Name);
   }
 
@@ -249,7 +249,7 @@ public:
   }
 
   VPInstruction *createAnyActiveEVL(VPValue *Cond, VPValue *EVL, DebugLoc DL,
-                                       const Twine &Name) {
+                                    const Twine &Name) {
     return createInstruction(VPInstruction::AnyActiveEVL, {Cond, EVL}, DL,
                              Name);
   }

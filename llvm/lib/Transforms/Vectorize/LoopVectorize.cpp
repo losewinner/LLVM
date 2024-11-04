@@ -2966,7 +2966,6 @@ void InnerLoopVectorizer::fixVectorizedLoop(VPTransformState &State) {
     for (const auto &Entry : Legal->getInductionVars())
       fixupIVUsers(Entry.first, Entry.second,
                    getOrCreateVectorTripCount(nullptr), LoopMiddleBlock, State);
-    fixCSALiveOuts(State, Plan);
   }
 
   for (Instruction *PI : PredicatedInstructions)
@@ -8725,13 +8724,18 @@ VPRecipeBuilder::tryToCreateWidenRecipe(Instruction *Instr,
       // directly, enabling more efficient codegen.
       PhiRecipe = new VPFirstOrderRecurrencePHIRecipe(Phi, *StartV);
     } else if (Legal->isCSAPhi(Phi)) {
-      VPCSAState *State = Plan.getCSAStates().find(Phi)->second;
-      VPValue *InitData = State->getVPInitData();
+      VPValue *InitScalar = Plan.getOrAddLiveIn(
+          Phi->getIncomingValueForBlock(OrigLoop->getLoopPreheader()));
+
+      // Don't build full CSA for VF=ElementCount::getFixed(1)
+      bool IsScalarVF = LoopVectorizationPlanner::getDecisionAndClampRange(
+          [&](ElementCount VF) { return VF.isScalar(); }, Range);
+
       // When the VF=getFixed(1), InitData is just InitScalar.
-      if (!InitData)
-        InitData = State->getVPInitScalar();
+      VPValue *InitData =
+          IsScalarVF ? InitScalar
+                     : getVPValueOrAddLiveIn(PoisonValue::get(Phi->getType()));
       PhiRecipe = new VPCSAHeaderPHIRecipe(Phi, InitData);
-      State->setPhiRecipe(cast<VPCSAHeaderPHIRecipe>(PhiRecipe));
     } else {
       llvm_unreachable(
           "can only widen reductions, fixed-order recurrences, and CSAs here");
@@ -8772,13 +8776,17 @@ VPRecipeBuilder::tryToCreateWidenRecipe(Instruction *Instr,
       return CSADescriptor::isCSASelect(CSA.second, SI);
     });
     if (CSADescIt != Legal->getCSAs().end()) {
-      PHINode *CSAPhi = CSADescIt->first;
-      VPCSAState *State = Plan.getCSAStates().find(CSAPhi)->second;
-      VPValue *VPDataPhi = State->getPhiRecipe();
-      auto *R = new VPCSADataUpdateRecipe(
-          SI, {VPDataPhi, Operands[0], Operands[1], Operands[2]});
-      State->setDataUpdate(R);
-      return R;
+      for (VPRecipeBase &R :
+           Plan.getVectorLoopRegion()->getEntryBasicBlock()->phis()) {
+        if (auto PhiR = dyn_cast<VPCSAHeaderPHIRecipe>(&R)) {
+          if (PhiR->getUnderlyingInstr() == CSADescIt->first) {
+            auto *R = new VPCSADataUpdateRecipe(
+                SI, {PhiR, Operands[0], Operands[1], Operands[2]});
+            PhiR->setDataUpdate(R);
+            return R;
+          }
+        }
+      }
     }
 
     return new VPWidenSelectRecipe(
@@ -8793,44 +8801,6 @@ VPRecipeBuilder::tryToCreateWidenRecipe(Instruction *Instr,
   return tryToWiden(Instr, Operands, VPBB);
 }
 
-/// Add CSA Recipes that can occur before each instruction in the input IR
-/// is processed and introduced into VPlan.
-static void
-addCSAPreprocessRecipes(const LoopVectorizationLegality::CSAList &CSAs,
-                        Loop *OrigLoop, VPBasicBlock *PreheaderVPBB,
-                        VPBasicBlock *HeaderVPBB, DebugLoc DL, VFRange &Range,
-                        VPlan &Plan, VPRecipeBuilder &Builder) {
-
-  // Don't build full CSA for VF=ElementCount::getFixed(1)
-  bool IsScalarVF = LoopVectorizationPlanner::getDecisionAndClampRange(
-      [&](ElementCount VF) { return VF.isScalar(); }, Range);
-
-  for (const auto &CSA : CSAs) {
-    VPValue *VPInitScalar = Plan.getOrAddLiveIn(
-        CSA.first->getIncomingValueForBlock(OrigLoop->getLoopPreheader()));
-
-    // Scalar VF builds the scalar version of the loop. In that case,
-    // no maintenence of mask nor extraction in middle block is needed.
-    if (IsScalarVF) {
-      VPCSAState *S = new VPCSAState(VPInitScalar);
-      Plan.addCSAState(CSA.first, S);
-      continue;
-    }
-
-    VPBuilder PHB(PreheaderVPBB);
-    auto *VPInitMask = Builder.getVPValueOrAddLiveIn(
-        ConstantInt::getFalse(Type::getInt1Ty(CSA.first->getContext())));
-    auto *VPInitData =
-        Builder.getVPValueOrAddLiveIn(PoisonValue::get(CSA.first->getType()));
-
-    VPBuilder HB(HeaderVPBB);
-    auto *VPMaskPhi = HB.createCSAMaskPhi(VPInitMask, DL, "csa.mask.phi");
-
-    auto *S = new VPCSAState(VPInitScalar, VPInitData, VPMaskPhi);
-    Plan.addCSAState(CSA.first, S);
-  }
-}
-
 /// Add CSA Recipes that must occur after each instruction in the input IR
 /// is processed and introduced into VPlan.
 static void
@@ -8843,60 +8813,57 @@ addCSAPostprocessRecipes(VPRecipeBuilder &RecipeBuilder,
           [&](ElementCount VF) { return VF.isScalar(); }, Range))
     return;
 
+  VPBasicBlock *Header = Plan.getVectorLoopRegion()->getEntryBasicBlock();
   for (const auto &CSA : CSAs) {
-    VPCSAState *CSAState = Plan.getCSAStates().find(CSA.first)->second;
-    VPCSADataUpdateRecipe *VPDataUpdate = CSAState->getDataUpdate();
+    // Build the MaskPhi recipe.
+    auto *VPInitMask = RecipeBuilder.getVPValueOrAddLiveIn(
+        ConstantInt::getFalse(Type::getInt1Ty(CSA.first->getContext())));
+    VPBuilder B;
+    B.setInsertPoint(Header, Header->getFirstNonPhi());
+    auto *VPMaskPhi = B.createCSAMaskPhi(VPInitMask, DL, "csa.mask.phi");
+    B.clearInsertionPoint();
 
-    assert(VPDataUpdate &&
-           "VPDataUpdate must have been introduced prior to postprocess");
-    assert(CSA.second.getCond() &&
-           "CSADescriptor must know how to describe the condition");
     auto GetVPValue = [&](Value *I) {
       return RecipeBuilder.getRecipe(cast<Instruction>(I))->getVPSingleValue();
     };
-    VPValue *WidenedCond = GetVPValue(CSA.second.getCond());
-    VPValue *VPInitScalar = CSAState->getVPInitScalar();
+    VPCSADataUpdateRecipe *VPDataUpdate = cast<VPCSADataUpdateRecipe>(
+        cast<VPCSAHeaderPHIRecipe>(GetVPValue(CSA.first))->getVPNewData());
 
     // The CSA optimization wants to use a condition such that when it is
     // true, a new value is assigned. However, it is possible that a true lane
     // in WidenedCond corresponds to selection of the initial value instead.
     // In that case, we must use the negation of WidenedCond.
     // i.e. select cond new_val old_val versus select cond.not old_val new_val
+    assert(CSA.second.getCond() &&
+           "CSADescriptor must know how to describe the condition");
+    VPValue *WidenedCond = GetVPValue(CSA.second.getCond());
     VPValue *CondToUse = WidenedCond;
-    VPBuilder B;
     if (cast<SelectInst>(CSA.second.getAssignment())->getTrueValue() ==
         CSA.first) {
       auto *VPNotCond = B.createNot(WidenedCond, DL);
-      VPNotCond->insertBefore(
-          GetVPValue(CSA.second.getAssignment())->getDefiningRecipe());
+      VPNotCond->insertBefore(VPDataUpdate);
       CondToUse = VPNotCond;
     }
 
-    auto *VPAnyActive =
-        B.createAnyActive(CondToUse, DL, "csa.cond.anyactive");
-    VPAnyActive->insertBefore(
-        GetVPValue(CSA.second.getAssignment())->getDefiningRecipe());
+    auto *VPAnyActive = B.createAnyActive(CondToUse, DL, "csa.cond.anyactive");
+    VPAnyActive->insertBefore(VPDataUpdate);
 
-    auto *VPMaskSel = B.createCSAMaskSel(CondToUse, CSAState->getVPMaskPhi(),
-                                         VPAnyActive, DL, "csa.mask.sel");
+    auto *VPMaskSel = B.createCSAMaskSel(CondToUse, VPMaskPhi, VPAnyActive, DL,
+                                         "csa.mask.sel");
     VPMaskSel->insertAfter(VPAnyActive);
+
     VPDataUpdate->setVPNewMaskAndVPAnyActive(VPMaskSel, VPAnyActive);
+    VPValue *VPInitScalar = Plan.getOrAddLiveIn(
+        CSA.first->getIncomingValueForBlock(OrigLoop->getLoopPreheader()));
+    SmallVector<PHINode *> PhiToFix;
+    for (User *U : VPDataUpdate->getUnderlyingValue()->users())
+      if (auto *Phi = dyn_cast<PHINode>(U);
+          Phi && Phi->getParent() == OrigLoop->getUniqueExitBlock())
+        PhiToFix.emplace_back(Phi);
     VPCSAExtractScalarRecipe *ExtractScalarRecipe =
-        new VPCSAExtractScalarRecipe({VPInitScalar, VPMaskSel, VPDataUpdate});
-
+        new VPCSAExtractScalarRecipe({VPInitScalar, VPMaskSel, VPDataUpdate},
+                                     PhiToFix);
     MiddleVPBB->insert(ExtractScalarRecipe, MiddleVPBB->getFirstNonPhi());
-
-    // Update CSAState with new recipes
-    CSAState->setExtractScalarRecipe(ExtractScalarRecipe);
-    CSAState->setVPAnyActive(VPAnyActive);
-
-    // Add live out for the CSA. We should be in LCSSA, so we are looking for
-    // Phi users in the unique exit block of the original updated value.
-    BasicBlock *OrigExit = OrigLoop->getUniqueExitBlock();
-    assert(OrigExit && "Expected a single exit block");
-    for (User *U :VPDataUpdate->getUnderlyingValue()->users())
-      if (auto *Phi = dyn_cast<PHINode>(U); Phi && Phi->getParent() == OrigExit)
-        Plan.addLiveOut(Phi, ExtractScalarRecipe);
   }
 }
 
@@ -9217,11 +9184,6 @@ LoopVectorizationPlanner::tryToBuildVPlanWithVPRecipes(VFRange &Range) {
   addCanonicalIVRecipes(*Plan, Legal->getWidestInductionType(), HasNUW, DL);
 
   VPRecipeBuilder RecipeBuilder(*Plan, OrigLoop, TLI, Legal, CM, PSE, Builder);
-
-  addCSAPreprocessRecipes(Legal->getCSAs(), OrigLoop, Plan->getPreheader(),
-                          Plan->getVectorLoopRegion()->getEntryBasicBlock(), DL,
-                          Range, *Plan, RecipeBuilder);
-
 
   // ---------------------------------------------------------------------------
   // Pre-construction: record ingredients whose recipes we'll need to further

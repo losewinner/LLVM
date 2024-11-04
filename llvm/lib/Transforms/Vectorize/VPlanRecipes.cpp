@@ -672,8 +672,7 @@ Value *VPInstruction::generate(VPTransformState &State) {
         ConstantInt::get(WidenedCond->getType()->getScalarType(), 0);
     Value *AnyActive = State.Builder.CreateIntrinsic(
         WidenedCond->getType()->getScalarType(), Intrinsic::vp_reduce_or,
-        {StartValue, WidenedCond, AllOnesMask, EVL}, nullptr,
-        "any.active");
+        {StartValue, WidenedCond, AllOnesMask, EVL}, nullptr, "any.active");
     return AnyActive;
   }
   case VPInstruction::CSAVLPhi: {
@@ -2510,6 +2509,7 @@ void VPCSADataUpdateRecipe::execute(VPTransformState &State) {
                                               "csa.data.sel");
 
   DataPhi->addIncoming(DataSel, State.CFG.PrevBB);
+
   State.set(this, DataSel);
 }
 
@@ -2600,6 +2600,10 @@ void VPCSAExtractScalarRecipe::execute(VPTransformState &State) {
   Value *LastIdxGEZero = State.Builder.CreateICmpSGE(LastIdx, Zero);
   Value *ChooseFromVecOrInit =
       State.Builder.CreateSelect(LastIdxGEZero, ExtractFromVec, InitScalar);
+
+  for (PHINode *Phi : PhisToFix)
+    Phi->addIncoming(ChooseFromVecOrInit, State.CFG.ExitBB);
+
   State.set(this, ChooseFromVecOrInit, /*IsScalar=*/true);
 }
 

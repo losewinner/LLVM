@@ -838,9 +838,6 @@ VPlan::~VPlan() {
     delete VPV;
   if (BackedgeTakenCount)
     delete BackedgeTakenCount;
-
-  for (std::pair<PHINode *, VPCSAState *> &S : CSAStates)
-    delete S.second;
 }
 
 VPIRBasicBlock *VPIRBasicBlock::fromBasicBlock(BasicBlock *IRBB) {

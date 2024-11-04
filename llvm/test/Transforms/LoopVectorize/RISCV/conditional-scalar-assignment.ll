@@ -26,11 +26,11 @@ define i32 @simple_csa_int_select(i32 %N, ptr %data, i64 %a) {
 ; EVL-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
 ; EVL-NEXT:    br i1 false, label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; EVL:       [[VECTOR_PH]]:
-; EVL-NEXT:    [[TMP16:%.*]] = call i64 @llvm.vscale.i64()
-; EVL-NEXT:    [[TMP17:%.*]] = mul i64 [[TMP16]], 4
-; EVL-NEXT:    [[TMP2:%.*]] = sub i64 [[TMP17]], 1
+; EVL-NEXT:    [[TMP0:%.*]] = call i64 @llvm.vscale.i64()
+; EVL-NEXT:    [[TMP1:%.*]] = mul i64 [[TMP0]], 4
+; EVL-NEXT:    [[TMP2:%.*]] = sub i64 [[TMP1]], 1
 ; EVL-NEXT:    [[N_RND_UP:%.*]] = add i64 [[WIDE_TRIP_COUNT]], [[TMP2]]
-; EVL-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_RND_UP]], [[TMP17]]
+; EVL-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_RND_UP]], [[TMP1]]
 ; EVL-NEXT:    [[N_VEC:%.*]] = sub i64 [[N_RND_UP]], [[N_MOD_VF]]
 ; EVL-NEXT:    [[TMP3:%.*]] = call i64 @llvm.vscale.i64()
 ; EVL-NEXT:    [[TMP4:%.*]] = mul i64 [[TMP3]], 4
@@ -40,8 +40,8 @@ define i32 @simple_csa_int_select(i32 %N, ptr %data, i64 %a) {
 ; EVL:       [[VECTOR_BODY]]:
 ; EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[EVL_BASED_IV:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_EVL_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[CSA_VL_PHI:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[AVL:%.*]] = sub i64 [[WIDE_TRIP_COUNT]], [[EVL_BASED_IV]]
 ; EVL-NEXT:    [[TMP5:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 4, i1 true)
@@ -51,10 +51,10 @@ define i32 @simple_csa_int_select(i32 %N, ptr %data, i64 %a) {
 ; EVL-NEXT:    [[VP_OP_LOAD:%.*]] = call <vscale x 4 x i32> @llvm.vp.load.nxv4i32.p0(ptr align 4 [[TMP8]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
 ; EVL-NEXT:    [[TMP9:%.*]] = sext <vscale x 4 x i32> [[VP_OP_LOAD]] to <vscale x 4 x i64>
 ; EVL-NEXT:    [[TMP10:%.*]] = icmp slt <vscale x 4 x i64> [[BROADCAST_SPLAT]], [[TMP9]]
-; EVL-NEXT:    [[CSA_COND_ANYACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP10]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
-; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
-; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 4 x i1> [[TMP10]], <vscale x 4 x i1> [[CSA_MASK_PHI]]
-; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 4 x i32> [[VP_OP_LOAD]], <vscale x 4 x i32> [[CSA_DATA_PHI]]
+; EVL-NEXT:    [[ANY_ACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP10]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
+; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[ANY_ACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
+; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 4 x i1> [[TMP10]], <vscale x 4 x i1> [[CSA_MASK_PHI]]
+; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 4 x i32> [[VP_OP_LOAD]], <vscale x 4 x i32> [[CSA_DATA_PHI]]
 ; EVL-NEXT:    [[TMP11:%.*]] = zext i32 [[TMP5]] to i64
 ; EVL-NEXT:    [[INDEX_EVL_NEXT]] = add i64 [[TMP11]], [[EVL_BASED_IV]]
 ; EVL-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP4]]
@@ -80,10 +80,10 @@ define i32 @simple_csa_int_select(i32 %N, ptr %data, i64 %a) {
 ; EVL-NEXT:    [[IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP]] ]
 ; EVL-NEXT:    [[T_010:%.*]] = phi i32 [ -1, %[[SCALAR_PH]] ], [ [[SPEC_SELECT]], %[[LOOP]] ]
 ; EVL-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[DATA]], i64 [[IV]]
-; EVL-NEXT:    [[TMP0:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
-; EVL-NEXT:    [[TMP1:%.*]] = sext i32 [[TMP0]] to i64
-; EVL-NEXT:    [[CMP1:%.*]] = icmp slt i64 [[A]], [[TMP1]]
-; EVL-NEXT:    [[SPEC_SELECT]] = select i1 [[CMP1]], i32 [[TMP0]], i32 [[T_010]]
+; EVL-NEXT:    [[TMP16:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
+; EVL-NEXT:    [[TMP17:%.*]] = sext i32 [[TMP16]] to i64
+; EVL-NEXT:    [[CMP1:%.*]] = icmp slt i64 [[A]], [[TMP17]]
+; EVL-NEXT:    [[SPEC_SELECT]] = select i1 [[CMP1]], i32 [[TMP16]], i32 [[T_010]]
 ; EVL-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 1
 ; EVL-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; EVL-NEXT:    br i1 [[EXITCOND_NOT]], label %[[EXIT_LOOPEXIT]], label %[[LOOP]], !llvm.loop [[LOOP3:![0-9]+]]
@@ -111,8 +111,8 @@ define i32 @simple_csa_int_select(i32 %N, ptr %data, i64 %a) {
 ; NO-EVL-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; NO-EVL:       [[VECTOR_BODY]]:
 ; NO-EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[TMP6:%.*]] = add i64 [[INDEX]], 0
 ; NO-EVL-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[DATA]], i64 [[TMP6]]
 ; NO-EVL-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i32 0
@@ -248,9 +248,9 @@ define i32 @simple_csa_int_select_induction_cmp(i32 %N, ptr %data) {
 ; NO-EVL-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; NO-EVL:       [[VECTOR_BODY]]:
 ; NO-EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[VEC_IND:%.*]] = phi <vscale x 4 x i64> [ [[INDUCTION]], %[[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[TMP10:%.*]] = add i64 [[INDEX]], 0
 ; NO-EVL-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[DATA]], i64 [[TMP10]]
 ; NO-EVL-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i32, ptr [[TMP11]], i32 0
@@ -342,8 +342,8 @@ define float @simple_csa_float_select(i32 %N, ptr %data) {
 ; EVL-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
 ; EVL-NEXT:    br i1 false, label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; EVL:       [[VECTOR_PH]]:
-; EVL-NEXT:    [[TMP15:%.*]] = call i64 @llvm.vscale.i64()
-; EVL-NEXT:    [[TMP1:%.*]] = mul i64 [[TMP15]], 4
+; EVL-NEXT:    [[TMP0:%.*]] = call i64 @llvm.vscale.i64()
+; EVL-NEXT:    [[TMP1:%.*]] = mul i64 [[TMP0]], 4
 ; EVL-NEXT:    [[TMP2:%.*]] = sub i64 [[TMP1]], 1
 ; EVL-NEXT:    [[N_RND_UP:%.*]] = add i64 [[WIDE_TRIP_COUNT]], [[TMP2]]
 ; EVL-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_RND_UP]], [[TMP1]]
@@ -354,8 +354,8 @@ define float @simple_csa_float_select(i32 %N, ptr %data) {
 ; EVL:       [[VECTOR_BODY]]:
 ; EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[EVL_BASED_IV:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_EVL_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x float> [ shufflevector (<vscale x 4 x float> insertelement (<vscale x 4 x float> poison, float poison, i64 0), <vscale x 4 x float> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[CSA_VL_PHI:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[AVL:%.*]] = sub i64 [[WIDE_TRIP_COUNT]], [[EVL_BASED_IV]]
 ; EVL-NEXT:    [[TMP5:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 4, i1 true)
@@ -364,10 +364,10 @@ define float @simple_csa_float_select(i32 %N, ptr %data) {
 ; EVL-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, ptr [[TMP7]], i32 0
 ; EVL-NEXT:    [[VP_OP_LOAD:%.*]] = call <vscale x 4 x float> @llvm.vp.load.nxv4f32.p0(ptr align 4 [[TMP8]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
 ; EVL-NEXT:    [[TMP9:%.*]] = fcmp ogt <vscale x 4 x float> [[VP_OP_LOAD]], zeroinitializer
-; EVL-NEXT:    [[CSA_COND_ANYACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP9]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
-; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
-; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 4 x i1> [[TMP9]], <vscale x 4 x i1> [[CSA_MASK_PHI]]
-; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 4 x float> [[VP_OP_LOAD]], <vscale x 4 x float> [[CSA_DATA_PHI]]
+; EVL-NEXT:    [[ANY_ACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP9]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
+; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[ANY_ACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
+; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 4 x i1> [[TMP9]], <vscale x 4 x i1> [[CSA_MASK_PHI]]
+; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 4 x float> [[VP_OP_LOAD]], <vscale x 4 x float> [[CSA_DATA_PHI]]
 ; EVL-NEXT:    [[TMP10:%.*]] = zext i32 [[TMP5]] to i64
 ; EVL-NEXT:    [[INDEX_EVL_NEXT]] = add i64 [[TMP10]], [[EVL_BASED_IV]]
 ; EVL-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP4]]
@@ -393,9 +393,9 @@ define float @simple_csa_float_select(i32 %N, ptr %data) {
 ; EVL-NEXT:    [[IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP]] ]
 ; EVL-NEXT:    [[T_09:%.*]] = phi float [ 1.000000e+00, %[[SCALAR_PH]] ], [ [[T_1]], %[[LOOP]] ]
 ; EVL-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[DATA]], i64 [[IV]]
-; EVL-NEXT:    [[TMP0:%.*]] = load float, ptr [[ARRAYIDX]], align 4
-; EVL-NEXT:    [[CMP1:%.*]] = fcmp ogt float [[TMP0]], 0.000000e+00
-; EVL-NEXT:    [[T_1]] = select i1 [[CMP1]], float [[TMP0]], float [[T_09]]
+; EVL-NEXT:    [[TMP15:%.*]] = load float, ptr [[ARRAYIDX]], align 4
+; EVL-NEXT:    [[CMP1:%.*]] = fcmp ogt float [[TMP15]], 0.000000e+00
+; EVL-NEXT:    [[T_1]] = select i1 [[CMP1]], float [[TMP15]], float [[T_09]]
 ; EVL-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 1
 ; EVL-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; EVL-NEXT:    br i1 [[EXITCOND_NOT]], label %[[EXIT_LOOPEXIT]], label %[[LOOP]], !llvm.loop [[LOOP5:![0-9]+]]
@@ -421,8 +421,8 @@ define float @simple_csa_float_select(i32 %N, ptr %data) {
 ; NO-EVL-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; NO-EVL:       [[VECTOR_BODY]]:
 ; NO-EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x float> [ shufflevector (<vscale x 4 x float> insertelement (<vscale x 4 x float> poison, float poison, i64 0), <vscale x 4 x float> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[TMP6:%.*]] = add i64 [[INDEX]], 0
 ; NO-EVL-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, ptr [[DATA]], i64 [[TMP6]]
 ; NO-EVL-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, ptr [[TMP7]], i32 0
@@ -659,26 +659,26 @@ define i32 @csa_in_series_int_select(i32 %N, ptr %data0, ptr %data1, i64 %a) {
 ; EVL-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
 ; EVL-NEXT:    br i1 false, label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; EVL:       [[VECTOR_PH]]:
-; EVL-NEXT:    [[TMP23:%.*]] = call i64 @llvm.vscale.i64()
-; EVL-NEXT:    [[TMP24:%.*]] = mul i64 [[TMP23]], 4
-; EVL-NEXT:    [[TMP25:%.*]] = sub i64 [[TMP24]], 1
-; EVL-NEXT:    [[N_RND_UP:%.*]] = add i64 [[WIDE_TRIP_COUNT]], [[TMP25]]
-; EVL-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_RND_UP]], [[TMP24]]
+; EVL-NEXT:    [[TMP0:%.*]] = call i64 @llvm.vscale.i64()
+; EVL-NEXT:    [[TMP1:%.*]] = mul i64 [[TMP0]], 4
+; EVL-NEXT:    [[TMP2:%.*]] = sub i64 [[TMP1]], 1
+; EVL-NEXT:    [[N_RND_UP:%.*]] = add i64 [[WIDE_TRIP_COUNT]], [[TMP2]]
+; EVL-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_RND_UP]], [[TMP1]]
 ; EVL-NEXT:    [[N_VEC:%.*]] = sub i64 [[N_RND_UP]], [[N_MOD_VF]]
-; EVL-NEXT:    [[TMP26:%.*]] = call i64 @llvm.vscale.i64()
-; EVL-NEXT:    [[TMP27:%.*]] = mul i64 [[TMP26]], 4
+; EVL-NEXT:    [[TMP3:%.*]] = call i64 @llvm.vscale.i64()
+; EVL-NEXT:    [[TMP4:%.*]] = mul i64 [[TMP3]], 4
 ; EVL-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <vscale x 4 x i64> poison, i64 [[A]], i64 0
 ; EVL-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <vscale x 4 x i64> [[BROADCAST_SPLATINSERT]], <vscale x 4 x i64> poison, <vscale x 4 x i32> zeroinitializer
 ; EVL-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; EVL:       [[VECTOR_BODY]]:
 ; EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[EVL_BASED_IV:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_EVL_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL7:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_MASK_PHI1:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL8:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_VL_PHI:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL6:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_DATA_PHI2:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_VL_PHI3:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_DATA_PHI1:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL7:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_MASK_PHI2:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_VL_PHI:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_VL_PHI3:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL6:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[AVL:%.*]] = sub i64 [[WIDE_TRIP_COUNT]], [[EVL_BASED_IV]]
 ; EVL-NEXT:    [[TMP5:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 4, i1 true)
 ; EVL-NEXT:    [[TMP6:%.*]] = add i64 [[EVL_BASED_IV]], 0
@@ -687,22 +687,22 @@ define i32 @csa_in_series_int_select(i32 %N, ptr %data0, ptr %data1, i64 %a) {
 ; EVL-NEXT:    [[VP_OP_LOAD:%.*]] = call <vscale x 4 x i32> @llvm.vp.load.nxv4i32.p0(ptr align 4 [[TMP8]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
 ; EVL-NEXT:    [[TMP9:%.*]] = sext <vscale x 4 x i32> [[VP_OP_LOAD]] to <vscale x 4 x i64>
 ; EVL-NEXT:    [[TMP10:%.*]] = icmp slt <vscale x 4 x i64> [[BROADCAST_SPLAT]], [[TMP9]]
-; EVL-NEXT:    [[CSA_COND_ANYACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP10]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
-; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI3]]
-; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 4 x i1> [[TMP10]], <vscale x 4 x i1> [[CSA_MASK_PHI1]]
-; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 4 x i32> [[VP_OP_LOAD]], <vscale x 4 x i32> [[CSA_DATA_PHI2]]
+; EVL-NEXT:    [[ANY_ACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP10]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
+; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[ANY_ACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
+; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 4 x i1> [[TMP10]], <vscale x 4 x i1> [[CSA_MASK_PHI2]]
+; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 4 x i32> [[VP_OP_LOAD]], <vscale x 4 x i32> [[CSA_DATA_PHI1]]
 ; EVL-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[DATA1]], i64 [[TMP6]]
 ; EVL-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i32, ptr [[TMP11]], i32 0
 ; EVL-NEXT:    [[VP_OP_LOAD4:%.*]] = call <vscale x 4 x i32> @llvm.vp.load.nxv4i32.p0(ptr align 4 [[TMP12]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
 ; EVL-NEXT:    [[TMP13:%.*]] = sext <vscale x 4 x i32> [[VP_OP_LOAD4]] to <vscale x 4 x i64>
 ; EVL-NEXT:    [[TMP14:%.*]] = icmp slt <vscale x 4 x i64> [[BROADCAST_SPLAT]], [[TMP13]]
-; EVL-NEXT:    [[CSA_COND_ANYACTIVE5:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP14]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
-; EVL-NEXT:    [[CSA_VL_SEL6]] = select i1 [[CSA_COND_ANYACTIVE5]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
-; EVL-NEXT:    [[CSA_MASK_SEL7]] = select i1 [[CSA_COND_ANYACTIVE5]], <vscale x 4 x i1> [[TMP14]], <vscale x 4 x i1> [[CSA_MASK_PHI]]
-; EVL-NEXT:    [[CSA_DATA_SEL8]] = select i1 [[CSA_COND_ANYACTIVE5]], <vscale x 4 x i32> [[VP_OP_LOAD4]], <vscale x 4 x i32> [[CSA_DATA_PHI]]
+; EVL-NEXT:    [[ANY_ACTIVE5:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP14]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
+; EVL-NEXT:    [[CSA_VL_SEL6]] = select i1 [[ANY_ACTIVE5]], i32 [[TMP5]], i32 [[CSA_VL_PHI3]]
+; EVL-NEXT:    [[CSA_MASK_SEL7]] = select i1 [[ANY_ACTIVE5]], <vscale x 4 x i1> [[TMP14]], <vscale x 4 x i1> [[CSA_MASK_PHI]]
+; EVL-NEXT:    [[CSA_DATA_SEL8]] = select i1 [[ANY_ACTIVE5]], <vscale x 4 x i32> [[VP_OP_LOAD4]], <vscale x 4 x i32> [[CSA_DATA_PHI]]
 ; EVL-NEXT:    [[TMP15:%.*]] = zext i32 [[TMP5]] to i64
 ; EVL-NEXT:    [[INDEX_EVL_NEXT]] = add i64 [[TMP15]], [[EVL_BASED_IV]]
-; EVL-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP27]]
+; EVL-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP4]]
 ; EVL-NEXT:    [[TMP16:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
 ; EVL-NEXT:    br i1 [[TMP16]], label %[[MIDDLE_BLOCK:.*]], label %[[VECTOR_BODY]], !llvm.loop [[LOOP6:![0-9]+]]
 ; EVL:       [[MIDDLE_BLOCK]]:
@@ -721,27 +721,27 @@ define i32 @csa_in_series_int_select(i32 %N, ptr %data0, ptr %data1, i64 %a) {
 ; EVL-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC]], %[[MIDDLE_BLOCK]] ], [ 0, %[[LOOP_PREHEADER]] ]
 ; EVL-NEXT:    br label %[[LOOP:.*]]
 ; EVL:       [[EXIT_LOOPEXIT]]:
-; EVL-NEXT:    [[SPEC_SELECT:%.*]] = phi i32 [ [[SPEC_SELECT1:%.*]], %[[LOOP]] ], [ [[TMP22]], %[[MIDDLE_BLOCK]] ]
-; EVL-NEXT:    [[S_1:%.*]] = phi i32 [ [[S_2:%.*]], %[[LOOP]] ], [ [[TMP19]], %[[MIDDLE_BLOCK]] ]
-; EVL-NEXT:    [[TMP0:%.*]] = or i32 [[S_1]], [[SPEC_SELECT]]
+; EVL-NEXT:    [[SPEC_SELECT_LCSSA:%.*]] = phi i32 [ [[SPEC_SELECT:%.*]], %[[LOOP]] ], [ [[TMP22]], %[[MIDDLE_BLOCK]] ]
+; EVL-NEXT:    [[S_1_LCSSA:%.*]] = phi i32 [ [[S_1:%.*]], %[[LOOP]] ], [ [[TMP19]], %[[MIDDLE_BLOCK]] ]
+; EVL-NEXT:    [[TMP23:%.*]] = or i32 [[S_1_LCSSA]], [[SPEC_SELECT_LCSSA]]
 ; EVL-NEXT:    br label %[[EXIT]]
 ; EVL:       [[EXIT]]:
-; EVL-NEXT:    [[OR:%.*]] = phi i32 [ [[TMP0]], %[[EXIT_LOOPEXIT]] ], [ -1, %[[ENTRY]] ]
+; EVL-NEXT:    [[OR:%.*]] = phi i32 [ [[TMP23]], %[[EXIT_LOOPEXIT]] ], [ -1, %[[ENTRY]] ]
 ; EVL-NEXT:    ret i32 [[OR]]
 ; EVL:       [[LOOP]]:
 ; EVL-NEXT:    [[IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP]] ]
-; EVL-NEXT:    [[S_023:%.*]] = phi i32 [ -1, %[[SCALAR_PH]] ], [ [[S_2]], %[[LOOP]] ]
-; EVL-NEXT:    [[T_022:%.*]] = phi i32 [ -1, %[[SCALAR_PH]] ], [ [[SPEC_SELECT1]], %[[LOOP]] ]
+; EVL-NEXT:    [[S_023:%.*]] = phi i32 [ -1, %[[SCALAR_PH]] ], [ [[S_1]], %[[LOOP]] ]
+; EVL-NEXT:    [[T_022:%.*]] = phi i32 [ -1, %[[SCALAR_PH]] ], [ [[SPEC_SELECT]], %[[LOOP]] ]
 ; EVL-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, ptr [[DATA0]], i64 [[IV]]
-; EVL-NEXT:    [[TMP1:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
-; EVL-NEXT:    [[TMP2:%.*]] = sext i32 [[TMP1]] to i64
-; EVL-NEXT:    [[CMP1:%.*]] = icmp slt i64 [[A]], [[TMP2]]
-; EVL-NEXT:    [[SPEC_SELECT1]] = select i1 [[CMP1]], i32 [[TMP1]], i32 [[T_022]]
+; EVL-NEXT:    [[TMP24:%.*]] = load i32, ptr [[ARRAYIDX]], align 4
+; EVL-NEXT:    [[TMP25:%.*]] = sext i32 [[TMP24]] to i64
+; EVL-NEXT:    [[CMP1:%.*]] = icmp slt i64 [[A]], [[TMP25]]
+; EVL-NEXT:    [[SPEC_SELECT]] = select i1 [[CMP1]], i32 [[TMP24]], i32 [[T_022]]
 ; EVL-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds i32, ptr [[DATA1]], i64 [[IV]]
-; EVL-NEXT:    [[TMP3:%.*]] = load i32, ptr [[ARRAYIDX5]], align 4
-; EVL-NEXT:    [[TMP4:%.*]] = sext i32 [[TMP3]] to i64
-; EVL-NEXT:    [[CMP6:%.*]] = icmp slt i64 [[A]], [[TMP4]]
-; EVL-NEXT:    [[S_2]] = select i1 [[CMP6]], i32 [[TMP3]], i32 [[S_023]]
+; EVL-NEXT:    [[TMP26:%.*]] = load i32, ptr [[ARRAYIDX5]], align 4
+; EVL-NEXT:    [[TMP27:%.*]] = sext i32 [[TMP26]] to i64
+; EVL-NEXT:    [[CMP6:%.*]] = icmp slt i64 [[A]], [[TMP27]]
+; EVL-NEXT:    [[S_1]] = select i1 [[CMP6]], i32 [[TMP26]], i32 [[S_023]]
 ; EVL-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 1
 ; EVL-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; EVL-NEXT:    br i1 [[EXITCOND_NOT]], label %[[EXIT_LOOPEXIT]], label %[[LOOP]], !llvm.loop [[LOOP7:![0-9]+]]
@@ -769,10 +769,10 @@ define i32 @csa_in_series_int_select(i32 %N, ptr %data0, ptr %data1, i64 %a) {
 ; NO-EVL-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; NO-EVL:       [[VECTOR_BODY]]:
 ; NO-EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL4:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI1:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL5:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI2:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL4:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI1:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[TMP6:%.*]] = add i64 [[INDEX]], 0
 ; NO-EVL-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[DATA0]], i64 [[TMP6]]
 ; NO-EVL-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[TMP7]], i32 0
@@ -955,11 +955,11 @@ define i32 @csa_in_series_int_select_induction_cmp(i32 %N, ptr %data0, ptr %data
 ; NO-EVL-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; NO-EVL:       [[VECTOR_BODY]]:
 ; NO-EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL4:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI1:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[VEC_IND:%.*]] = phi <vscale x 4 x i64> [ [[INDUCTION]], %[[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL5:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI2:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL4:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI1:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[TMP10:%.*]] = add i64 [[INDEX]], 0
 ; NO-EVL-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[DATA0]], i64 [[TMP10]]
 ; NO-EVL-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i32, ptr [[TMP11]], i32 0
@@ -1091,11 +1091,11 @@ define float @csa_in_series_float_select(i32 %N, ptr %data0, ptr %data1) {
 ; EVL-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
 ; EVL-NEXT:    br i1 false, label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; EVL:       [[VECTOR_PH]]:
-; EVL-NEXT:    [[TMP21:%.*]] = call i64 @llvm.vscale.i64()
-; EVL-NEXT:    [[TMP22:%.*]] = mul i64 [[TMP21]], 4
-; EVL-NEXT:    [[TMP23:%.*]] = sub i64 [[TMP22]], 1
-; EVL-NEXT:    [[N_RND_UP:%.*]] = add i64 [[WIDE_TRIP_COUNT]], [[TMP23]]
-; EVL-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_RND_UP]], [[TMP22]]
+; EVL-NEXT:    [[TMP0:%.*]] = call i64 @llvm.vscale.i64()
+; EVL-NEXT:    [[TMP1:%.*]] = mul i64 [[TMP0]], 4
+; EVL-NEXT:    [[TMP2:%.*]] = sub i64 [[TMP1]], 1
+; EVL-NEXT:    [[N_RND_UP:%.*]] = add i64 [[WIDE_TRIP_COUNT]], [[TMP2]]
+; EVL-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_RND_UP]], [[TMP1]]
 ; EVL-NEXT:    [[N_VEC:%.*]] = sub i64 [[N_RND_UP]], [[N_MOD_VF]]
 ; EVL-NEXT:    [[TMP3:%.*]] = call i64 @llvm.vscale.i64()
 ; EVL-NEXT:    [[TMP4:%.*]] = mul i64 [[TMP3]], 4
@@ -1103,12 +1103,12 @@ define float @csa_in_series_float_select(i32 %N, ptr %data0, ptr %data1) {
 ; EVL:       [[VECTOR_BODY]]:
 ; EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[EVL_BASED_IV:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_EVL_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL7:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_MASK_PHI1:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x float> [ shufflevector (<vscale x 4 x float> insertelement (<vscale x 4 x float> poison, float poison, i64 0), <vscale x 4 x float> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL8:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_VL_PHI:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL6:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_DATA_PHI2:%.*]] = phi <vscale x 4 x float> [ shufflevector (<vscale x 4 x float> insertelement (<vscale x 4 x float> poison, float poison, i64 0), <vscale x 4 x float> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_VL_PHI3:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_DATA_PHI1:%.*]] = phi <vscale x 4 x float> [ shufflevector (<vscale x 4 x float> insertelement (<vscale x 4 x float> poison, float poison, i64 0), <vscale x 4 x float> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL7:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_MASK_PHI2:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_VL_PHI:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_VL_PHI3:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL6:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[AVL:%.*]] = sub i64 [[WIDE_TRIP_COUNT]], [[EVL_BASED_IV]]
 ; EVL-NEXT:    [[TMP5:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 4, i1 true)
 ; EVL-NEXT:    [[TMP6:%.*]] = add i64 [[EVL_BASED_IV]], 0
@@ -1116,18 +1116,18 @@ define float @csa_in_series_float_select(i32 %N, ptr %data0, ptr %data1) {
 ; EVL-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, ptr [[TMP7]], i32 0
 ; EVL-NEXT:    [[VP_OP_LOAD:%.*]] = call <vscale x 4 x float> @llvm.vp.load.nxv4f32.p0(ptr align 4 [[TMP8]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
 ; EVL-NEXT:    [[TMP9:%.*]] = fcmp ogt <vscale x 4 x float> [[VP_OP_LOAD]], zeroinitializer
-; EVL-NEXT:    [[CSA_COND_ANYACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP9]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
-; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI3]]
-; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 4 x i1> [[TMP9]], <vscale x 4 x i1> [[CSA_MASK_PHI1]]
-; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 4 x float> [[VP_OP_LOAD]], <vscale x 4 x float> [[CSA_DATA_PHI2]]
+; EVL-NEXT:    [[ANY_ACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP9]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
+; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[ANY_ACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
+; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 4 x i1> [[TMP9]], <vscale x 4 x i1> [[CSA_MASK_PHI2]]
+; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 4 x float> [[VP_OP_LOAD]], <vscale x 4 x float> [[CSA_DATA_PHI1]]
 ; EVL-NEXT:    [[TMP10:%.*]] = getelementptr inbounds float, ptr [[DATA1]], i64 [[TMP6]]
 ; EVL-NEXT:    [[TMP11:%.*]] = getelementptr inbounds float, ptr [[TMP10]], i32 0
 ; EVL-NEXT:    [[VP_OP_LOAD4:%.*]] = call <vscale x 4 x float> @llvm.vp.load.nxv4f32.p0(ptr align 4 [[TMP11]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
 ; EVL-NEXT:    [[TMP12:%.*]] = fcmp ogt <vscale x 4 x float> [[VP_OP_LOAD4]], zeroinitializer
-; EVL-NEXT:    [[CSA_COND_ANYACTIVE5:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP12]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
-; EVL-NEXT:    [[CSA_VL_SEL6]] = select i1 [[CSA_COND_ANYACTIVE5]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
-; EVL-NEXT:    [[CSA_MASK_SEL7]] = select i1 [[CSA_COND_ANYACTIVE5]], <vscale x 4 x i1> [[TMP12]], <vscale x 4 x i1> [[CSA_MASK_PHI]]
-; EVL-NEXT:    [[CSA_DATA_SEL8]] = select i1 [[CSA_COND_ANYACTIVE5]], <vscale x 4 x float> [[VP_OP_LOAD4]], <vscale x 4 x float> [[CSA_DATA_PHI]]
+; EVL-NEXT:    [[ANY_ACTIVE5:%.*]] = call i1 @llvm.vp.reduce.or.nxv4i1(i1 false, <vscale x 4 x i1> [[TMP12]], <vscale x 4 x i1> shufflevector (<vscale x 4 x i1> insertelement (<vscale x 4 x i1> poison, i1 true, i64 0), <vscale x 4 x i1> poison, <vscale x 4 x i32> zeroinitializer), i32 [[TMP5]])
+; EVL-NEXT:    [[CSA_VL_SEL6]] = select i1 [[ANY_ACTIVE5]], i32 [[TMP5]], i32 [[CSA_VL_PHI3]]
+; EVL-NEXT:    [[CSA_MASK_SEL7]] = select i1 [[ANY_ACTIVE5]], <vscale x 4 x i1> [[TMP12]], <vscale x 4 x i1> [[CSA_MASK_PHI]]
+; EVL-NEXT:    [[CSA_DATA_SEL8]] = select i1 [[ANY_ACTIVE5]], <vscale x 4 x float> [[VP_OP_LOAD4]], <vscale x 4 x float> [[CSA_DATA_PHI]]
 ; EVL-NEXT:    [[TMP13:%.*]] = zext i32 [[TMP5]] to i64
 ; EVL-NEXT:    [[INDEX_EVL_NEXT]] = add i64 [[TMP13]], [[EVL_BASED_IV]]
 ; EVL-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP4]]
@@ -1149,25 +1149,25 @@ define float @csa_in_series_float_select(i32 %N, ptr %data0, ptr %data1) {
 ; EVL-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ [[N_VEC]], %[[MIDDLE_BLOCK]] ], [ 0, %[[LOOP_PREHEADER]] ]
 ; EVL-NEXT:    br label %[[LOOP:.*]]
 ; EVL:       [[EXIT_LOOPEXIT]]:
-; EVL-NEXT:    [[T_1:%.*]] = phi float [ [[T_2:%.*]], %[[LOOP]] ], [ [[TMP20]], %[[MIDDLE_BLOCK]] ]
-; EVL-NEXT:    [[S_1:%.*]] = phi float [ [[S_2:%.*]], %[[LOOP]] ], [ [[TMP17]], %[[MIDDLE_BLOCK]] ]
-; EVL-NEXT:    [[TMP0:%.*]] = fadd float [[T_1]], [[S_1]]
+; EVL-NEXT:    [[T_1_LCSSA:%.*]] = phi float [ [[T_1:%.*]], %[[LOOP]] ], [ [[TMP20]], %[[MIDDLE_BLOCK]] ]
+; EVL-NEXT:    [[S_1_LCSSA:%.*]] = phi float [ [[S_1:%.*]], %[[LOOP]] ], [ [[TMP17]], %[[MIDDLE_BLOCK]] ]
+; EVL-NEXT:    [[TMP21:%.*]] = fadd float [[T_1_LCSSA]], [[S_1_LCSSA]]
 ; EVL-NEXT:    br label %[[EXIT]]
 ; EVL:       [[EXIT]]:
-; EVL-NEXT:    [[ADD:%.*]] = phi float [ [[TMP0]], %[[EXIT_LOOPEXIT]] ], [ 2.000000e+00, %[[ENTRY]] ]
+; EVL-NEXT:    [[ADD:%.*]] = phi float [ [[TMP21]], %[[EXIT_LOOPEXIT]] ], [ 2.000000e+00, %[[ENTRY]] ]
 ; EVL-NEXT:    ret float [[ADD]]
 ; EVL:       [[LOOP]]:
 ; EVL-NEXT:    [[IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP]] ]
-; EVL-NEXT:    [[S_021:%.*]] = phi float [ 1.000000e+00, %[[SCALAR_PH]] ], [ [[S_2]], %[[LOOP]] ]
-; EVL-NEXT:    [[T_020:%.*]] = phi float [ 1.000000e+00, %[[SCALAR_PH]] ], [ [[T_2]], %[[LOOP]] ]
+; EVL-NEXT:    [[S_021:%.*]] = phi float [ 1.000000e+00, %[[SCALAR_PH]] ], [ [[S_1]], %[[LOOP]] ]
+; EVL-NEXT:    [[T_020:%.*]] = phi float [ 1.000000e+00, %[[SCALAR_PH]] ], [ [[T_1]], %[[LOOP]] ]
 ; EVL-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds float, ptr [[DATA0]], i64 [[IV]]
-; EVL-NEXT:    [[TMP1:%.*]] = load float, ptr [[ARRAYIDX]], align 4
-; EVL-NEXT:    [[CMP1:%.*]] = fcmp ogt float [[TMP1]], 0.000000e+00
-; EVL-NEXT:    [[T_2]] = select i1 [[CMP1]], float [[TMP1]], float [[T_020]]
+; EVL-NEXT:    [[TMP22:%.*]] = load float, ptr [[ARRAYIDX]], align 4
+; EVL-NEXT:    [[CMP1:%.*]] = fcmp ogt float [[TMP22]], 0.000000e+00
+; EVL-NEXT:    [[T_1]] = select i1 [[CMP1]], float [[TMP22]], float [[T_020]]
 ; EVL-NEXT:    [[ARRAYIDX5:%.*]] = getelementptr inbounds float, ptr [[DATA1]], i64 [[IV]]
-; EVL-NEXT:    [[TMP2:%.*]] = load float, ptr [[ARRAYIDX5]], align 4
-; EVL-NEXT:    [[CMP6:%.*]] = fcmp ogt float [[TMP2]], 0.000000e+00
-; EVL-NEXT:    [[S_2]] = select i1 [[CMP6]], float [[TMP2]], float [[S_021]]
+; EVL-NEXT:    [[TMP23:%.*]] = load float, ptr [[ARRAYIDX5]], align 4
+; EVL-NEXT:    [[CMP6:%.*]] = fcmp ogt float [[TMP23]], 0.000000e+00
+; EVL-NEXT:    [[S_1]] = select i1 [[CMP6]], float [[TMP23]], float [[S_021]]
 ; EVL-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 1
 ; EVL-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; EVL-NEXT:    br i1 [[EXITCOND_NOT]], label %[[EXIT_LOOPEXIT]], label %[[LOOP]], !llvm.loop [[LOOP9:![0-9]+]]
@@ -1193,10 +1193,10 @@ define float @csa_in_series_float_select(i32 %N, ptr %data0, ptr %data1) {
 ; NO-EVL-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; NO-EVL:       [[VECTOR_BODY]]:
 ; NO-EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL4:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI1:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x float> [ shufflevector (<vscale x 4 x float> insertelement (<vscale x 4 x float> poison, float poison, i64 0), <vscale x 4 x float> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL5:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI2:%.*]] = phi <vscale x 4 x float> [ shufflevector (<vscale x 4 x float> insertelement (<vscale x 4 x float> poison, float poison, i64 0), <vscale x 4 x float> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL4:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI1:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[TMP6:%.*]] = add i64 [[INDEX]], 0
 ; NO-EVL-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, ptr [[DATA0]], i64 [[TMP6]]
 ; NO-EVL-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, ptr [[TMP7]], i32 0
@@ -2483,9 +2483,9 @@ define i64 @idx_scalar(ptr %a, ptr %b, i64 %ii, i64 %n) {
 ; NO-EVL-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; NO-EVL:       [[VECTOR_BODY]]:
 ; NO-EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 2 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[VEC_IND:%.*]] = phi <vscale x 2 x i64> [ [[INDUCTION]], %[[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 2 x i64> [ shufflevector (<vscale x 2 x i64> insertelement (<vscale x 2 x i64> poison, i64 poison, i64 0), <vscale x 2 x i64> poison, <vscale x 2 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 2 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[TMP10:%.*]] = add i64 [[INDEX]], 0
 ; NO-EVL-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i64, ptr [[A]], i64 [[TMP10]]
 ; NO-EVL-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i64, ptr [[TMP11]], i32 0
@@ -2686,9 +2686,9 @@ define i32 @simple_csa_int_select_neg_cond(i32 %N, ptr %data) {
 ; NO-EVL-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; NO-EVL:       [[VECTOR_BODY]]:
 ; NO-EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[VEC_IND:%.*]] = phi <vscale x 4 x i64> [ [[INDUCTION]], %[[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 4 x i32> [ shufflevector (<vscale x 4 x i32> insertelement (<vscale x 4 x i32> poison, i32 poison, i64 0), <vscale x 4 x i32> poison, <vscale x 4 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; NO-EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 4 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; NO-EVL-NEXT:    [[TMP10:%.*]] = add i64 [[INDEX]], 0
 ; NO-EVL-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[DATA]], i64 [[TMP10]]
 ; NO-EVL-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i32, ptr [[TMP11]], i32 0
@@ -2781,11 +2781,11 @@ define ptr @simple_csa_ptr_select(i32 %N, ptr %data, i64 %a) {
 ; EVL-NEXT:    [[WIDE_TRIP_COUNT:%.*]] = zext i32 [[N]] to i64
 ; EVL-NEXT:    br i1 false, label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; EVL:       [[VECTOR_PH]]:
-; EVL-NEXT:    [[TMP16:%.*]] = call i64 @llvm.vscale.i64()
-; EVL-NEXT:    [[TMP17:%.*]] = mul i64 [[TMP16]], 2
-; EVL-NEXT:    [[TMP18:%.*]] = sub i64 [[TMP17]], 1
-; EVL-NEXT:    [[N_RND_UP:%.*]] = add i64 [[WIDE_TRIP_COUNT]], [[TMP18]]
-; EVL-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_RND_UP]], [[TMP17]]
+; EVL-NEXT:    [[TMP0:%.*]] = call i64 @llvm.vscale.i64()
+; EVL-NEXT:    [[TMP1:%.*]] = mul i64 [[TMP0]], 2
+; EVL-NEXT:    [[TMP2:%.*]] = sub i64 [[TMP1]], 1
+; EVL-NEXT:    [[N_RND_UP:%.*]] = add i64 [[WIDE_TRIP_COUNT]], [[TMP2]]
+; EVL-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[N_RND_UP]], [[TMP1]]
 ; EVL-NEXT:    [[N_VEC:%.*]] = sub i64 [[N_RND_UP]], [[N_MOD_VF]]
 ; EVL-NEXT:    [[TMP3:%.*]] = call i64 @llvm.vscale.i64()
 ; EVL-NEXT:    [[TMP4:%.*]] = mul i64 [[TMP3]], 2
@@ -2795,8 +2795,8 @@ define ptr @simple_csa_ptr_select(i32 %N, ptr %data, i64 %a) {
 ; EVL:       [[VECTOR_BODY]]:
 ; EVL-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[EVL_BASED_IV:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_EVL_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 2 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[CSA_DATA_PHI:%.*]] = phi <vscale x 2 x ptr> [ shufflevector (<vscale x 2 x ptr> insertelement (<vscale x 2 x ptr> poison, ptr poison, i64 0), <vscale x 2 x ptr> poison, <vscale x 2 x i32> zeroinitializer), %[[VECTOR_PH]] ], [ [[CSA_DATA_SEL:%.*]], %[[VECTOR_BODY]] ]
+; EVL-NEXT:    [[CSA_MASK_PHI:%.*]] = phi <vscale x 2 x i1> [ zeroinitializer, %[[VECTOR_PH]] ], [ [[CSA_MASK_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[CSA_VL_PHI:%.*]] = phi i32 [ 0, %[[VECTOR_PH]] ], [ [[CSA_VL_SEL:%.*]], %[[VECTOR_BODY]] ]
 ; EVL-NEXT:    [[AVL:%.*]] = sub i64 [[WIDE_TRIP_COUNT]], [[EVL_BASED_IV]]
 ; EVL-NEXT:    [[TMP5:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
@@ -2807,10 +2807,10 @@ define ptr @simple_csa_ptr_select(i32 %N, ptr %data, i64 %a) {
 ; EVL-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <vscale x 2 x i32> @llvm.vp.gather.nxv2i32.nxv2p0(<vscale x 2 x ptr> align 4 [[VP_OP_LOAD]], <vscale x 2 x i1> shufflevector (<vscale x 2 x i1> insertelement (<vscale x 2 x i1> poison, i1 true, i64 0), <vscale x 2 x i1> poison, <vscale x 2 x i32> zeroinitializer), i32 [[TMP5]])
 ; EVL-NEXT:    [[TMP9:%.*]] = sext <vscale x 2 x i32> [[WIDE_MASKED_GATHER]] to <vscale x 2 x i64>
 ; EVL-NEXT:    [[TMP10:%.*]] = icmp slt <vscale x 2 x i64> [[BROADCAST_SPLAT]], [[TMP9]]
-; EVL-NEXT:    [[CSA_COND_ANYACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv2i1(i1 false, <vscale x 2 x i1> [[TMP10]], <vscale x 2 x i1> shufflevector (<vscale x 2 x i1> insertelement (<vscale x 2 x i1> poison, i1 true, i64 0), <vscale x 2 x i1> poison, <vscale x 2 x i32> zeroinitializer), i32 [[TMP5]])
-; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
-; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 2 x i1> [[TMP10]], <vscale x 2 x i1> [[CSA_MASK_PHI]]
-; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[CSA_COND_ANYACTIVE]], <vscale x 2 x ptr> [[VP_OP_LOAD]], <vscale x 2 x ptr> [[CSA_DATA_PHI]]
+; EVL-NEXT:    [[ANY_ACTIVE:%.*]] = call i1 @llvm.vp.reduce.or.nxv2i1(i1 false, <vscale x 2 x i1> [[TMP10]], <vscale x 2 x i1> shufflevector (<vscale x 2 x i1> insertelement (<vscale x 2 x i1> poison, i1 true, i64 0), <vscale x 2 x i1> poison, <vscale x 2 x i32> zeroinitializer), i32 [[TMP5]])
+; EVL-NEXT:    [[CSA_VL_SEL]] = select i1 [[ANY_ACTIVE]], i32 [[TMP5]], i32 [[CSA_VL_PHI]]
+; EVL-NEXT:    [[CSA_MASK_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 2 x i1> [[TMP10]], <vscale x 2 x i1> [[CSA_MASK_PHI]]
+; EVL-NEXT:    [[CSA_DATA_SEL]] = select i1 [[ANY_ACTIVE]], <vscale x 2 x ptr> [[VP_OP_LOAD]], <vscale x 2 x ptr> [[CSA_DATA_PHI]]
 ; EVL-NEXT:    [[TMP11:%.*]] = zext i32 [[TMP5]] to i64
 ; EVL-NEXT:    [[INDEX_EVL_NEXT]] = add i64 [[TMP11]], [[EVL_BASED_IV]]
 ; EVL-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP4]]
@@ -2836,11 +2836,11 @@ define ptr @simple_csa_ptr_select(i32 %N, ptr %data, i64 %a) {
 ; EVL-NEXT:    [[IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP]] ]
 ; EVL-NEXT:    [[T_010:%.*]] = phi ptr [ null, %[[SCALAR_PH]] ], [ [[SPEC_SELECT]], %[[LOOP]] ]
 ; EVL-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds ptr, ptr [[DATA]], i64 [[IV]]
-; EVL-NEXT:    [[TMP0:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
-; EVL-NEXT:    [[TMP1:%.*]] = load i32, ptr [[TMP0]], align 4
-; EVL-NEXT:    [[TMP2:%.*]] = sext i32 [[TMP1]] to i64
-; EVL-NEXT:    [[CMP1:%.*]] = icmp slt i64 [[A]], [[TMP2]]
-; EVL-NEXT:    [[SPEC_SELECT]] = select i1 [[CMP1]], ptr [[TMP0]], ptr [[T_010]]
+; EVL-NEXT:    [[TMP16:%.*]] = load ptr, ptr [[ARRAYIDX]], align 8
+; EVL-NEXT:    [[TMP17:%.*]] = load i32, ptr [[TMP16]], align 4
+; EVL-NEXT:    [[TMP18:%.*]] = sext i32 [[TMP17]] to i64
+; EVL-NEXT:    [[CMP1:%.*]] = icmp slt i64 [[A]], [[TMP18]]
+; EVL-NEXT:    [[SPEC_SELECT]] = select i1 [[CMP1]], ptr [[TMP16]], ptr [[T_010]]
 ; EVL-NEXT:    [[IV_NEXT]] = add nuw nsw i64 [[IV]], 1
 ; EVL-NEXT:    [[EXITCOND_NOT:%.*]] = icmp eq i64 [[IV_NEXT]], [[WIDE_TRIP_COUNT]]
 ; EVL-NEXT:    br i1 [[EXITCOND_NOT]], label %[[EXIT_LOOPEXIT]], label %[[LOOP]], !llvm.loop [[LOOP11:![0-9]+]]
