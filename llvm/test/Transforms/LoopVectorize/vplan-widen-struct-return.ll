@@ -13,7 +13,7 @@ define void @struct_return_f32_widen(ptr noalias %in, ptr noalias writeonly %out
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <x1> vector loop: {
 ; CHECK-NEXT:    vector.body:
-; CHECK-NEXT:      EMIT vp<%2> = CANONICAL-INDUCTION ir<0>, vp<%7>
+; CHECK-NEXT:      EMIT vp<%2> = CANONICAL-INDUCTION ir<0>, vp<%index.next>
 ; CHECK-NEXT:      vp<%3> = SCALAR-STEPS vp<%2>, ir<1>
 ; CHECK-NEXT:      CLONE ir<%arrayidx> = getelementptr inbounds ir<%in>, vp<%3>
 ; CHECK-NEXT:      vp<%4> = vector-pointer ir<%arrayidx>
@@ -27,8 +27,8 @@ define void @struct_return_f32_widen(ptr noalias %in, ptr noalias writeonly %out
 ; CHECK-NEXT:      CLONE ir<%arrayidx4> = getelementptr inbounds ir<%out_b>, vp<%3>
 ; CHECK-NEXT:      vp<%6> = vector-pointer ir<%arrayidx4>
 ; CHECK-NEXT:      WIDEN store vp<%6>, ir<%extract_b>
-; CHECK-NEXT:      EMIT vp<%7> = add nuw vp<%2>, vp<%0>
-; CHECK-NEXT:      EMIT branch-on-count vp<%7>, vp<%1>
+; CHECK-NEXT:      EMIT vp<%index.next> = add nuw vp<%2>, vp<%0>
+; CHECK-NEXT:      EMIT branch-on-count vp<%index.next>, vp<%1>
 ; CHECK-NEXT:    No successors
 ; CHECK-NEXT:  }
 entry:
@@ -65,7 +65,7 @@ define void @struct_return_f32_replicate(ptr noalias %in, ptr noalias writeonly 
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <x1> vector loop: {
 ; CHECK-NEXT:    vector.body:
-; CHECK-NEXT:      EMIT vp<%2> = CANONICAL-INDUCTION ir<0>, vp<%7>
+; CHECK-NEXT:      EMIT vp<%2> = CANONICAL-INDUCTION ir<0>, vp<%index.next>
 ; CHECK-NEXT:      vp<%3> = SCALAR-STEPS vp<%2>, ir<1>
 ; CHECK-NEXT:      CLONE ir<%arrayidx> = getelementptr inbounds ir<%in>, vp<%3>
 ; CHECK-NEXT:      vp<%4> = vector-pointer ir<%arrayidx>
@@ -79,8 +79,8 @@ define void @struct_return_f32_replicate(ptr noalias %in, ptr noalias writeonly 
 ; CHECK-NEXT:      CLONE ir<%arrayidx4> = getelementptr inbounds ir<%out_b>, vp<%3>
 ; CHECK-NEXT:      vp<%6> = vector-pointer ir<%arrayidx4>
 ; CHECK-NEXT:      WIDEN store vp<%6>, ir<%extract_b>
-; CHECK-NEXT:      EMIT vp<%7> = add nuw vp<%2>, vp<%0>
-; CHECK-NEXT:      EMIT branch-on-count vp<%7>, vp<%1>
+; CHECK-NEXT:      EMIT vp<%index.next> = add nuw vp<%2>, vp<%0>
+; CHECK-NEXT:      EMIT branch-on-count vp<%index.next>, vp<%1>
 ; CHECK-NEXT:    No successors
 ; CHECK-NEXT:  }
 entry:
