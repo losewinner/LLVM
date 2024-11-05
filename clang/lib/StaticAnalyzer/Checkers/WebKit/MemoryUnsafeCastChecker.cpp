@@ -10,46 +10,71 @@
 // base type to a derived type.
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
+#include "clang/AST/StmtVisitor.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
+#include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
-#include "clang/StaticAnalyzer/Core/CheckerManager.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace ento;
 
 namespace {
-class MemoryUnsafeCastChecker : public Checker<check::PreStmt<CastExpr>> {
-  BugType BT{this, ""};
+class WalkAST : public StmtVisitor<WalkAST> {
+  BugReporter &BR;
+  const CheckerBase *Checker;
+  AnalysisDeclContext* AC;
+  ASTContext &ASTC;
 
 public:
-  void checkPreStmt(const CastExpr *CE, CheckerContext &C) const;
-};
-} // end namespace
+  WalkAST(BugReporter &br, const CheckerBase *checker, AnalysisDeclContext *ac)
+      : BR(br), Checker(checker), AC(ac), ASTC(AC->getASTContext()) {}
 
-void emitWarning(CheckerContext &C, const CastExpr &CE, const BugType &BT,
-                 QualType FromType, QualType ToType) {
-  ExplodedNode *errorNode = C.generateNonFatalErrorNode();
-  if (!errorNode)
-    return;
-  SmallString<192> Buf;
-  llvm::raw_svector_ostream OS(Buf);
-  OS << "Memory unsafe cast from base type '";
-  QualType::print(FromType.getTypePtr(), Qualifiers(), OS, C.getLangOpts(),
-                  llvm::Twine());
-  OS << "' to derived type '";
-  QualType::print(ToType.getTypePtr(), Qualifiers(), OS, C.getLangOpts(),
-                  llvm::Twine());
-  OS << "'";
-  auto R = std::make_unique<PathSensitiveBugReport>(BT, OS.str(), errorNode);
-  R->addRange(CE.getSourceRange());
-  C.emitReport(std::move(R));
+  // Statement visitor methods.
+  void VisitChildren(Stmt *S);
+  void VisitStmt(Stmt *S) { VisitChildren(S); }
+  void VisitCastExpr(CastExpr *CE);
+};
+} // end anonymous namespace
+
+void emitWarning(QualType FromType, QualType ToType,
+                 AnalysisDeclContext *AC, BugReporter &BR,
+                 const CheckerBase *Checker,
+                 CastExpr *CE) {
+  std::string Diagnostics;
+  llvm::raw_string_ostream OS(Diagnostics);
+  OS << "Unsafe cast from base type '"
+     << FromType
+     << "' to derived type '"
+     << ToType
+     << "'",
+
+  BR.EmitBasicReport(
+    AC->getDecl(),
+    Checker,
+    /*Name=*/"Memory unsafe cast",
+    categories::SecurityError,
+    Diagnostics,
+    PathDiagnosticLocation::createBegin(CE, BR.getSourceManager(), AC),
+    CE->getSourceRange());
 }
 
-void MemoryUnsafeCastChecker::checkPreStmt(const CastExpr *CE,
-                                           CheckerContext &C) const {
+namespace {
+class MemoryUnsafeCastChecker : public Checker<check::ASTCodeBody> {
+  BugType BT{this, ""};
+public:
+  void checkASTCodeBody(const Decl *D, AnalysisManager& Mgr,
+                        BugReporter &BR) const {
+    WalkAST walker(BR, this, Mgr.getAnalysisDeclContext(D));
+    walker.Visit(D->getBody());
+  }
+};
+}
+
+void WalkAST::VisitCastExpr(CastExpr *CE) {
   auto ExpCast = dyn_cast_or_null<ExplicitCastExpr>(CE);
   if (!ExpCast)
     return;
@@ -59,12 +84,12 @@ void MemoryUnsafeCastChecker::checkPreStmt(const CastExpr *CE,
   if (ToDerivedQualType->isObjCObjectPointerType()) {
     auto FromBaseQualType = SE->getType();
     bool IsObjCSubType =
-        !C.getASTContext().hasSameType(ToDerivedQualType, FromBaseQualType) &&
-        C.getASTContext().canAssignObjCInterfaces(
+        !ASTC.hasSameType(ToDerivedQualType, FromBaseQualType) &&
+        ASTC.canAssignObjCInterfaces(
             FromBaseQualType->getAsObjCInterfacePointerType(),
             ToDerivedQualType->getAsObjCInterfacePointerType());
     if (IsObjCSubType)
-      emitWarning(C, *CE, BT, FromBaseQualType, ToDerivedQualType);
+      emitWarning(SE->getType(), ToDerivedQualType,AC, BR, Checker, CE);
     return;
   }
   auto ToDerivedType = ToDerivedQualType->getPointeeCXXRecordDecl();
@@ -74,13 +99,19 @@ void MemoryUnsafeCastChecker::checkPreStmt(const CastExpr *CE,
   if (!FromBaseType)
     return;
   if (ToDerivedType->isDerivedFrom(FromBaseType))
-    emitWarning(C, *CE, BT, SE->getType(), ToDerivedQualType);
+    emitWarning(SE->getType(), ToDerivedQualType, AC, BR, Checker, CE);
+}
+
+void WalkAST::VisitChildren(Stmt *S) {
+  for (Stmt *Child : S->children())
+    if (Child)
+      Visit(Child);
 }
 
 void ento::registerMemoryUnsafeCastChecker(CheckerManager &Mgr) {
   Mgr.registerChecker<MemoryUnsafeCastChecker>();
 }
 
-bool ento::shouldRegisterMemoryUnsafeCastChecker(const CheckerManager &) {
+bool ento::shouldRegisterMemoryUnsafeCastChecker(const CheckerManager &mgr) {
   return true;
 }
