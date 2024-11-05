@@ -10,6 +10,7 @@
 #define LLVM_DEMANGLE_DEMANGLE_H
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -110,6 +111,7 @@ struct ItaniumPartialDemangler {
 
   /// If this symbol describes a constructor or destructor.
   bool isCtorOrDtor() const;
+  std::optional<int> getCtorDtorVariant() const;
 
   /// If this symbol describes a function.
   bool isFunction() const;
