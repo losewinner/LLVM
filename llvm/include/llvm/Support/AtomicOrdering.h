@@ -163,10 +163,10 @@ inline AtomicOrdering fromCABI(AtomicOrderingCABI AO) {
   static const AtomicOrdering lookup[8] = {
       /* relaxed */ AtomicOrdering::Monotonic,
       /* consume */ AtomicOrdering::Acquire,
-      /* acquire   */ AtomicOrdering::Acquire,
-      /* release   */ AtomicOrdering::Release,
-      /* acq_rel   */ AtomicOrdering::AcquireRelease,
-      /* acq_seq   */ AtomicOrdering::SequentiallyConsistent,
+      /* acquire */ AtomicOrdering::Acquire,
+      /* release */ AtomicOrdering::Release,
+      /* acq_rel */ AtomicOrdering::AcquireRelease,
+      /* acq_seq */ AtomicOrdering::SequentiallyConsistent,
   };
   return lookup[static_cast<size_t>(AO)];
 }

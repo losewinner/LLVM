@@ -204,11 +204,6 @@ static void initializeLibCalls(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.disableAllFunctions();
     TLI.setAvailable(llvm::LibFunc___kmpc_alloc_shared);
     TLI.setAvailable(llvm::LibFunc___kmpc_free_shared);
-
-    // FIXME: Some regression tests require this function, even though it is not
-    // supported.
-    TLI.setAvailable(llvm::LibFunc_atomic_compare_exchange);
-
     return;
   }
 

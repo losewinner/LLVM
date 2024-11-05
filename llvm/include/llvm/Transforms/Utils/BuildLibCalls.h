@@ -195,8 +195,9 @@ namespace llvm {
   /// Emit a call to the __atomic_compare_exchange function.
   /// Defined here: https://llvm.org/docs/Atomics.html#libcalls-atomic,
   /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#list_of_library_routines
-  /// (Different signature than the builtins defined here:
-  /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#GCC_intrinsics)
+///
+  /// NOTE: Signature is different to the builtins defined here:
+  /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#GCC_intrinsics
   Value *emitAtomicCompareExchange(Value *Size, Value *Ptr, Value *Expected,
                                    Value *Desired, Value *SuccessMemorder,
                                    Value *FailureMemorder, IRBuilderBase &B,
@@ -205,7 +206,7 @@ namespace llvm {
 
   /// Variant of __atomic_compare_exchange where \p Size is either 1, 2, 4, 8,
   /// or 16.
-  Value *emitAtomicCompareExchangeN(int Size, Value *Ptr, Value *Expected,
+  Value *emitAtomicCompareExchangeN(size_t Size, Value *Ptr, Value *Expected,
                                     Value *Desired, Value *SuccessMemorder,
                                     Value *FailureMemorder, IRBuilderBase &B,
                                     const DataLayout &DL,

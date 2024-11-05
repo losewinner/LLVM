@@ -19,7 +19,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/InstSimplifyFolder.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/AtomicExpand.h"
 #include "llvm/CodeGen/AtomicExpandUtils.h"
 #include "llvm/CodeGen/RuntimeLibcallUtil.h"
@@ -52,7 +51,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Utils/BuildBuiltins.h"
 #include "llvm/Transforms/Utils/LowerAtomic.h"
 #include <cassert>
 #include <cstdint>
@@ -67,7 +65,6 @@ namespace {
 class AtomicExpandImpl {
   const TargetLowering *TLI = nullptr;
   const DataLayout *DL = nullptr;
-  TargetLibraryInfo *TLII = nullptr;
 
 private:
   bool bracketInstWithFences(Instruction *I, AtomicOrdering Order);
@@ -123,7 +120,7 @@ private:
                                  CreateCmpXchgInstFun CreateCmpXchg);
 
 public:
-  bool run(Function &F, const TargetMachine *TM, TargetLibraryInfo *TLII);
+  bool run(Function &F, const TargetMachine *TM);
 };
 
 class AtomicExpandLegacy : public FunctionPass {
@@ -133,8 +130,6 @@ public:
   AtomicExpandLegacy() : FunctionPass(ID) {
     initializeAtomicExpandLegacyPass(*PassRegistry::getPassRegistry());
   }
-
-  void getAnalysisUsage(AnalysisUsage &) const override;
 
   bool runOnFunction(Function &F) override;
 };
@@ -208,13 +203,11 @@ static bool atomicSizeSupported(const TargetLowering *TLI, Inst *I) {
          Size <= TLI->getMaxAtomicSizeInBitsSupported() / 8;
 }
 
-bool AtomicExpandImpl::run(Function &F, const TargetMachine *TM,
-                           TargetLibraryInfo *TLII) {
+bool AtomicExpandImpl::run(Function &F, const TargetMachine *TM) {
   const auto *Subtarget = TM->getSubtargetImpl(F);
   if (!Subtarget->enableAtomicExpand())
     return false;
   TLI = Subtarget->getTargetLowering();
-  this->TLII = TLII;
   DL = &F.getDataLayout();
 
   SmallVector<Instruction *, 1> AtomicInsts;
@@ -356,18 +349,14 @@ bool AtomicExpandImpl::run(Function &F, const TargetMachine *TM,
   return MadeChange;
 }
 
-void AtomicExpandLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-}
-
 bool AtomicExpandLegacy::runOnFunction(Function &F) {
+
   auto *TPC = getAnalysisIfAvailable<TargetPassConfig>();
   if (!TPC)
     return false;
-  auto &&TLIAnalysis = getAnalysis<TargetLibraryInfoWrapperPass>();
   auto *TM = &TPC->getTM<TargetMachine>();
   AtomicExpandImpl AE;
-  return AE.run(F, TM, &TLIAnalysis.getTLI(F));
+  return AE.run(F, TM);
 }
 
 FunctionPass *llvm::createAtomicExpandLegacyPass() {
@@ -378,8 +367,7 @@ PreservedAnalyses AtomicExpandPass::run(Function &F,
                                         FunctionAnalysisManager &AM) {
   AtomicExpandImpl AE;
 
-  auto &&TLII = AM.getResult<TargetLibraryAnalysis>(F);
-  bool Changed = AE.run(F, TM, &TLII);
+  bool Changed = AE.run(F, TM);
   if (!Changed)
     return PreservedAnalyses::all();
 
@@ -1724,48 +1712,18 @@ void AtomicExpandImpl::expandAtomicStoreToLibcall(StoreInst *I) {
 }
 
 void AtomicExpandImpl::expandAtomicCASToLibcall(AtomicCmpXchgInst *I) {
-  Module *M = I->getModule();
-  const DataLayout &DL = M->getDataLayout();
+  static const RTLIB::Libcall Libcalls[6] = {
+      RTLIB::ATOMIC_COMPARE_EXCHANGE,   RTLIB::ATOMIC_COMPARE_EXCHANGE_1,
+      RTLIB::ATOMIC_COMPARE_EXCHANGE_2, RTLIB::ATOMIC_COMPARE_EXCHANGE_4,
+      RTLIB::ATOMIC_COMPARE_EXCHANGE_8, RTLIB::ATOMIC_COMPARE_EXCHANGE_16};
   unsigned Size = getAtomicOpSize(I);
-  LLVMContext &Ctx = I->getContext();
-  IRBuilder<> AllocaBuilder(&I->getFunction()->getEntryBlock().front());
-  Type *SizedIntTy = Type::getIntNTy(Ctx, Size * 8);
-  const Align AllocaAlignment = DL.getPrefTypeAlign(SizedIntTy);
 
-  IRBuilder<> Builder(I);
-
-  Value *Ptr = I->getPointerOperand();
-  Value *Cmp = I->getCompareOperand();
-  Value *Val = I->getNewValOperand();
-
-  AllocaInst *ExpectedPtr = AllocaBuilder.CreateAlloca(Cmp->getType(), nullptr,
-                                                       "cmpxchg.expected.ptr");
-  Builder.CreateStore(Cmp, ExpectedPtr);
-
-  AllocaInst *DesiredPtr = AllocaBuilder.CreateAlloca(Val->getType(), nullptr,
-                                                      "cmpxchg.desired.ptr");
-  Builder.CreateStore(Val, DesiredPtr);
-
-  AllocaInst *PrevPtr =
-      AllocaBuilder.CreateAlloca(Val->getType(), nullptr, "cmpxchg.prev.ptr");
-  Value *SuccessResult = emitAtomicCompareExchangeBuiltin(
-      Ptr, ExpectedPtr, DesiredPtr, I->isWeak(), I->isVolatile(),
-      I->getSuccessOrdering(), I->getFailureOrdering(), I->getSyncScopeID(),
-      PrevPtr, Cmp->getType(), {}, {}, I->getAlign(), Builder, DL, TLII, TLI,
-      {}, {},
-      /*AllowInstruction=*/false, /*AllowSwitch=*/true,
-      /*AllowSizedLibcall=*/true);
-
-  // The final result from the CAS is a pair
-  // {load of 'expected' alloca, bool result from call}
-  Type *FinalResultTy = I->getType();
-  Value *V = PoisonValue::get(FinalResultTy);
-  Value *ExpectedOut = Builder.CreateAlignedLoad(
-      Cmp->getType(), PrevPtr, AllocaAlignment, "cmpxchg.prev.load");
-  V = Builder.CreateInsertValue(V, ExpectedOut, 0);
-  V = Builder.CreateInsertValue(V, SuccessResult, 1);
-  I->replaceAllUsesWith(V);
-  I->eraseFromParent();
+  bool expanded = expandAtomicOpToLibcall(
+      I, Size, I->getAlign(), I->getPointerOperand(), I->getNewValOperand(),
+      I->getCompareOperand(), I->getSuccessOrdering(), I->getFailureOrdering(),
+      Libcalls);
+  if (!expanded)
+    report_fatal_error("expandAtomicOpToLibcall shouldn't fail for CAS");
 }
 
 static ArrayRef<RTLIB::Libcall> GetRMWLibcall(AtomicRMWInst::BinOp Op) {

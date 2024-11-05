@@ -12,17 +12,22 @@ define <2 x half> @test_atomicrmw_fadd_v2f16_global_agent_align2(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <2 x half> [[VALUE:%.*]]) #[[ATTR0:[0-9]+]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <2 x half>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <2 x half>, align 4, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <2 x half>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x half>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <2 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fadd <2 x half> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <2 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <2 x half> [[NEW]], ptr addrspace(5) [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP6:%.*]] = load <2 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 4, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <2 x half>, ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <2 x half>, i1 } poison, <2 x half> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x half>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x half>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <2 x half>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <2 x half>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -38,17 +43,22 @@ define <2 x bfloat> @test_atomicrmw_fadd_v2bf16_global_agent_align2(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <2 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x bfloat>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <2 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fadd <2 x bfloat> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <2 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <2 x bfloat> [[NEW]], ptr addrspace(5) [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP6:%.*]] = load <2 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 4, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <2 x bfloat>, ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <2 x bfloat>, i1 } poison, <2 x bfloat> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x bfloat>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x bfloat>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <2 x bfloat>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <2 x bfloat>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -152,17 +162,22 @@ define <4 x half> @test_atomicrmw_fadd_v4f16_global_agent_align2(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x half>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x half>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fadd <4 x half> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x half> [[NEW]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x half>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <4 x half>, i1 } poison, <4 x half> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x half>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x half>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -178,17 +193,22 @@ define <4 x bfloat> @test_atomicrmw_fadd_v4bf16_global_agent_align2(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x bfloat>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fadd <4 x bfloat> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x bfloat> [[NEW]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <4 x bfloat>, i1 } poison, <4 x bfloat> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x bfloat>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x bfloat>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -204,17 +224,22 @@ define <4 x half> @test_atomicrmw_fadd_v4f16_global_agent_align4(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x half>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x half>, ptr addrspace(1) [[PTR]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fadd <4 x half> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x half> [[NEW]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x half>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <4 x half>, i1 } poison, <4 x half> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x half>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x half>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -230,17 +255,22 @@ define <4 x bfloat> @test_atomicrmw_fadd_v4bf16_global_agent_align4(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x bfloat>, ptr addrspace(1) [[PTR]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fadd <4 x bfloat> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x bfloat> [[NEW]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <4 x bfloat>, i1 } poison, <4 x bfloat> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x bfloat>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x bfloat>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -326,17 +356,22 @@ define <2 x half> @test_atomicrmw_fsub_v2f16_global_agent_align2(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <2 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <2 x half>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <2 x half>, align 4, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <2 x half>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x half>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <2 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fsub <2 x half> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <2 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <2 x half> [[NEW]], ptr addrspace(5) [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP6:%.*]] = load <2 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 4, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <2 x half>, ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <2 x half>, i1 } poison, <2 x half> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x half>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x half>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <2 x half>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <2 x half>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -352,17 +387,22 @@ define <2 x bfloat> @test_atomicrmw_fsub_v2bf16_global_agent_align2(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <2 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x bfloat>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <2 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fsub <2 x bfloat> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <2 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <2 x bfloat> [[NEW]], ptr addrspace(5) [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP6:%.*]] = load <2 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 4, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <2 x bfloat>, ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <2 x bfloat>, i1 } poison, <2 x bfloat> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x bfloat>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x bfloat>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <2 x bfloat>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <2 x bfloat>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -422,17 +462,22 @@ define <4 x half> @test_atomicrmw_fsub_v4f16_global_agent_align2(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x half>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x half>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fsub <4 x half> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x half> [[NEW]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x half>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <4 x half>, i1 } poison, <4 x half> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x half>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x half>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -448,17 +493,22 @@ define <4 x bfloat> @test_atomicrmw_fsub_v4bf16_global_agent_align2(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x bfloat>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fsub <4 x bfloat> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x bfloat> [[NEW]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <4 x bfloat>, i1 } poison, <4 x bfloat> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x bfloat>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x bfloat>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -474,17 +524,22 @@ define <4 x half> @test_atomicrmw_fsub_v4f16_global_agent_align4(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x half>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x half>, ptr addrspace(1) [[PTR]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fsub <4 x half> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x half> [[NEW]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x half>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <4 x half>, i1 } poison, <4 x half> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x half>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x half>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -500,17 +555,22 @@ define <4 x bfloat> @test_atomicrmw_fsub_v4bf16_global_agent_align4(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x bfloat>, ptr addrspace(1) [[PTR]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[NEW:%.*]] = fsub <4 x bfloat> [[LOADED]], [[VALUE]]
+; CHECK-NEXT:    [[TMP4:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x bfloat> [[NEW]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP5:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP4]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP6:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP7:%.*]] = insertvalue { <4 x bfloat>, i1 } poison, <4 x bfloat> [[TMP6]], 0
-; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP7]], i1 false, 1
+; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP7]], i1 [[TMP5]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x bfloat>, i1 } [[TMP8]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x bfloat>, i1 } [[TMP8]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -596,17 +656,22 @@ define <2 x half> @test_atomicrmw_fmin_v2f16_global_agent_align2(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <2 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <2 x half>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <2 x half>, align 4, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <2 x half>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x half>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <2 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x half> @llvm.minnum.v2f16(<2 x half> [[LOADED]], <2 x half> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <2 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <2 x half> [[TMP4]], ptr addrspace(5) [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 4, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x half>, ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x half>, i1 } poison, <2 x half> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <2 x half>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <2 x half>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <2 x half>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <2 x half>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -622,17 +687,22 @@ define <2 x bfloat> @test_atomicrmw_fmin_v2bf16_global_agent_align2(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <2 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x bfloat>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <2 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x bfloat> @llvm.minnum.v2bf16(<2 x bfloat> [[LOADED]], <2 x bfloat> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <2 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <2 x bfloat> [[TMP4]], ptr addrspace(5) [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 4, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x bfloat>, ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x bfloat>, i1 } poison, <2 x bfloat> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <2 x bfloat>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <2 x bfloat>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <2 x bfloat>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <2 x bfloat>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -692,17 +762,22 @@ define <4 x half> @test_atomicrmw_fmin_v4f16_global_agent_align2(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x half>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x half>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x half> @llvm.minnum.v4f16(<4 x half> [[LOADED]], <4 x half> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x half> [[TMP4]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x half>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } poison, <4 x half> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x half>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x half>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x half>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x half>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -718,17 +793,22 @@ define <4 x bfloat> @test_atomicrmw_fmin_v4bf16_global_agent_align2(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x bfloat>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x bfloat> @llvm.minnum.v4bf16(<4 x bfloat> [[LOADED]], <4 x bfloat> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x bfloat> [[TMP4]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } poison, <4 x bfloat> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x bfloat>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x bfloat>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -744,17 +824,22 @@ define <4 x half> @test_atomicrmw_fmin_v4f16_global_agent_align4(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x half>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x half>, ptr addrspace(1) [[PTR]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x half> @llvm.minnum.v4f16(<4 x half> [[LOADED]], <4 x half> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x half> [[TMP4]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x half>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } poison, <4 x half> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x half>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x half>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x half>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x half>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -770,17 +855,22 @@ define <4 x bfloat> @test_atomicrmw_fmin_v4bf16_global_agent_align4(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x bfloat>, ptr addrspace(1) [[PTR]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x bfloat> @llvm.minnum.v4bf16(<4 x bfloat> [[LOADED]], <4 x bfloat> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x bfloat> [[TMP4]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } poison, <4 x bfloat> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x bfloat>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x bfloat>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -866,17 +956,22 @@ define <2 x half> @test_atomicrmw_fmax_v2f16_global_agent_align2(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <2 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <2 x half>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <2 x half>, align 4, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <2 x half>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x half>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <2 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x half> @llvm.maxnum.v2f16(<2 x half> [[LOADED]], <2 x half> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <2 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <2 x half> [[TMP4]], ptr addrspace(5) [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 4, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x half>, ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x half>, i1 } poison, <2 x half> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <2 x half>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <2 x half>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <2 x half>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <2 x half>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -892,17 +987,22 @@ define <2 x bfloat> @test_atomicrmw_fmax_v2bf16_global_agent_align2(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <2 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <2 x bfloat>, align 4, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <2 x bfloat>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <2 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <2 x bfloat> @llvm.maxnum.v2bf16(<2 x bfloat> [[LOADED]], <2 x bfloat> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <2 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 4, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <2 x bfloat> [[TMP4]], ptr addrspace(5) [[TMP2]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 4
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 4, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <2 x bfloat>, ptr addrspace(5) [[TMP1]], align 4
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 4, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <2 x bfloat>, i1 } poison, <2 x bfloat> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <2 x bfloat>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <2 x bfloat>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <2 x bfloat>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <2 x bfloat>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -962,17 +1062,22 @@ define <4 x half> @test_atomicrmw_fmax_v4f16_global_agent_align2(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x half>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x half>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x half> @llvm.maxnum.v4f16(<4 x half> [[LOADED]], <4 x half> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x half> [[TMP4]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x half>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } poison, <4 x half> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x half>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x half>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x half>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x half>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -988,17 +1093,22 @@ define <4 x bfloat> @test_atomicrmw_fmax_v4bf16_global_agent_align2(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x bfloat>, ptr addrspace(1) [[PTR]], align 2
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x bfloat> @llvm.maxnum.v4bf16(<4 x bfloat> [[LOADED]], <4 x bfloat> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x bfloat> [[TMP4]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } poison, <4 x bfloat> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x bfloat>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x bfloat>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -1014,17 +1124,22 @@ define <4 x half> @test_atomicrmw_fmax_v4f16_global_agent_align4(ptr addrspace(1
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x half> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x half>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x half>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x half>, ptr addrspace(1) [[PTR]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x half> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x half> @llvm.maxnum.v4f16(<4 x half> [[LOADED]], <4 x half> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x half> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x half> [[TMP4]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x half>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x half>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x half>, i1 } poison, <4 x half> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x half>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x half>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x half>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x half>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]
@@ -1040,17 +1155,22 @@ define <4 x bfloat> @test_atomicrmw_fmax_v4bf16_global_agent_align4(ptr addrspac
 ; CHECK-SAME: ptr addrspace(1) [[PTR:%.*]], <4 x bfloat> [[VALUE:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:    [[TMP1:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP2:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
-; CHECK-NEXT:    [[CMPXCHG_PREV_PTR:%.*]] = alloca <4 x bfloat>, align 8, addrspace(5)
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <4 x bfloat>, ptr addrspace(1) [[PTR]], align 4
 ; CHECK-NEXT:    br label [[ATOMICRMW_START:%.*]]
 ; CHECK:       atomicrmw.start:
 ; CHECK-NEXT:    [[LOADED:%.*]] = phi <4 x bfloat> [ [[TMP3]], [[TMP0:%.*]] ], [ [[NEWLOADED:%.*]], [[ATOMICRMW_START]] ]
 ; CHECK-NEXT:    [[TMP4:%.*]] = call <4 x bfloat> @llvm.maxnum.v4bf16(<4 x bfloat> [[LOADED]], <4 x bfloat> [[VALUE]])
+; CHECK-NEXT:    [[TMP5:%.*]] = addrspacecast ptr addrspace(1) [[PTR]] to ptr
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    store <4 x bfloat> [[LOADED]], ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.start.p5(i64 8, ptr addrspace(5) [[TMP2]])
 ; CHECK-NEXT:    store <4 x bfloat> [[TMP4]], ptr addrspace(5) [[TMP2]], align 8
-; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[CMPXCHG_PREV_PTR]], align 8
+; CHECK-NEXT:    [[TMP6:%.*]] = call zeroext i1 @__atomic_compare_exchange(i64 8, ptr [[TMP5]], ptr addrspace(5) [[TMP1]], ptr addrspace(5) [[TMP2]], i32 5, i32 5)
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP2]])
+; CHECK-NEXT:    [[TMP7:%.*]] = load <4 x bfloat>, ptr addrspace(5) [[TMP1]], align 8
+; CHECK-NEXT:    call void @llvm.lifetime.end.p5(i64 8, ptr addrspace(5) [[TMP1]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertvalue { <4 x bfloat>, i1 } poison, <4 x bfloat> [[TMP7]], 0
-; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP8]], i1 false, 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertvalue { <4 x bfloat>, i1 } [[TMP8]], i1 [[TMP6]], 1
 ; CHECK-NEXT:    [[SUCCESS:%.*]] = extractvalue { <4 x bfloat>, i1 } [[TMP9]], 1
 ; CHECK-NEXT:    [[NEWLOADED]] = extractvalue { <4 x bfloat>, i1 } [[TMP9]], 0
 ; CHECK-NEXT:    br i1 [[SUCCESS]], label [[ATOMICRMW_END:%.*]], label [[ATOMICRMW_START]]

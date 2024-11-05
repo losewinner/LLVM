@@ -27,7 +27,6 @@ set(LLVM_LINK_COMPONENTS
   Passes
   ProfileData
   ScalarOpts
-  SelectionDAG
   Support
   Target
   TargetParser

@@ -22,7 +22,6 @@ namespace llvm {
   class LLVMContext;
   class Module;
   class StringRef;
-  class TargetMachine;
 
   namespace vfs {
   class FileSystem;
@@ -113,7 +112,6 @@ CodeGenerator *CreateLLVMCodeGen(DiagnosticsEngine &Diags,
                                  const PreprocessorOptions &PreprocessorOpts,
                                  const CodeGenOptions &CGO,
                                  llvm::LLVMContext &C,
-                                 llvm::TargetMachine *TM = nullptr,
                                  CoverageSourceInfo *CoverageInfo = nullptr);
 
 } // end namespace clang

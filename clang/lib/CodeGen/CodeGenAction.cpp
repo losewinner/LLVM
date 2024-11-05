@@ -116,14 +116,14 @@ BackendConsumer::BackendConsumer(
     const TargetOptions &TargetOpts, const LangOptions &LangOpts,
     const std::string &InFile, SmallVector<LinkModule, 4> LinkModules,
     std::unique_ptr<raw_pwrite_stream> OS, LLVMContext &C,
-    llvm::TargetMachine *TM, CoverageSourceInfo *CoverageInfo)
+    CoverageSourceInfo *CoverageInfo)
     : Diags(Diags), Action(Action), HeaderSearchOpts(HeaderSearchOpts),
       CodeGenOpts(CodeGenOpts), TargetOpts(TargetOpts), LangOpts(LangOpts),
       AsmOutStream(std::move(OS)), Context(nullptr), FS(VFS),
       LLVMIRGeneration("irgen", "LLVM IR Generation Time"),
       LLVMIRGenerationRefCount(0),
       Gen(CreateLLVMCodeGen(Diags, InFile, std::move(VFS), HeaderSearchOpts,
-                            PPOpts, CodeGenOpts, C, TM, CoverageInfo)),
+                            PPOpts, CodeGenOpts, C, CoverageInfo)),
       LinkModules(std::move(LinkModules)) {
   TimerIsEnabled = CodeGenOpts.TimePasses;
   llvm::TimePassesIsEnabled = CodeGenOpts.TimePasses;
@@ -140,14 +140,14 @@ BackendConsumer::BackendConsumer(
     const PreprocessorOptions &PPOpts, const CodeGenOptions &CodeGenOpts,
     const TargetOptions &TargetOpts, const LangOptions &LangOpts,
     llvm::Module *Module, SmallVector<LinkModule, 4> LinkModules,
-    LLVMContext &C, llvm::TargetMachine *TM, CoverageSourceInfo *CoverageInfo)
+    LLVMContext &C, CoverageSourceInfo *CoverageInfo)
     : Diags(Diags), Action(Action), HeaderSearchOpts(HeaderSearchOpts),
       CodeGenOpts(CodeGenOpts), TargetOpts(TargetOpts), LangOpts(LangOpts),
       Context(nullptr), FS(VFS),
       LLVMIRGeneration("irgen", "LLVM IR Generation Time"),
       LLVMIRGenerationRefCount(0),
       Gen(CreateLLVMCodeGen(Diags, "", std::move(VFS), HeaderSearchOpts, PPOpts,
-                            CodeGenOpts, C, TM, CoverageInfo)),
+                            CodeGenOpts, C, CoverageInfo)),
       LinkModules(std::move(LinkModules)), CurLinkModule(Module) {
   TimerIsEnabled = CodeGenOpts.TimePasses;
   llvm::TimePassesIsEnabled = CodeGenOpts.TimePasses;
@@ -1019,8 +1019,7 @@ CodeGenAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
       BA, CI.getDiagnostics(), &CI.getVirtualFileSystem(),
       CI.getHeaderSearchOpts(), CI.getPreprocessorOpts(), CI.getCodeGenOpts(),
       CI.getTargetOpts(), CI.getLangOpts(), std::string(InFile),
-      std::move(LinkModules), std::move(OS), *VMContext, CI.getTargetMachine(),
-      CoverageInfo));
+      std::move(LinkModules), std::move(OS), *VMContext, CoverageInfo));
   BEConsumer = Result.get();
 
   // Enable generating macro debug info only when debug info is not disabled and

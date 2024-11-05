@@ -296,6 +296,8 @@ getEffectivePPCCodeModel(const Triple &TT, std::optional<CodeModel::Model> CM,
   if (TT.isOSAIX())
     return CodeModel::Small;
 
+  assert(TT.isOSBinFormatELF() && "All remaining PPC OSes are ELF based.");
+
   if (TT.isArch32Bit())
     return CodeModel::Small;
 

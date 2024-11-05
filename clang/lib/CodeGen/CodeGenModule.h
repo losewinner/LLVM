@@ -49,8 +49,6 @@ class DataLayout;
 class FunctionType;
 class LLVMContext;
 class IndexedInstrProfReader;
-class TargetLowering;
-class TargetMachine;
 
 namespace vfs {
 class FileSystem;
@@ -309,9 +307,6 @@ private:
   const CodeGenOptions &CodeGenOpts;
   unsigned NumAutoVarInit = 0;
   llvm::Module &TheModule;
-  llvm::TargetLibraryInfoImpl &TLII;
-  const llvm::TargetMachine *TM;
-
   DiagnosticsEngine &Diags;
   const TargetInfo &Target;
   std::unique_ptr<CGCXXABI> ABI;
@@ -637,8 +632,7 @@ public:
                 const HeaderSearchOptions &headersearchopts,
                 const PreprocessorOptions &ppopts,
                 const CodeGenOptions &CodeGenOpts, llvm::Module &M,
-                DiagnosticsEngine &Diags, llvm::TargetLibraryInfoImpl &TLII,
-                const llvm::TargetMachine *TM,
+                DiagnosticsEngine &Diags,
                 CoverageSourceInfo *CoverageInfo = nullptr);
 
   ~CodeGenModule();
@@ -777,8 +771,6 @@ public:
   const llvm::DataLayout &getDataLayout() const {
     return TheModule.getDataLayout();
   }
-  llvm::TargetLibraryInfoImpl &getTargetLibraryInfoImpl() const { return TLII; }
-  const llvm::TargetMachine *getTargetMachine() const { return TM; }
   const TargetInfo &getTarget() const { return Target; }
   const llvm::Triple &getTriple() const { return Target.getTriple(); }
   bool supportsCOMDAT() const;

@@ -456,7 +456,12 @@ public:
       StringRef TT, StringRef CPU, StringRef Features,
       const TargetOptions &Options, std::optional<Reloc::Model> RM,
       std::optional<CodeModel::Model> CM = std::nullopt,
-      CodeGenOptLevel OL = CodeGenOptLevel::Default, bool JIT = false) const;
+      CodeGenOptLevel OL = CodeGenOptLevel::Default, bool JIT = false) const {
+    if (!TargetMachineCtorFn)
+      return nullptr;
+    return TargetMachineCtorFn(*this, Triple(TT), CPU, Features, Options, RM,
+                               CM, OL, JIT);
+  }
 
   /// createMCAsmBackend - Create a target specific assembly parser.
   MCAsmBackend *createMCAsmBackend(const MCSubtargetInfo &STI,

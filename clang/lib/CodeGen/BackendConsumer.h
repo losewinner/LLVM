@@ -17,7 +17,6 @@
 
 namespace llvm {
   class DiagnosticInfoDontCall;
-  class TargetMachine;
 }
 
 namespace clang {
@@ -79,7 +78,6 @@ public:
                   const std::string &InFile,
                   SmallVector<LinkModule, 4> LinkModules,
                   std::unique_ptr<raw_pwrite_stream> OS, llvm::LLVMContext &C,
-                  llvm::TargetMachine *TM,
                   CoverageSourceInfo *CoverageInfo = nullptr);
 
   // This constructor is used in installing an empty BackendConsumer
@@ -92,7 +90,7 @@ public:
                   const CodeGenOptions &CodeGenOpts,
                   const TargetOptions &TargetOpts, const LangOptions &LangOpts,
                   llvm::Module *Module, SmallVector<LinkModule, 4> LinkModules,
-                  llvm::LLVMContext &C, llvm::TargetMachine *TM,
+                  llvm::LLVMContext &C,
                   CoverageSourceInfo *CoverageInfo = nullptr);
 
   llvm::Module *getModule() const;

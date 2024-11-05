@@ -44,10 +44,6 @@ static cl::opt<bool> EnableNoTrapAfterNoreturn(
 
 void LLVMTargetMachine::initAsmInfo() {
   MRI.reset(TheTarget.createMCRegInfo(getTargetTriple().str()));
-  if (!MRI) {
-    IsValid = false;
-    return;
-  }
   assert(MRI && "Unable to create reg info");
   MII.reset(TheTarget.createMCInstrInfo());
   assert(MII && "Unable to create instruction info");
