@@ -1789,7 +1789,7 @@ Value *llvm::emitAtomicCompareExchange(Value *Size, Value *Ptr, Value *Expected,
       {Size, Ptr, Expected, Desired, SuccessMemorder, FailureMemorder}, B, TLI);
 }
 
-Value *llvm::emitAtomicCompareExchangeN(int Size, Value *Ptr, Value *Expected,
+Value *llvm::emitAtomicCompareExchangeN(size_t Size, Value *Ptr, Value *Expected,
                                         Value *Desired, Value *SuccessMemorder,
                                         Value *FailureMemorder,
                                         IRBuilderBase &B, const DataLayout &DL,
