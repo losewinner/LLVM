@@ -1114,8 +1114,7 @@ define <vscale x 16 x double> @vfma_vv_nxv16f64(<vscale x 16 x double> %va, <vsc
 ; CHECK-NEXT:    .cfi_escape 0x0f, 0x0d, 0x72, 0x00, 0x11, 0x10, 0x22, 0x11, 0x28, 0x92, 0xa2, 0x38, 0x00, 0x1e, 0x22 # sp + 16 + 40 * vlenb
 ; CHECK-NEXT:    vmv1r.v v7, v0
 ; CHECK-NEXT:    csrr a1, vlenb
-; CHECK-NEXT:    li a3, 24
-; CHECK-NEXT:    mul a1, a1, a3
+; CHECK-NEXT:    slli a1, a1, 4
 ; CHECK-NEXT:    add a1, sp, a1
 ; CHECK-NEXT:    addi a1, a1, 16
 ; CHECK-NEXT:    vs8r.v v16, (a1) # Unknown-size Folded Spill
@@ -1130,7 +1129,8 @@ define <vscale x 16 x double> @vfma_vv_nxv16f64(<vscale x 16 x double> %va, <vsc
 ; CHECK-NEXT:    add a6, a2, a5
 ; CHECK-NEXT:    vl8re64.v v8, (a6)
 ; CHECK-NEXT:    csrr a6, vlenb
-; CHECK-NEXT:    slli a6, a6, 4
+; CHECK-NEXT:    li a7, 24
+; CHECK-NEXT:    mul a6, a6, a7
 ; CHECK-NEXT:    add a6, sp, a6
 ; CHECK-NEXT:    addi a6, a6, 16
 ; CHECK-NEXT:    vs8r.v v8, (a6) # Unknown-size Folded Spill
@@ -1163,7 +1163,7 @@ define <vscale x 16 x double> @vfma_vv_nxv16f64(<vscale x 16 x double> %va, <vsc
 ; CHECK-NEXT:    addi a2, a2, 16
 ; CHECK-NEXT:    vl8r.v v16, (a2) # Unknown-size Folded Reload
 ; CHECK-NEXT:    vsetvli zero, a0, e64, m8, ta, ma
-; CHECK-NEXT:    vfmadd.vv v8, v24, v16, v0.t
+; CHECK-NEXT:    vfmadd.vv v8, v16, v24, v0.t
 ; CHECK-NEXT:    csrr a0, vlenb
 ; CHECK-NEXT:    li a2, 24
 ; CHECK-NEXT:    mul a0, a0, a2
