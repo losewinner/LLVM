@@ -17,6 +17,7 @@ add_llvm_component_library(LLVMTransformUtils
   CodeExtractor.cpp
   CodeLayout.cpp
   CodeMoverUtils.cpp
+  ControlFlowUtils.cpp
   CtorUtils.cpp
   CountVisits.cpp
   Debugify.cpp
@@ -35,6 +36,7 @@ add_llvm_component_library(LLVMTransformUtils
   InlineFunction.cpp
   InjectTLIMappings.cpp
   InstructionNamer.cpp
+  Instrumentation.cpp
   IntegerDivision.cpp
   LCSSA.cpp
   LibCallsShrinkWrap.cpp

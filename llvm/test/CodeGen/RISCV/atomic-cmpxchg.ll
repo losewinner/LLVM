@@ -3,25 +3,25 @@
 ; RUN:   | FileCheck -check-prefix=RV32I %s
 ; RUN: llc -mtriple=riscv32 -mattr=+a -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV32IA,RV32IA-WMO %s
-; RUN: llc -mtriple=riscv32 -mattr=+a,+experimental-zacas -verify-machineinstrs < %s \
+; RUN: llc -mtriple=riscv32 -mattr=+a,+zacas -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV32IA,RV32IA-ZACAS,RV32IA-WMO-ZACAS %s
 ; RUN: llc -mtriple=riscv32 -mattr=+a,+ztso -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV32IA,RV32IA-TSO %s
-; RUN: llc -mtriple=riscv32 -mattr=+a,+ztso,+experimental-zacas -verify-machineinstrs < %s \
+; RUN: llc -mtriple=riscv32 -mattr=+a,+ztso,+zacas -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV32IA,RV32IA-ZACAS,RV32IA-TSO-ZACAS %s
 ; RUN: llc -mtriple=riscv64 -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefix=RV64I %s
 ; RUN: llc -mtriple=riscv64 -mattr=+a -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV64IA,RV64IA-WMO %s
-; RUN: llc -mtriple=riscv64 -mattr=+a,+experimental-zacas -verify-machineinstrs < %s \
+; RUN: llc -mtriple=riscv64 -mattr=+a,+zacas -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV64IA,RV64IA-ZACAS,RV64IA-WMO-ZACAS %s
-; RUN: llc -mtriple=riscv64 -mattr=+a,+experimental-zacas,+zabha -verify-machineinstrs < %s \
+; RUN: llc -mtriple=riscv64 -mattr=+a,+zacas,+zabha -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV64IA,RV64IA-ZABHA,RV64IA-WMO-ZABHA %s
 ; RUN: llc -mtriple=riscv64 -mattr=+a,+ztso -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV64IA,RV64IA-TSO %s
-; RUN: llc -mtriple=riscv64 -mattr=+a,+ztso,+experimental-zacas -verify-machineinstrs < %s \
+; RUN: llc -mtriple=riscv64 -mattr=+a,+ztso,+zacas -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV64IA,RV64IA-ZACAS,RV64IA-TSO-ZACAS %s
-; RUN: llc -mtriple=riscv64 -mattr=+a,+ztso,+experimental-zacas,+zabha -verify-machineinstrs < %s \
+; RUN: llc -mtriple=riscv64 -mattr=+a,+ztso,+zacas,+zabha -verify-machineinstrs < %s \
 ; RUN:   | FileCheck -check-prefixes=RV64IA,RV64IA-ZABHA,RV64IA-TSO-ZABHA %s
 
 define void @cmpxchg_i8_monotonic_monotonic(ptr %ptr, i8 %cmp, i8 %val) nounwind {
@@ -1937,6 +1937,7 @@ define void @cmpxchg_i8_seq_cst_seq_cst(ptr %ptr, i8 %cmp, i8 %val) nounwind {
 ;
 ; RV64IA-WMO-ZABHA-LABEL: cmpxchg_i8_seq_cst_seq_cst:
 ; RV64IA-WMO-ZABHA:       # %bb.0:
+; RV64IA-WMO-ZABHA-NEXT:    fence rw, rw
 ; RV64IA-WMO-ZABHA-NEXT:    amocas.b.aqrl a1, a2, (a0)
 ; RV64IA-WMO-ZABHA-NEXT:    ret
 ;
@@ -1965,6 +1966,7 @@ define void @cmpxchg_i8_seq_cst_seq_cst(ptr %ptr, i8 %cmp, i8 %val) nounwind {
 ;
 ; RV64IA-TSO-ZABHA-LABEL: cmpxchg_i8_seq_cst_seq_cst:
 ; RV64IA-TSO-ZABHA:       # %bb.0:
+; RV64IA-TSO-ZABHA-NEXT:    fence rw, rw
 ; RV64IA-TSO-ZABHA-NEXT:    amocas.b a1, a2, (a0)
 ; RV64IA-TSO-ZABHA-NEXT:    ret
   %res = cmpxchg ptr %ptr, i8 %cmp, i8 %val seq_cst seq_cst
@@ -3947,6 +3949,7 @@ define void @cmpxchg_i16_seq_cst_seq_cst(ptr %ptr, i16 %cmp, i16 %val) nounwind 
 ;
 ; RV64IA-WMO-ZABHA-LABEL: cmpxchg_i16_seq_cst_seq_cst:
 ; RV64IA-WMO-ZABHA:       # %bb.0:
+; RV64IA-WMO-ZABHA-NEXT:    fence rw, rw
 ; RV64IA-WMO-ZABHA-NEXT:    amocas.h.aqrl a1, a2, (a0)
 ; RV64IA-WMO-ZABHA-NEXT:    ret
 ;
@@ -3976,6 +3979,7 @@ define void @cmpxchg_i16_seq_cst_seq_cst(ptr %ptr, i16 %cmp, i16 %val) nounwind 
 ;
 ; RV64IA-TSO-ZABHA-LABEL: cmpxchg_i16_seq_cst_seq_cst:
 ; RV64IA-TSO-ZABHA:       # %bb.0:
+; RV64IA-TSO-ZABHA-NEXT:    fence rw, rw
 ; RV64IA-TSO-ZABHA-NEXT:    amocas.h a1, a2, (a0)
 ; RV64IA-TSO-ZABHA-NEXT:    ret
   %res = cmpxchg ptr %ptr, i16 %cmp, i16 %val seq_cst seq_cst
@@ -5014,6 +5018,7 @@ define void @cmpxchg_i32_seq_cst_seq_cst(ptr %ptr, i32 %cmp, i32 %val) nounwind 
 ;
 ; RV32IA-WMO-ZACAS-LABEL: cmpxchg_i32_seq_cst_seq_cst:
 ; RV32IA-WMO-ZACAS:       # %bb.0:
+; RV32IA-WMO-ZACAS-NEXT:    fence rw, rw
 ; RV32IA-WMO-ZACAS-NEXT:    amocas.w.aqrl a1, a2, (a0)
 ; RV32IA-WMO-ZACAS-NEXT:    ret
 ;
@@ -5030,6 +5035,7 @@ define void @cmpxchg_i32_seq_cst_seq_cst(ptr %ptr, i32 %cmp, i32 %val) nounwind 
 ;
 ; RV32IA-TSO-ZACAS-LABEL: cmpxchg_i32_seq_cst_seq_cst:
 ; RV32IA-TSO-ZACAS:       # %bb.0:
+; RV32IA-TSO-ZACAS-NEXT:    fence rw, rw
 ; RV32IA-TSO-ZACAS-NEXT:    amocas.w a1, a2, (a0)
 ; RV32IA-TSO-ZACAS-NEXT:    ret
 ;
@@ -5064,11 +5070,13 @@ define void @cmpxchg_i32_seq_cst_seq_cst(ptr %ptr, i32 %cmp, i32 %val) nounwind 
 ;
 ; RV64IA-WMO-ZACAS-LABEL: cmpxchg_i32_seq_cst_seq_cst:
 ; RV64IA-WMO-ZACAS:       # %bb.0:
+; RV64IA-WMO-ZACAS-NEXT:    fence rw, rw
 ; RV64IA-WMO-ZACAS-NEXT:    amocas.w.aqrl a1, a2, (a0)
 ; RV64IA-WMO-ZACAS-NEXT:    ret
 ;
 ; RV64IA-WMO-ZABHA-LABEL: cmpxchg_i32_seq_cst_seq_cst:
 ; RV64IA-WMO-ZABHA:       # %bb.0:
+; RV64IA-WMO-ZABHA-NEXT:    fence rw, rw
 ; RV64IA-WMO-ZABHA-NEXT:    amocas.w.aqrl a1, a2, (a0)
 ; RV64IA-WMO-ZABHA-NEXT:    ret
 ;
@@ -5086,11 +5094,13 @@ define void @cmpxchg_i32_seq_cst_seq_cst(ptr %ptr, i32 %cmp, i32 %val) nounwind 
 ;
 ; RV64IA-TSO-ZACAS-LABEL: cmpxchg_i32_seq_cst_seq_cst:
 ; RV64IA-TSO-ZACAS:       # %bb.0:
+; RV64IA-TSO-ZACAS-NEXT:    fence rw, rw
 ; RV64IA-TSO-ZACAS-NEXT:    amocas.w a1, a2, (a0)
 ; RV64IA-TSO-ZACAS-NEXT:    ret
 ;
 ; RV64IA-TSO-ZABHA-LABEL: cmpxchg_i32_seq_cst_seq_cst:
 ; RV64IA-TSO-ZABHA:       # %bb.0:
+; RV64IA-TSO-ZABHA-NEXT:    fence rw, rw
 ; RV64IA-TSO-ZABHA-NEXT:    amocas.w a1, a2, (a0)
 ; RV64IA-TSO-ZABHA-NEXT:    ret
   %res = cmpxchg ptr %ptr, i32 %cmp, i32 %val seq_cst seq_cst
@@ -5100,6 +5110,7 @@ define void @cmpxchg_i32_seq_cst_seq_cst(ptr %ptr, i32 %cmp, i32 %val) nounwind 
 define void @cmpxchg_i64_monotonic_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounwind {
 ; RV32I-LABEL: cmpxchg_i64_monotonic_monotonic:
 ; RV32I:       # %bb.0:
+<<<<<<< HEAD
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    sw a2, 20(sp)
@@ -5107,6 +5118,19 @@ define void @cmpxchg_i64_monotonic_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounw
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    addi sp, sp, -16
+; RV32I-NEXT:    sw ra, 12(sp) # 4-byte Folded Spill
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    addi sp, sp, -16
+; RV32I-NEXT:    sw ra, 12(sp) # 4-byte Folded Spill
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    mv a2, a3
 ; RV32I-NEXT:    mv a3, a4
 ; RV32I-NEXT:    li a4, 0
@@ -5122,6 +5146,7 @@ define void @cmpxchg_i64_monotonic_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounw
 ;
 ; RV32IA-LABEL: cmpxchg_i64_monotonic_monotonic:
 ; RV32IA:       # %bb.0:
+<<<<<<< HEAD
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    sw a2, 20(sp)
@@ -5129,6 +5154,19 @@ define void @cmpxchg_i64_monotonic_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounw
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    addi sp, sp, -16
+; RV32IA-NEXT:    sw ra, 12(sp) # 4-byte Folded Spill
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    addi sp, sp, -16
+; RV32IA-NEXT:    sw ra, 12(sp) # 4-byte Folded Spill
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    mv a2, a3
 ; RV32IA-NEXT:    mv a3, a4
 ; RV32IA-NEXT:    li a4, 0
@@ -5199,11 +5237,21 @@ define void @cmpxchg_i64_acquire_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounwin
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    mv a5, a4
+<<<<<<< HEAD
 ; RV32I-NEXT:    sw a2, 20(sp)
 ; RV32I-NEXT:    sw a1, 16(sp)
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    li a4, 2
 ; RV32I-NEXT:    mv a2, a3
 ; RV32I-NEXT:    mv a3, a5
@@ -5222,11 +5270,21 @@ define void @cmpxchg_i64_acquire_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounwin
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    mv a5, a4
+<<<<<<< HEAD
 ; RV32IA-NEXT:    sw a2, 20(sp)
 ; RV32IA-NEXT:    sw a1, 16(sp)
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    li a4, 2
 ; RV32IA-NEXT:    mv a2, a3
 ; RV32IA-NEXT:    mv a3, a5
@@ -5307,11 +5365,21 @@ define void @cmpxchg_i64_acquire_acquire(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32I-NEXT:    sw a2, 20(sp)
 ; RV32I-NEXT:    sw a1, 16(sp)
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    li a4, 2
 ; RV32I-NEXT:    li a5, 2
 ; RV32I-NEXT:    mv a2, a3
@@ -5330,11 +5398,21 @@ define void @cmpxchg_i64_acquire_acquire(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32IA-NEXT:    sw a2, 20(sp)
 ; RV32IA-NEXT:    sw a1, 16(sp)
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    li a4, 2
 ; RV32IA-NEXT:    li a5, 2
 ; RV32IA-NEXT:    mv a2, a3
@@ -5415,11 +5493,21 @@ define void @cmpxchg_i64_release_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounwin
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    mv a5, a4
+<<<<<<< HEAD
 ; RV32I-NEXT:    sw a2, 20(sp)
 ; RV32I-NEXT:    sw a1, 16(sp)
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    li a4, 3
 ; RV32I-NEXT:    mv a2, a3
 ; RV32I-NEXT:    mv a3, a5
@@ -5438,11 +5526,21 @@ define void @cmpxchg_i64_release_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounwin
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    mv a5, a4
+<<<<<<< HEAD
 ; RV32IA-NEXT:    sw a2, 20(sp)
 ; RV32IA-NEXT:    sw a1, 16(sp)
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    li a4, 3
 ; RV32IA-NEXT:    mv a2, a3
 ; RV32IA-NEXT:    mv a3, a5
@@ -5523,11 +5621,21 @@ define void @cmpxchg_i64_release_acquire(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32I-NEXT:    sw a2, 20(sp)
 ; RV32I-NEXT:    sw a1, 16(sp)
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    li a4, 3
 ; RV32I-NEXT:    li a5, 2
 ; RV32I-NEXT:    mv a2, a3
@@ -5546,11 +5654,21 @@ define void @cmpxchg_i64_release_acquire(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32IA-NEXT:    sw a2, 20(sp)
 ; RV32IA-NEXT:    sw a1, 16(sp)
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    li a4, 3
 ; RV32IA-NEXT:    li a5, 2
 ; RV32IA-NEXT:    mv a2, a3
@@ -5631,11 +5749,21 @@ define void @cmpxchg_i64_acq_rel_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounwin
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    mv a5, a4
+<<<<<<< HEAD
 ; RV32I-NEXT:    sw a2, 20(sp)
 ; RV32I-NEXT:    sw a1, 16(sp)
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    li a4, 4
 ; RV32I-NEXT:    mv a2, a3
 ; RV32I-NEXT:    mv a3, a5
@@ -5654,11 +5782,21 @@ define void @cmpxchg_i64_acq_rel_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounwin
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    mv a5, a4
+<<<<<<< HEAD
 ; RV32IA-NEXT:    sw a2, 20(sp)
 ; RV32IA-NEXT:    sw a1, 16(sp)
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    li a4, 4
 ; RV32IA-NEXT:    mv a2, a3
 ; RV32IA-NEXT:    mv a3, a5
@@ -5739,11 +5877,21 @@ define void @cmpxchg_i64_acq_rel_acquire(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32I-NEXT:    sw a2, 20(sp)
 ; RV32I-NEXT:    sw a1, 16(sp)
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    li a4, 4
 ; RV32I-NEXT:    li a5, 2
 ; RV32I-NEXT:    mv a2, a3
@@ -5762,11 +5910,21 @@ define void @cmpxchg_i64_acq_rel_acquire(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32IA-NEXT:    sw a2, 20(sp)
 ; RV32IA-NEXT:    sw a1, 16(sp)
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    li a4, 4
 ; RV32IA-NEXT:    li a5, 2
 ; RV32IA-NEXT:    mv a2, a3
@@ -5847,11 +6005,21 @@ define void @cmpxchg_i64_seq_cst_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounwin
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    mv a5, a4
+<<<<<<< HEAD
 ; RV32I-NEXT:    sw a2, 20(sp)
 ; RV32I-NEXT:    sw a1, 16(sp)
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    li a4, 5
 ; RV32I-NEXT:    mv a2, a3
 ; RV32I-NEXT:    mv a3, a5
@@ -5870,11 +6038,21 @@ define void @cmpxchg_i64_seq_cst_monotonic(ptr %ptr, i64 %cmp, i64 %val) nounwin
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    mv a5, a4
+<<<<<<< HEAD
 ; RV32IA-NEXT:    sw a2, 20(sp)
 ; RV32IA-NEXT:    sw a1, 16(sp)
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    li a4, 5
 ; RV32IA-NEXT:    mv a2, a3
 ; RV32IA-NEXT:    mv a3, a5
@@ -5955,11 +6133,21 @@ define void @cmpxchg_i64_seq_cst_acquire(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32I-NEXT:    sw a2, 20(sp)
 ; RV32I-NEXT:    sw a1, 16(sp)
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    li a4, 5
 ; RV32I-NEXT:    li a5, 2
 ; RV32I-NEXT:    mv a2, a3
@@ -5978,11 +6166,21 @@ define void @cmpxchg_i64_seq_cst_acquire(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32IA-NEXT:    sw a2, 20(sp)
 ; RV32IA-NEXT:    sw a1, 16(sp)
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    li a4, 5
 ; RV32IA-NEXT:    li a5, 2
 ; RV32IA-NEXT:    mv a2, a3
@@ -6063,11 +6261,21 @@ define void @cmpxchg_i64_seq_cst_seq_cst(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32I-NEXT:    addi sp, sp, -32
 ; RV32I-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32I-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32I-NEXT:    sw a2, 20(sp)
 ; RV32I-NEXT:    sw a1, 16(sp)
 ; RV32I-NEXT:    sw a4, 12(sp)
 ; RV32I-NEXT:    sw a3, 8(sp)
 ; RV32I-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    mv a1, sp
+=======
+; RV32I-NEXT:    sw a1, 0(sp)
+; RV32I-NEXT:    sw a2, 4(sp)
+; RV32I-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32I-NEXT:    li a4, 5
 ; RV32I-NEXT:    li a5, 5
 ; RV32I-NEXT:    mv a2, a3
@@ -6086,11 +6294,21 @@ define void @cmpxchg_i64_seq_cst_seq_cst(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ; RV32IA-NEXT:    addi sp, sp, -32
 ; RV32IA-NEXT:    sw ra, 28(sp) # 4-byte Folded Spill
 ; RV32IA-NEXT:    mv a6, a4
+<<<<<<< HEAD
 ; RV32IA-NEXT:    sw a2, 20(sp)
 ; RV32IA-NEXT:    sw a1, 16(sp)
 ; RV32IA-NEXT:    sw a4, 12(sp)
 ; RV32IA-NEXT:    sw a3, 8(sp)
 ; RV32IA-NEXT:    addi a1, sp, 16
+||||||| 04f65043bc87
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    mv a1, sp
+=======
+; RV32IA-NEXT:    sw a1, 0(sp)
+; RV32IA-NEXT:    sw a2, 4(sp)
+; RV32IA-NEXT:    mv a1, sp
+>>>>>>> main
 ; RV32IA-NEXT:    li a4, 5
 ; RV32IA-NEXT:    li a5, 5
 ; RV32IA-NEXT:    mv a2, a3
@@ -6133,11 +6351,13 @@ define void @cmpxchg_i64_seq_cst_seq_cst(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ;
 ; RV64IA-WMO-ZACAS-LABEL: cmpxchg_i64_seq_cst_seq_cst:
 ; RV64IA-WMO-ZACAS:       # %bb.0:
+; RV64IA-WMO-ZACAS-NEXT:    fence rw, rw
 ; RV64IA-WMO-ZACAS-NEXT:    amocas.d.aqrl a1, a2, (a0)
 ; RV64IA-WMO-ZACAS-NEXT:    ret
 ;
 ; RV64IA-WMO-ZABHA-LABEL: cmpxchg_i64_seq_cst_seq_cst:
 ; RV64IA-WMO-ZABHA:       # %bb.0:
+; RV64IA-WMO-ZABHA-NEXT:    fence rw, rw
 ; RV64IA-WMO-ZABHA-NEXT:    amocas.d.aqrl a1, a2, (a0)
 ; RV64IA-WMO-ZABHA-NEXT:    ret
 ;
@@ -6154,11 +6374,13 @@ define void @cmpxchg_i64_seq_cst_seq_cst(ptr %ptr, i64 %cmp, i64 %val) nounwind 
 ;
 ; RV64IA-TSO-ZACAS-LABEL: cmpxchg_i64_seq_cst_seq_cst:
 ; RV64IA-TSO-ZACAS:       # %bb.0:
+; RV64IA-TSO-ZACAS-NEXT:    fence rw, rw
 ; RV64IA-TSO-ZACAS-NEXT:    amocas.d a1, a2, (a0)
 ; RV64IA-TSO-ZACAS-NEXT:    ret
 ;
 ; RV64IA-TSO-ZABHA-LABEL: cmpxchg_i64_seq_cst_seq_cst:
 ; RV64IA-TSO-ZABHA:       # %bb.0:
+; RV64IA-TSO-ZABHA-NEXT:    fence rw, rw
 ; RV64IA-TSO-ZABHA-NEXT:    amocas.d a1, a2, (a0)
 ; RV64IA-TSO-ZABHA-NEXT:    ret
   %res = cmpxchg ptr %ptr, i64 %cmp, i64 %val seq_cst seq_cst
