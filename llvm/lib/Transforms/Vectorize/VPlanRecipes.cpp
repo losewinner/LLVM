@@ -954,45 +954,31 @@ void VPWidenIntrinsicRecipe::execute(VPTransformState &State) {
     Args.push_back(Arg);
   }
 
-  if (VPIntrinsic::isVPIntrinsic(VectorIntrinsicID) &&
-      VectorIntrinsicID != Intrinsic::vp_select) {
-    VectorBuilder VBuilder(State.Builder);
-    Value *Mask =
-        State.Builder.CreateVectorSplat(State.VF, State.Builder.getTrue());
-    VBuilder.setMask(Mask).setEVL(Args.back());
-    // Remove EVL from Args
-    Args.pop_back();
+  // Use vector version of the intrinsic.
+  Module *M = State.Builder.GetInsertBlock()->getModule();
+  bool IsVPIntrinsic = VPIntrinsic::isVPIntrinsic(VectorIntrinsicID);
+  Function *VectorF =
+      Intrinsic::getOrInsertDeclaration(M, VectorIntrinsicID, TysForDecl);
+  assert(VectorF && "Can't retrieve vector intrinsic.");
 
-    Value *VPInst = VBuilder.createSimpleIntrinsic(
-        VectorIntrinsicID, TysForDecl[0], Args, "vp.call");
-
-    if (isa<FPMathOperator>(VPInst))
-      setFlags(cast<Instruction>(VPInst));
-
-    if (!VPInst->getType()->isVoidTy())
-      State.set(this, VPInst);
-    State.addMetadata(VPInst,
-                      dyn_cast_or_null<Instruction>(getUnderlyingValue()));
-  } else {
-    // Use vector version of the intrinsic.
-    Module *M = State.Builder.GetInsertBlock()->getModule();
-    Function *VectorF =
-        Intrinsic::getOrInsertDeclaration(M, VectorIntrinsicID, TysForDecl);
-    assert(VectorF && "Can't retrieve vector intrinsic.");
-
-    auto *CI = cast_or_null<CallInst>(getUnderlyingValue());
-    SmallVector<OperandBundleDef, 1> OpBundles;
-    if (CI)
+  SmallVector<OperandBundleDef, 1> OpBundles;
+  if (!IsVPIntrinsic) {
+    if (auto *CI = cast_or_null<CallInst>(getUnderlyingValue()))
       CI->getOperandBundlesAsDefs(OpBundles);
-
-    CallInst *V = State.Builder.CreateCall(VectorF, Args, OpBundles);
-
-    setFlags(V);
-
-    if (!V->getType()->isVoidTy())
-      State.set(this, V);
-    State.addMetadata(V, CI);
   }
+
+  Value *V = State.Builder.CreateCall(VectorF, Args, OpBundles);
+
+  if (IsVPIntrinsic) {
+    if (isa<FPMathOperator>(V))
+    setFlags(cast<Instruction>(V));
+  } else {
+    setFlags(cast<Instruction>(V));
+  }
+
+  if (!V->getType()->isVoidTy())
+    State.set(this, V);
+  State.addMetadata(V, dyn_cast_or_null<Instruction>(getUnderlyingValue()));
 }
 
 InstructionCost VPWidenIntrinsicRecipe::computeCost(ElementCount VF,
