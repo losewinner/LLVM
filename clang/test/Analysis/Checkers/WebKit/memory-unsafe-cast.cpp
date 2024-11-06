@@ -3,6 +3,18 @@
 class Base { };
 class Derived : public Base { };
 
+template<typename Target, typename Source>
+Target& downcast_ref(Source& source){
+  [[clang::suppress]]
+  return static_cast<Target&>(source);
+}
+
+template<typename Target, typename Source>
+Target* downcast_ptr(Source* source){
+  [[clang::suppress]]
+  return static_cast<Target*>(source);
+}
+
 void test_pointers(Base *base) {
   Derived *derived_static = static_cast<Derived*>(base);
   // expected-warning@-1{{Unsafe cast from base type 'Base *' to derived type 'Derived *'}}
@@ -10,6 +22,7 @@ void test_pointers(Base *base) {
   // expected-warning@-1{{Unsafe cast from base type 'Base *' to derived type 'Derived *'}}
   Derived *derived_c = (Derived*)base;
   // expected-warning@-1{{Unsafe cast from base type 'Base *' to derived type 'Derived *'}}
+  Derived *derived_d = downcast_ptr<Derived, Base>(base);  // no warning
 }
 
 void test_refs(Base &base) {
@@ -19,6 +32,7 @@ void test_refs(Base &base) {
   // expected-warning@-1{{Unsafe cast from base type 'Base' to derived type 'Derived &'}}
   Derived &derived_c = (Derived&)base;
   // expected-warning@-1{{Unsafe cast from base type 'Base' to derived type 'Derived &'}}
+  Derived &derived_d = downcast_ref<Derived, Base>(base);  // no warning
 }
 
 class BaseVirtual {
