@@ -64,7 +64,7 @@ void emitWarning(QualType FromType, QualType ToType,
 
 namespace {
 class MemoryUnsafeCastChecker : public Checker<check::ASTCodeBody> {
-  BugType BT{this, ""};
+  BugType BT{this, "Unsafe cast", "WebKit coding guidelines"};
 public:
   void checkASTCodeBody(const Decl *D, AnalysisManager& Mgr,
                         BugReporter &BR) const {
@@ -83,21 +83,30 @@ void WalkAST::VisitCastExpr(CastExpr *CE) {
   auto *SE = CE->getSubExprAsWritten();
   if (ToDerivedQualType->isObjCObjectPointerType()) {
     auto FromBaseQualType = SE->getType();
+    auto BaseObjCPtrType = FromBaseQualType->getAsObjCInterfacePointerType();
+    if (!BaseObjCPtrType)
+      return;
+    auto DerivedObjCPtrType = ToDerivedQualType->getAsObjCInterfacePointerType();
+    if (!DerivedObjCPtrType)
+      return;
     bool IsObjCSubType =
         !ASTC.hasSameType(ToDerivedQualType, FromBaseQualType) &&
-        ASTC.canAssignObjCInterfaces(
-            FromBaseQualType->getAsObjCInterfacePointerType(),
-            ToDerivedQualType->getAsObjCInterfacePointerType());
+        ASTC.canAssignObjCInterfaces(FromBaseQualType
+                                     ->getAsObjCInterfacePointerType(),
+                                     ToDerivedQualType
+                                     ->getAsObjCInterfacePointerType());
     if (IsObjCSubType)
       emitWarning(SE->getType(), ToDerivedQualType,AC, BR, Checker, CE);
     return;
   }
   auto ToDerivedType = ToDerivedQualType->getPointeeCXXRecordDecl();
+  if (!ToDerivedType || !ToDerivedType->hasDefinition())
+      return;
   auto FromBaseType = SE->getType()->getPointeeCXXRecordDecl();
   if (!FromBaseType)
     FromBaseType = SE->getType()->getAsCXXRecordDecl();
-  if (!FromBaseType)
-    return;
+  if (!FromBaseType || !FromBaseType->hasDefinition())
+      return;
   if (ToDerivedType->isDerivedFrom(FromBaseType))
     emitWarning(SE->getType(), ToDerivedQualType, AC, BR, Checker, CE);
 }

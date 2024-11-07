@@ -166,3 +166,11 @@ void test_struct_cpp_refs(BStructCpp &base_struct, DStructCpp &derived_struct) {
   BStructCpp &base_static = static_cast<BStructCpp&>(derived_struct); // no warning
   BStructCpp &base_reinterpret = reinterpret_cast<BStructCpp&>(derived_struct); // no warning
 }
+
+struct stack_st { };
+
+#define STACK_OF(type) struct stack_st_##type
+
+void test_stack(stack_st *base) {
+  STACK_OF(void) *derived = (STACK_OF(void)*)base;
+}
