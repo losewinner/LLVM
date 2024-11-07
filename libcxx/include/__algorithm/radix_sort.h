@@ -323,7 +323,7 @@ __radix_sort(_RandomAccessIterator1 __first, _RandomAccessIterator1 __last, _Ran
   std::__radix_sort(__first, __last, __buffer, __identity{}, __low_byte_fn{});
 }
 
-#endif // _LIBCPP_STD_VER > 14
+#endif // _LIBCPP_STD_VER >= 14
 
 _LIBCPP_END_NAMESPACE_STD
 

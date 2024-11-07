@@ -216,7 +216,7 @@ constexpr unsigned __radix_sort_max_bound() {
 
   return 1 << 16;
 }
-#endif // _LIBCPP_STD_VER > 17
+#endif // _LIBCPP_STD_VER >= 17
 
 template <class _AlgPolicy, class _Compare, class _RandomAccessIterator>
 void __stable_sort(_RandomAccessIterator __first,
@@ -254,7 +254,7 @@ void __stable_sort(_RandomAccessIterator __first,
       return;
     }
   }
-#endif // _LIBCPP_STD_VER > 17
+#endif // _LIBCPP_STD_VER >= 17
 
   typename iterator_traits<_RandomAccessIterator>::difference_type __l2 = __len / 2;
   _RandomAccessIterator __m                                             = __first + __l2;
