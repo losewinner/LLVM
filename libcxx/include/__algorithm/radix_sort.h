@@ -11,7 +11,7 @@
 #define _LIBCPP___ALGORITHM_RADIX_SORT_H
 
 // This is an implementation of classic LSD radix sort algorithm, running in linear time and using `O(max(N, M))`
-// additional memory, where `N` is size of an input range, `M` — maximum value of
+// additional memory, where `N` is size of an input range, `M` - maximum value of
 // a radix of the sorted integer type. Type of the radix and its maximum value are determined at compile time
 // based on type returned by function `__radix`. The default radix is uint8.
 
