@@ -420,82 +420,92 @@ AST_MATCHER(CXXConstructExpr, isSafeSpanTwoParamConstruct) {
   return false;
 }
 
-class MaxValueEval : public RecursiveASTVisitor<MaxValueEval> {
+class MaxValueEval : public ConstStmtVisitor<MaxValueEval, llvm::APInt> {
 
-  std::vector<llvm::APInt> val;
   ASTContext &Context;
   llvm::APInt Max;
   unsigned bit_width;
 
 public:
-  typedef RecursiveASTVisitor<MaxValueEval> VisitorBase;
+  typedef ConstStmtVisitor<MaxValueEval, llvm::APInt> VisitorBase;
 
   explicit MaxValueEval(ASTContext &Ctx, const Expr *exp) : Context(Ctx) {
     bit_width = Ctx.getIntWidth(exp->getType());
     Max = llvm::APInt::getSignedMaxValue(bit_width);
-    val.clear();
+    // val.clear();
   }
 
-  bool findMatch(Expr *exp) {
-    TraverseStmt(exp);
-    return true;
+  llvm::APInt findMatch(Expr *exp) {
+    return TraverseStmt(exp);
   }
 
-  bool TraverseImplicitCastExpr(ImplicitCastExpr *E) {
-    if (EvaluateExpression(E)) {
-      return false;
-    } else {
-      return VisitorBase::TraverseImplicitCastExpr(E);
-    } 
+  llvm::APInt TraverseStmt(Stmt *S) {
+    if (Expr *E = dyn_cast<Expr>(S)) {
+      Expr::EvalResult EVResult;
+      if (EvaluateExpression(E, EVResult)) {
+        return EVResult.Val.getInt();
+      } else if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(E)) {
+        return TraverseImplicitCastExpr(ICE);
+      } else if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E)) {
+        return TraverseDeclRefExpr(DRE);
+      } else if (ArraySubscriptExpr *ASE = dyn_cast<ArraySubscriptExpr>(E)) {
+        return TraverseArraySubscriptExpr(ASE);
+      } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(E)) {
+        return TraverseBinaryOperator(BO);
+      } else if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(E)) {
+        return TraverseIntegerLiteral(IL);
+      }
+    }
+    return Max;
   }
 
-  bool TraverseDeclRefExpr(DeclRefExpr *dre) {
-    val.push_back(Max);
-    return false;
-  }
-
-  bool TraverseArraySubscriptExpr(ArraySubscriptExpr *E) {
-    val.push_back(Max);
-    return false;
-  }
-
-  bool EvaluateExpression(Expr *exp) {
+  llvm::APInt TraverseImplicitCastExpr(ImplicitCastExpr *E) {
     Expr::EvalResult EVResult;
+    if (EvaluateExpression(E, EVResult)) {
+      return EVResult.Val.getInt();
+    } else {
+      return TraverseStmt(E->getSubExpr());
+    }
+  }
+
+  llvm::APInt TraverseDeclRefExpr(DeclRefExpr *dre) {
+    return Max;
+  }
+
+  llvm::APInt TraverseArraySubscriptExpr(ArraySubscriptExpr *E) {
+    return Max;
+  }
+
+  bool EvaluateExpression(Expr *exp, Expr::EvalResult &EVResult) {
     if (exp->EvaluateAsInt(EVResult, Context)) {
-      llvm::APSInt Result = EVResult.Val.getInt();
-      val.push_back(Result);
       return true;
     }
     return false;
   }
 
-  bool TraverseCompoundAssignOperator(CompoundAssignOperator *E) {
-    return TraverseBinaryOperator(E);
-  }
- 
-  bool TraverseBinaryOperator(BinaryOperator *E) {
+  llvm::APInt TraverseBinaryOperator(BinaryOperator *E) {
     unsigned bwidth = Context.getIntWidth(E->getType());
 
     auto evaluateSubExpr = [&, bwidth](Expr *E) -> llvm::APInt {
-      size_t size = val.size();
-      TraverseStmt(E);
-      assert(size != val.size());
-      llvm::APInt Result = val.back();
-      val.pop_back();
+      llvm::APInt Result = TraverseStmt(E);
       unsigned width = Result.getBitWidth();
-      if(bwidth < width)
+
+      // Fix the bit length.
+      if (bwidth < width)
         Result = Result.trunc(bwidth);
-      else if(bwidth > width)
-        Result = APInt(bwidth, Result.getLimitedValue(), Result.isSignedIntN(width));
+      else if (bwidth > width)
+        Result =
+            APInt(bwidth, Result.getLimitedValue(), Result.isSignedIntN(width));
       return Result;
     };
- 
-    if (EvaluateExpression(E)) {
-      return false;
+
+    Expr::EvalResult EVResult;
+    if (EvaluateExpression(E, EVResult)) {
+      return EVResult.Val.getInt();
     } else {
       Expr *LHSExpr = E->getLHS()->IgnoreParenCasts();
       Expr *RHSExpr = E->getRHS()->IgnoreParenCasts();
-      
+
       unsigned bwidth = Context.getIntWidth(E->getType());
 
       llvm::APInt LHS = evaluateSubExpr(LHSExpr);
@@ -539,30 +549,13 @@ public:
       default:
         break;
       }
-      val.push_back(Result);
-      return false;
+      return Result;
     }
-    return true;
+    return Max;
   }
 
-  /*bool VisitExpr(Expr *E) {
-    if (EvaluateExpression(E)) {
-      return false;
-    }
-    return true;
-  }*/
-
-  bool TraverseIntegerLiteral(IntegerLiteral *IL) {
-    val.push_back(IL->getValue());
-    return false;
-  }
-
-  APInt getValue() {
-    assert(val.size() == 1);
-    if (val.size() == 1)
-      return val[0];
-    else // A pattern we didn't consider was encountered
-      return Max;
+  llvm::APInt TraverseIntegerLiteral(IntegerLiteral *IL) {
+    return IL->getValue();
   }
 };
 
@@ -586,8 +579,7 @@ AST_MATCHER(ArraySubscriptExpr, isSafeArraySubscript) {
     return false;
 
   MaxValueEval Vis(Finder->getASTContext(), Node.getIdx());
-  Vis.findMatch(const_cast<Expr *>(Node.getIdx()));
-  APInt result = Vis.getValue();
+  APInt result = Vis.findMatch(const_cast<Expr *>(Node.getIdx()));
 
   if (result.isNonNegative() &&
       result.getLimitedValue() < CATy->getLimitedSize())
