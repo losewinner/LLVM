@@ -25,7 +25,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class _Tp>
 _LIBCPP_HIDE_FROM_ABI constexpr _Tp __bit_log2(_Tp __t) noexcept {
   static_assert(is_unsigned<_Tp>::value, "__bit_log2 requires an unsigned integer type");
-  return numeric_limits<_Tp>::digits - 1 - std::countl_zero(__t);
+  return numeric_limits<_Tp>::digits - 1 - std::__countl_zero(__t);
 }
 
 #endif // _LIBCPP_STD_VER >= 14
