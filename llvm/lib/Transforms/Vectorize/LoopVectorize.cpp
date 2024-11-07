@@ -7711,7 +7711,7 @@ DenseMap<const SCEV *, Value *> LoopVectorizationPlanner::executePlan(
                              ILV.getOrCreateVectorTripCount(nullptr),
                              CanonicalIVStartValue, State);
 
-  // TODO: Rebase to fhahn's implementation.
+  // TODO: Replace with upstream implementation.
   VPlanTransforms::prepareExecute(BestVPlan);
   BestVPlan.execute(&State);
 
@@ -9309,7 +9309,6 @@ VPlanPtr LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
 // Adjust AnyOf reductions; replace the reduction phi for the selected value
 // with a boolean reduction phi node to check if the condition is true in any
 // iteration. The final value is selected by the final ComputeReductionResult.
-// TODO: Implement VPMulAccHere.
 void LoopVectorizationPlanner::adjustRecipesForReductions(
     VPlanPtr &Plan, VPRecipeBuilder &RecipeBuilder, ElementCount MinVF) {
   using namespace VPlanPatternMatch;

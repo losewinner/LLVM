@@ -124,7 +124,7 @@ struct VPlanTransforms {
   /// Remove dead recipes from \p Plan.
   static void removeDeadRecipes(VPlan &Plan);
 
-  /// TODO: Rebase to fhahn's implementation.
+  /// TODO: Rebase to upstream implementation.
   static void prepareExecute(VPlan &Plan);
 };
 
