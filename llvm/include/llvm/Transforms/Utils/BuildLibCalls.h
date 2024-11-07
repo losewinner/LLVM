@@ -192,10 +192,37 @@ namespace llvm {
   Value *emitVSPrintf(Value *Dest, Value *Fmt, Value *VAList, IRBuilderBase &B,
                       const TargetLibraryInfo *TLI);
 
-  /// Emit a call to the __atomic_compare_exchange function.
-  /// Defined here: https://llvm.org/docs/Atomics.html#libcalls-atomic,
+  /// Emit a call to the __atomic_load function.
+  /// Defined here:
+  /// https://llvm.org/docs/Atomics.html#libcalls-atomic
   /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#list_of_library_routines
-///
+  Value *emitAtomicLoad(Value *Size, Value *Ptr, Value *Ret, Value *Memorder,
+                        IRBuilderBase &B, const DataLayout &DL,
+                        const TargetLibraryInfo *TLI);
+
+  /// Variant of __atomic_load where \p Size is either 1, 2, 4, 8, or 16.
+  Value *emitAtomicLoadN(size_t Size, Value *Ptr, Value *Memorder,
+                         IRBuilderBase &B, const DataLayout &DL,
+                         const TargetLibraryInfo *TLI);
+
+  /// Emit a call to the __atomic_store function.
+  /// Defined here:
+  /// https://llvm.org/docs/Atomics.html#libcalls-atomic
+  /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#list_of_library_routines
+  Value *emitAtomicStore(Value *Size, Value *Ptr, Value *ValPtr,
+                         Value *Memorder, IRBuilderBase &B,
+                         const DataLayout &DL, const TargetLibraryInfo *TLI);
+
+  /// Variant of __atomic_store where \p Size is either 1, 2, 4, 8, or 16.
+  Value *emitAtomicStoreN(size_t Size, Value *Ptr, Value *Val, Value *Memorder,
+                          IRBuilderBase &B, const DataLayout &DL,
+                          const TargetLibraryInfo *TLI);
+
+  /// Emit a call to the __atomic_compare_exchange function.
+  /// Defined here:
+  /// https://llvm.org/docs/Atomics.html#libcalls-atomic
+  /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#list_of_library_routines
+  ///
   /// NOTE: Signature is different to the builtins defined here:
   /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#GCC_intrinsics
   Value *emitAtomicCompareExchange(Value *Size, Value *Ptr, Value *Expected,

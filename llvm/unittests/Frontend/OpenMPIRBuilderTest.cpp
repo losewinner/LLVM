@@ -3846,11 +3846,14 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteFlt) {
   Type *Float32 = Type::getFloatTy(Ctx);
   AllocaInst *XVal = Builder.CreateAlloca(Float32);
   XVal->setName("AtomicVar");
+  OpenMPIRBuilder::InsertPointTy AllocaIP(XVal->getParent(),
+                                          XVal->getIterator());
   OpenMPIRBuilder::AtomicOpValue X = {XVal, Float32, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
   Constant *ValToWrite = ConstantFP::get(Float32, 1.0);
 
-  Builder.restoreIP(OMPBuilder.createAtomicWrite(Loc, X, ValToWrite, AO));
+  Builder.restoreIP(
+      OMPBuilder.createAtomicWrite(Loc, AllocaIP, X, ValToWrite, AO));
 
   IntegerType *IntCastTy =
       IntegerType::get(M->getContext(), Float32->getScalarSizeInBits());
@@ -3879,13 +3882,16 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteInt) {
   IntegerType *Int32 = Type::getInt32Ty(Ctx);
   AllocaInst *XVal = Builder.CreateAlloca(Int32);
   XVal->setName("AtomicVar");
+  OpenMPIRBuilder::InsertPointTy AllocaIP(XVal->getParent(),
+                                          XVal->getIterator());
   OpenMPIRBuilder::AtomicOpValue X = {XVal, Int32, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
   ConstantInt *ValToWrite = ConstantInt::get(Type::getInt32Ty(Ctx), 1U);
 
   BasicBlock *EntryBB = BB;
 
-  Builder.restoreIP(OMPBuilder.createAtomicWrite(Loc, X, ValToWrite, AO));
+  Builder.restoreIP(
+      OMPBuilder.createAtomicWrite(Loc, AllocaIP, X, ValToWrite, AO));
 
   StoreInst *StoreofAtomic = nullptr;
 

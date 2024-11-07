@@ -3064,7 +3064,6 @@ private:
 
   /// Emit atomic update for constructs: X = X BinOp Expr ,or X = Expr BinOp X
   /// For complex Operations: X = UpdateOp(X) => CmpExch X, old_X, UpdateOp(X)
-  /// Only Scalar data types.
   ///
   /// \param AllocaIP	  The insertion point to be used for alloca
   ///                   instructions.
@@ -3116,7 +3115,7 @@ public:
     bool IsVolatile = false;
   };
 
-  /// Emit atomic Read for : V = X --- Only Scalar data types.
+  /// Emit atomic Read for : V = X.
   ///
   /// \param Loc    The insert and source location description.
   /// \param X			The target pointer to be atomically read
@@ -3140,8 +3139,8 @@ public:
   ///
   /// \return Insertion point after generated atomic Write IR.
   InsertPointTy createAtomicWrite(const LocationDescription &Loc,
-                                  AtomicOpValue &X, Value *Expr,
-                                  AtomicOrdering AO);
+                                  InsertPointTy AllocaIP, AtomicOpValue &X,
+                                  Value *Expr, AtomicOrdering AO);
 
   /// Emit atomic update for constructs: X = X BinOp Expr ,or X = Expr BinOp X
   /// For complex Operations: X = UpdateOp(X) => CmpExch X, old_X, UpdateOp(X)

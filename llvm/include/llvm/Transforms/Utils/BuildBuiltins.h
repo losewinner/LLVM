@@ -14,6 +14,7 @@
 #define LLVM_TRANSFORMS_UTILS_BUILDBUILTINS_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include <cstdint>
@@ -30,6 +31,34 @@ class TargetLowering;
 namespace SyncScope {
 typedef uint8_t ID;
 }
+
+void emitAtomicLoadBuiltin(
+    Value *Ptr, Value *RetPtr,
+    // std::variant<Value *, bool> IsWeak,
+    bool IsVolatile,
+    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
+    std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
+    std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
+    MaybeAlign Align, IRBuilderBase &Builder, const DataLayout &DL,
+    const TargetLibraryInfo *TLI, const TargetLowering *TL,
+    ArrayRef<std::pair<uint32_t, StringRef>> SyncScopes,
+    StringRef FallbackScope, llvm::Twine Name = Twine(),
+    bool AllowInstruction = true, bool AllowSwitch = true,
+    bool AllowSizedLibcall = true, bool AllowLibcall = true);
+
+void emitAtomicStoreBuiltin(
+    Value *Ptr, Value *ValPtr,
+    // std::variant<Value *, bool> IsWeak,
+    bool IsVolatile,
+    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
+    std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
+    std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
+    MaybeAlign Align, IRBuilderBase &Builder, const DataLayout &DL,
+    const TargetLibraryInfo *TLI, const TargetLowering *TL,
+    ArrayRef<std::pair<uint32_t, StringRef>> SyncScopes,
+    StringRef FallbackScope, llvm::Twine Name = Twine(),
+    bool AllowInstruction = true, bool AllowSwitch = true,
+    bool AllowSizedLibcall = true, bool AllowLibcall = true);
 
 /// Emit a call to the __atomic_compare_exchange builtin. This may either be
 /// lowered to the cmpxchg LLVM instruction, or to one of the following libcall
@@ -103,26 +132,30 @@ Value *emitAtomicCompareExchangeBuiltin(
     Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
     std::variant<Value *, bool> IsWeak, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
-    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> FailureMemorder,
+    std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
+        FailureMemorder,
     std::variant<Value *, SyncScope::ID, StringRef> Scope, Value *PrevPtr,
     Type *DataTy, std::optional<uint64_t> DataSize,
     std::optional<uint64_t> AvailableSize, MaybeAlign Align,
     IRBuilderBase &Builder, const DataLayout &DL, const TargetLibraryInfo *TLI,
     const TargetLowering *TL,
     ArrayRef<std::pair<uint32_t, StringRef>> SyncScopes,
-    StringRef FallbackScope, bool AllowInstruction = true,
-    bool AllowSwitch = true, bool AllowSizedLibcall = true);
+    StringRef FallbackScope, llvm::Twine Name = Twine(),
+    bool AllowInstruction = true, bool AllowSwitch = true,
+    bool AllowSizedLibcall = true, bool AllowLibcall = true);
 
 Value *emitAtomicCompareExchangeBuiltin(
     Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
-    std::variant<Value *, bool> Weak, bool IsVolatile,
+    std::variant<Value *, bool> IsWeak, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
-    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> FailureMemorder,
+    std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
+        FailureMemorder,
     Value *PrevPtr, Type *DataTy, std::optional<uint64_t> DataSize,
     std::optional<uint64_t> AvailableSize, MaybeAlign Align,
     IRBuilderBase &Builder, const DataLayout &DL, const TargetLibraryInfo *TLI,
-    const TargetLowering *TL, bool AllowInstruction = true,
-    bool AllowSwitch = true, bool AllowSizedLibcall = true);
+    const TargetLowering *TL, llvm::Twine Name = Twine(),
+    bool AllowInstruction = true, bool AllowSwitch = true,
+    bool AllowSizedLibcall = true, bool AllowLibcall = true);
 
 } // namespace llvm
 

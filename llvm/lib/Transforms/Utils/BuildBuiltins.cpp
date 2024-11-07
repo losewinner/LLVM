@@ -19,6 +19,7 @@
 
 using namespace llvm;
 
+namespace {
 static IntegerType *getIntTy(IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   return B.getIntNTy(TLI->getIntSize());
 }
@@ -48,22 +49,41 @@ static bool canUseSizedAtomicCall(unsigned Size, Align Alignment,
          Size <= LargestSize;
 }
 
-Value *llvm::emitAtomicCompareExchangeBuiltin(
-    Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
-    std::variant<Value *, bool> IsWeak, bool IsVolatile,
-    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
-    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> FailureMemorder,
-    std::variant<Value *, SyncScope::ID, StringRef> Scope, Value *PrevPtr,
-    Type *DataTy, std::optional<uint64_t> DataSize,
-    std::optional<uint64_t> AvailableSize, MaybeAlign Align,
-    IRBuilderBase &Builder, const DataLayout &DL, const TargetLibraryInfo *TLI,
-    const TargetLowering *TL,
+// Helper to check if a type is in a variant
+template <typename T, typename Variant> struct is_in_variant;
+
+template <typename T, typename... Types>
+struct is_in_variant<T, std::variant<Types...>>
+    : std::disjunction<std::is_same<T, Types>...> {};
+
+/// Alternative to std::holds_alternative that works even if the std::variant
+/// cannot hold T.
+template <typename T, typename Variant>
+constexpr bool holds_alternative_if_exists(const Variant &v) {
+  if constexpr (is_in_variant<T, Variant>::value) {
+    return std::holds_alternative<T>(v);
+  } else {
+    // Type T is not in the variant, return false or handle accordingly
+    return false;
+  }
+}
+
+} // namespace
+
+void llvm::emitAtomicLoadBuiltin(
+    Value *Ptr, Value *RetPtr,
+    //  std::variant<Value *, bool> IsWeak,
+    bool IsVolatile,
+    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
+    std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
+    std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
+    MaybeAlign Align, IRBuilderBase &Builder, const DataLayout &DL,
+    const TargetLibraryInfo *TLI, const TargetLowering *TL,
     ArrayRef<std::pair<uint32_t, StringRef>> SyncScopes,
-    StringRef FallbackScope, bool AllowInstruction, bool AllowSwitch,
-    bool AllowSizedLibcall) {
+    StringRef FallbackScope, llvm::Twine Name, bool AllowInstruction,
+    bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall) {
   assert(Ptr->getType()->isPointerTy());
-  assert(ExpectedPtr->getType()->isPointerTy());
-  assert(DesiredPtr->getType()->isPointerTy());
+  assert(RetPtr->getType()->isPointerTy());
   assert(TLI);
 
   LLVMContext &Ctx = Builder.getContext();
@@ -142,6 +162,654 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
           Memorder,
           ConstantInt::get(IntTy, static_cast<uint64_t>(toCABI(Memorder))));
     }
+
+    if (std::holds_alternative<AtomicOrderingCABI>(MemorderVariant)) {
+      auto MemorderCABI = std::get<AtomicOrderingCABI>(MemorderVariant);
+      return std::make_pair(
+          fromCABI(MemorderCABI),
+          ConstantInt::get(IntTy, static_cast<uint64_t>(MemorderCABI)));
+    }
+
+    auto *MemorderCABI = std::get<Value *>(MemorderVariant);
+    if (auto *MO = dyn_cast<ConstantInt>(MemorderCABI)) {
+      uint64_t MOInt = MO->getZExtValue();
+      return std::make_pair(fromCABI(MOInt), MO);
+    }
+
+    return std::make_pair(std::nullopt, MemorderCABI);
+  };
+
+  auto processScope = [&](auto ScopeVariant)
+      -> std::pair<std::optional<SyncScope::ID>, Value *> {
+    if (std::holds_alternative<SyncScope::ID>(ScopeVariant)) {
+      auto ScopeID = std::get<SyncScope::ID>(ScopeVariant);
+      return std::make_pair(ScopeID, nullptr);
+    }
+
+    if (std::holds_alternative<StringRef>(ScopeVariant)) {
+      auto ScopeName = std::get<StringRef>(ScopeVariant);
+      SyncScope::ID ScopeID = Ctx.getOrInsertSyncScopeID(ScopeName);
+      return std::make_pair(ScopeID, nullptr);
+    }
+
+    auto *IntVal = std::get<Value *>(ScopeVariant);
+    if (auto *InstConst = dyn_cast<ConstantInt>(IntVal)) {
+      uint64_t ScopeVal = InstConst->getZExtValue();
+      return std::make_pair(ScopeVal, IntVal);
+    }
+
+    return std::make_pair(std::nullopt, IntVal);
+  };
+
+  // auto [IsWeakConst, IsWeakVal] = processIsWeak(IsWeak);
+  auto [MemorderConst, MemorderCABI] = processMemorder(Memorder);
+  auto [ScopeConst, ScopeVal] = processScope(Scope);
+
+  // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
+  //
+  //   The type of ‘<cmp>’ must be an integer or pointer type whose bit width is
+  //   a power of two greater than or equal to eight and less than or equal to a
+  //   target-specific size limit.
+  bool CanUseAtomicLoadInst = PreferredSize <= MaxAtomicSizeSupported &&
+                              llvm::isPowerOf2_64(PreferredSize) && CoercedTy;
+  bool CanUseSingleAtomicLoadInst = CanUseAtomicLoadInst &&
+                                    MemorderConst.has_value() // && IsWeakConst
+                                    && ScopeConst;
+  bool CanUseSizedLibcall =
+      canUseSizedAtomicCall(PreferredSize, EffectiveAlign, DL) &&
+      ScopeConst == SyncScope::System;
+  bool CanUseLibcall = ScopeConst == SyncScope::System;
+
+  Value *ExpectedVal;
+  Value *DesiredVal;
+
+  // Emit load instruction, either as a single instruction, or as a case of a
+  // per-constant switch.
+  auto EmitAtomicLoadInst = [&](SyncScope::ID Scope, AtomicOrdering Memorder) {
+    LoadInst *AtomicInst =
+        Builder.CreateLoad(CoercedTy, Ptr, IsVolatile, Name + ".atomic.load");
+    AtomicInst->setAtomic(Memorder, Scope);
+    AtomicInst->setAlignment(EffectiveAlign);
+    AtomicInst->setVolatile(IsVolatile);
+
+    // Store loaded result to where the caller expects it.
+    // FIXME: Do we need to zero the padding, if any?
+    Builder.CreateStore(AtomicInst, RetPtr, IsVolatile);
+  };
+
+  if (CanUseSingleAtomicLoadInst && AllowInstruction) {
+    return EmitAtomicLoadInst(*ScopeConst, *MemorderConst);
+  }
+
+  if (CanUseAtomicLoadInst && AllowSwitch && AllowInstruction) {
+    auto createBasicBlock = [&](const Twine &BBName) {
+      return BasicBlock::Create(Ctx, Name + BBName, CurFn);
+    };
+
+    auto GenMemorderSwitch = [&](SyncScope::ID Scope) {
+      if (MemorderConst)
+        return EmitAtomicLoadInst(Scope, *MemorderConst);
+
+      // Create all the relevant BB's
+      BasicBlock *MonotonicBB = createBasicBlock(".monotonic");
+      BasicBlock *AcquireBB = createBasicBlock(".acquire");
+      BasicBlock *ReleaseBB = createBasicBlock(".release");
+      BasicBlock *AcqRelBB = createBasicBlock(".acqrel");
+      BasicBlock *SeqCstBB = createBasicBlock(".seqcst");
+      BasicBlock *ContBB = createBasicBlock(".atomic.continue");
+
+      // Create the switch for the split
+      // MonotonicBB is arbitrarily chosen as the default case; in practice,
+      // this doesn't matter unless someone is crazy enough to use something
+      // that doesn't fold to a constant for the ordering.
+      Value *Order =
+          Builder.CreateIntCast(MemorderCABI, Builder.getInt32Ty(), false);
+      llvm::SwitchInst *SI = Builder.CreateSwitch(Order, MonotonicBB);
+
+      Builder.SetInsertPoint(ContBB);
+
+      // Emit all the different atomics
+      Builder.SetInsertPoint(MonotonicBB);
+      EmitAtomicLoadInst(Scope, AtomicOrdering::Monotonic);
+      Builder.CreateBr(ContBB);
+
+      Builder.SetInsertPoint(AcquireBB);
+      EmitAtomicLoadInst(Scope, AtomicOrdering::Acquire);
+      Builder.CreateBr(ContBB);
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::consume)),
+          Builder.GetInsertBlock());
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::acquire)),
+          Builder.GetInsertBlock());
+
+      Builder.SetInsertPoint(ReleaseBB);
+      EmitAtomicLoadInst(Scope, AtomicOrdering::Release);
+      Builder.CreateBr(ContBB);
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::release)),
+          Builder.GetInsertBlock());
+
+      Builder.SetInsertPoint(AcqRelBB);
+      EmitAtomicLoadInst(Scope, AtomicOrdering::AcquireRelease);
+      Builder.CreateBr(ContBB);
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::acq_rel)),
+          AcqRelBB);
+
+      Builder.SetInsertPoint(SeqCstBB);
+      EmitAtomicLoadInst(Scope, AtomicOrdering::SequentiallyConsistent);
+      Builder.CreateBr(ContBB);
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::seq_cst)),
+          SeqCstBB);
+
+      Builder.SetInsertPoint(ContBB);
+      return;
+    };
+
+    auto GenScopeSwitch = [&]() {
+      if (ScopeConst)
+        return GenMemorderSwitch(*ScopeConst);
+
+      // Handle non-constant scope.
+      DenseMap<unsigned, BasicBlock *> BB;
+      for (const auto &S : SyncScopes) {
+        if (FallbackScope == S.second)
+          continue; // always the default case
+        BB[S.first] = createBasicBlock(Twine(".atomic.scope.") + S.second);
+      }
+
+      BasicBlock *DefaultBB = createBasicBlock(".atomic.scope.fallback");
+      BasicBlock *ContBB = createBasicBlock(".atomic.scope.continue");
+
+      Builder.SetInsertPoint(ContBB);
+
+      Value *SC = Builder.CreateIntCast(ScopeVal, Builder.getInt32Ty(),
+                                        /*IsSigned=*/false,
+                                        Name + ".atomic.scope.cast");
+      // If unsupported synch scope is encountered at run time, assume a
+      // fallback synch scope value.
+      SwitchInst *SI = Builder.CreateSwitch(SC, DefaultBB);
+      for (const auto &S : SyncScopes) {
+        BasicBlock *B = BB[S.first];
+        SI->addCase(Builder.getInt32(S.first), B);
+
+        Builder.SetInsertPoint(B);
+        SyncScope::ID SyncScopeID = Ctx.getOrInsertSyncScopeID(S.second);
+        GenMemorderSwitch(SyncScopeID);
+        Builder.CreateBr(ContBB);
+      }
+
+      Builder.SetInsertPoint(DefaultBB);
+      SyncScope::ID SyncScopeID = Ctx.getOrInsertSyncScopeID(FallbackScope);
+      GenMemorderSwitch(SyncScopeID);
+      Builder.CreateBr(ContBB);
+
+      Builder.SetInsertPoint(ContBB);
+      return;
+    };
+
+    return GenScopeSwitch();
+  }
+
+  if (CanUseSizedLibcall && AllowSizedLibcall) {
+    Value *LoadResult =
+        emitAtomicLoadN(PreferredSize, Ptr, MemorderCABI, Builder, DL, TLI);
+    LoadResult->setName(Name);
+    if (LoadResult) {
+      Builder.CreateStore(LoadResult, RetPtr);
+      return;
+    }
+
+    // emitAtomicLoadN can return nullptr if the backend does not
+    // support sized libcalls. Fall back to the non-sized libcall and remove the
+    // unused load again.
+  }
+
+  if (CanUseLibcall && AllowLibcall) {
+    // Fallback to a libcall function. From here on IsWeak/Scope/IsVolatile is
+    // ignored. IsWeak is assumed to be false, Scope is assumed to be
+    // SyncScope::System (strongest possible assumption synchronizing with
+    // everything, instead of just a subset of sibling threads), and volatile
+    // does not apply to function calls.
+
+    Value *DataSizeVal =
+        ConstantInt::get(getSizeTTy(Builder, TLI), DataSizeConst);
+    Value *LoadCall = emitAtomicLoad(DataSizeVal, Ptr, RetPtr, MemorderCABI,
+                                     Builder, DL, TLI);
+    if (LoadCall) {
+      LoadCall->setName(Name);
+      return;
+    }
+  }
+
+  report_fatal_error(
+      "__atomic_load builtin not supported by any available means");
+}
+
+void llvm::emitAtomicStoreBuiltin(
+    Value *Ptr, Value *ValPtr,
+    // std::variant<Value *, bool> IsWeak,
+    bool IsVolatile,
+    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
+    std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
+    std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
+    MaybeAlign Align, IRBuilderBase &Builder, const DataLayout &DL,
+    const TargetLibraryInfo *TLI, const TargetLowering *TL,
+    ArrayRef<std::pair<uint32_t, StringRef>> SyncScopes,
+    StringRef FallbackScope, llvm::Twine Name, bool AllowInstruction,
+    bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall) {
+  assert(Ptr->getType()->isPointerTy());
+  assert(ValPtr->getType()->isPointerTy());
+  assert(TLI);
+
+  LLVMContext &Ctx = Builder.getContext();
+  Function *CurFn = Builder.GetInsertBlock()->getParent();
+
+  unsigned MaxAtomicSizeSupported = 16;
+  if (TL)
+    MaxAtomicSizeSupported = TL->getMaxAtomicSizeInBitsSupported() / 8;
+
+  uint64_t DataSizeConst;
+  if (DataSize) {
+    DataSizeConst = *DataSize;
+  } else {
+    TypeSize DS = DL.getTypeStoreSize(DataTy);
+    DataSizeConst = DS.getFixedValue();
+  }
+  uint64_t AvailableSizeConst = AvailableSize.value_or(DataSizeConst);
+  assert(DataSizeConst <= AvailableSizeConst);
+
+#ifndef NDEBUG
+  if (DataTy) {
+    // 'long double' (80-bit extended precision) behaves strange here.
+    // DL.getTypeStoreSize says it is 10 bytes
+    // Clang says it is 12 bytes
+    // AtomicExpandPass would disagree with CGAtomic (not for cmpxchg that does
+    // not support floats, so AtomicExpandPass doesn't even know it originally
+    // was an FP80)
+    TypeSize DS = DL.getTypeStoreSize(DataTy);
+    assert(DS.getKnownMinValue() <= DataSizeConst &&
+           "Must access at least all the relevant bits of the data, possibly "
+           "some more for padding");
+  }
+#endif
+
+  Type *BoolTy = Builder.getInt1Ty();
+  Type *IntTy = getIntTy(Builder, TLI);
+
+  uint64_t PreferredSize = PowerOf2Ceil(DataSizeConst);
+  if (!PreferredSize || PreferredSize > MaxAtomicSizeSupported)
+    PreferredSize = DataSizeConst;
+
+  llvm::Align EffectiveAlign;
+  if (Align) {
+    EffectiveAlign = *Align;
+  } else {
+    // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
+    //
+    //   The alignment is only optional when parsing textual IR; for in-memory
+    //   IR, it is always present. If unspecified, the alignment is assumed to
+    //   be equal to the size of the ‘<value>’ type.
+    //
+    // We prefer safety here and assume no alignment, unless
+    // getPointerAlignment() can determine the actual alignment.
+    EffectiveAlign = Ptr->getPointerAlignment(DL);
+  }
+
+  // Only use the original data type if it is compatible with cmpxchg (and sized
+  // libcall function) and matches the preferred size. No type punning needed
+  // for __atomic_compare_exchange which only takes pointers.
+  Type *CoercedTy = nullptr;
+  if (DataTy && DataSizeConst == PreferredSize &&
+      (DataTy->isIntegerTy() || DataTy->isPointerTy()))
+    CoercedTy = DataTy;
+  else if (PreferredSize <= 16)
+    CoercedTy = IntegerType::get(Ctx, PreferredSize * 8);
+
+  // For resolving the SuccessMemorder/FailureMemorder arguments. If it is
+  // constant, determine the AtomicOrdering for use with the cmpxchg
+  // instruction. Also determines the llvm::Value to be passed to
+  // __atomic_compare_exchange in case cmpxchg is not legal.
+  auto processMemorder = [&](auto MemorderVariant)
+      -> std::pair<std::optional<AtomicOrdering>, Value *> {
+    if (std::holds_alternative<AtomicOrdering>(MemorderVariant)) {
+      auto Memorder = std::get<AtomicOrdering>(MemorderVariant);
+      return std::make_pair(
+          Memorder,
+          ConstantInt::get(IntTy, static_cast<uint64_t>(toCABI(Memorder))));
+    }
+
+    if (std::holds_alternative<AtomicOrderingCABI>(MemorderVariant)) {
+      auto MemorderCABI = std::get<AtomicOrderingCABI>(MemorderVariant);
+      return std::make_pair(
+          fromCABI(MemorderCABI),
+          ConstantInt::get(IntTy, static_cast<uint64_t>(MemorderCABI)));
+    }
+
+    auto *MemorderCABI = std::get<Value *>(MemorderVariant);
+    if (auto *MO = dyn_cast<ConstantInt>(MemorderCABI)) {
+      uint64_t MOInt = MO->getZExtValue();
+      return std::make_pair(fromCABI(MOInt), MO);
+    }
+
+    return std::make_pair(std::nullopt, MemorderCABI);
+  };
+
+  auto processScope = [&](auto ScopeVariant)
+      -> std::pair<std::optional<SyncScope::ID>, Value *> {
+    if (std::holds_alternative<SyncScope::ID>(ScopeVariant)) {
+      auto ScopeID = std::get<SyncScope::ID>(ScopeVariant);
+      return std::make_pair(ScopeID, nullptr);
+    }
+
+    if (std::holds_alternative<StringRef>(ScopeVariant)) {
+      auto ScopeName = std::get<StringRef>(ScopeVariant);
+      SyncScope::ID ScopeID = Ctx.getOrInsertSyncScopeID(ScopeName);
+      return std::make_pair(ScopeID, nullptr);
+    }
+
+    auto *IntVal = std::get<Value *>(ScopeVariant);
+    if (auto *InstConst = dyn_cast<ConstantInt>(IntVal)) {
+      uint64_t ScopeVal = InstConst->getZExtValue();
+      return std::make_pair(ScopeVal, IntVal);
+    }
+
+    return std::make_pair(std::nullopt, IntVal);
+  };
+
+  // auto [IsWeakConst, IsWeakVal] = processIsWeak(IsWeak);
+  auto [MemorderConst, MemorderCABI] = processMemorder(Memorder);
+  auto [ScopeConst, ScopeVal] = processScope(Scope);
+
+  // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
+  //
+  //   The type of ‘<cmp>’ must be an integer or pointer type whose bit width is
+  //   a power of two greater than or equal to eight and less than or equal to a
+  //   target-specific size limit.
+  bool CanUseAtomicLoadInst = PreferredSize <= MaxAtomicSizeSupported &&
+                              llvm::isPowerOf2_64(PreferredSize) && CoercedTy;
+  bool CanUseSingleAtomicLoadInst = CanUseAtomicLoadInst &&
+                                    MemorderConst.has_value() // && IsWeakConst
+                                    && ScopeConst;
+  bool CanUseSizedLibcall =
+      canUseSizedAtomicCall(PreferredSize, EffectiveAlign, DL) &&
+      ScopeConst == SyncScope::System;
+  bool CanUseLibcall = ScopeConst == SyncScope::System;
+
+  Value *ExpectedVal;
+  Value *DesiredVal;
+
+  LoadInst *Val;
+
+  // Emit load instruction, either as a single instruction, or as a case of a
+  // per-constant switch.
+  auto EmitAtomicStoreInst = [&](SyncScope::ID Scope, AtomicOrdering Memorder) {
+    StoreInst *AtomicInst = Builder.CreateStore(Val, Ptr, IsVolatile);
+    AtomicInst->setAtomic(Memorder, Scope);
+    AtomicInst->setAlignment(EffectiveAlign);
+    AtomicInst->setVolatile(IsVolatile);
+  };
+
+  if (CanUseSingleAtomicLoadInst && AllowInstruction) {
+    Val = Builder.CreateLoad(CoercedTy, ValPtr, Name + ".atomic.val");
+    return EmitAtomicStoreInst(*ScopeConst, *MemorderConst);
+  }
+
+  if (CanUseAtomicLoadInst && AllowSwitch && AllowInstruction) {
+    Val = Builder.CreateLoad(CoercedTy, ValPtr, Name + ".atomic.val");
+
+    auto createBasicBlock = [&](const Twine &BBName) {
+      return BasicBlock::Create(Ctx, Name + BBName, CurFn);
+    };
+
+    auto GenMemorderSwitch = [&](SyncScope::ID Scope) {
+      if (MemorderConst)
+        return EmitAtomicStoreInst(Scope, *MemorderConst);
+
+      // Create all the relevant BB's
+      BasicBlock *MonotonicBB = createBasicBlock(".monotonic");
+      BasicBlock *AcquireBB = createBasicBlock(".acquire");
+      BasicBlock *ReleaseBB = createBasicBlock(".release");
+      BasicBlock *AcqRelBB = createBasicBlock(".acqrel");
+      BasicBlock *SeqCstBB = createBasicBlock(".seqcst");
+      BasicBlock *ContBB = createBasicBlock(".atomic.continue");
+
+      // Create the switch for the split
+      // MonotonicBB is arbitrarily chosen as the default case; in practice,
+      // this doesn't matter unless someone is crazy enough to use something
+      // that doesn't fold to a constant for the ordering.
+      Value *Order =
+          Builder.CreateIntCast(MemorderCABI, Builder.getInt32Ty(), false);
+      llvm::SwitchInst *SI = Builder.CreateSwitch(Order, MonotonicBB);
+
+      Builder.SetInsertPoint(ContBB);
+
+      // Emit all the different atomics
+      Builder.SetInsertPoint(MonotonicBB);
+      EmitAtomicStoreInst(Scope, AtomicOrdering::Monotonic);
+      Builder.CreateBr(ContBB);
+
+      Builder.SetInsertPoint(AcquireBB);
+      EmitAtomicStoreInst(Scope, AtomicOrdering::Acquire);
+      Builder.CreateBr(ContBB);
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::consume)),
+          Builder.GetInsertBlock());
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::acquire)),
+          Builder.GetInsertBlock());
+
+      Builder.SetInsertPoint(ReleaseBB);
+      EmitAtomicStoreInst(Scope, AtomicOrdering::Release);
+      Builder.CreateBr(ContBB);
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::release)),
+          Builder.GetInsertBlock());
+
+      Builder.SetInsertPoint(AcqRelBB);
+      EmitAtomicStoreInst(Scope, AtomicOrdering::AcquireRelease);
+      Builder.CreateBr(ContBB);
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::acq_rel)),
+          AcqRelBB);
+
+      Builder.SetInsertPoint(SeqCstBB);
+      EmitAtomicStoreInst(Scope, AtomicOrdering::SequentiallyConsistent);
+      Builder.CreateBr(ContBB);
+      SI->addCase(
+          Builder.getInt32(static_cast<uint32_t>(AtomicOrderingCABI::seq_cst)),
+          SeqCstBB);
+
+      Builder.SetInsertPoint(ContBB);
+      return;
+    };
+
+    auto GenScopeSwitch = [&]() {
+      if (ScopeConst)
+        return GenMemorderSwitch(*ScopeConst);
+
+      // Handle non-constant scope.
+      DenseMap<unsigned, BasicBlock *> BB;
+      for (const auto &S : SyncScopes) {
+        if (FallbackScope == S.second)
+          continue; // always the default case
+        BB[S.first] = createBasicBlock(Twine(".atomic.scope.") + S.second);
+      }
+
+      BasicBlock *DefaultBB = createBasicBlock(".atomic.scope.fallback");
+      BasicBlock *ContBB = createBasicBlock(".atomic.scope.continue");
+
+      Builder.SetInsertPoint(ContBB);
+
+      Value *SC = Builder.CreateIntCast(ScopeVal, Builder.getInt32Ty(),
+                                        /*IsSigned=*/false,
+                                        Name + ".atomic.scope.cast");
+      // If unsupported synch scope is encountered at run time, assume a
+      // fallback synch scope value.
+      SwitchInst *SI = Builder.CreateSwitch(SC, DefaultBB);
+      for (const auto &S : SyncScopes) {
+        BasicBlock *B = BB[S.first];
+        SI->addCase(Builder.getInt32(S.first), B);
+
+        Builder.SetInsertPoint(B);
+        SyncScope::ID SyncScopeID = Ctx.getOrInsertSyncScopeID(S.second);
+        GenMemorderSwitch(SyncScopeID);
+        Builder.CreateBr(ContBB);
+      }
+
+      Builder.SetInsertPoint(DefaultBB);
+      SyncScope::ID SyncScopeID = Ctx.getOrInsertSyncScopeID(FallbackScope);
+      GenMemorderSwitch(SyncScopeID);
+      Builder.CreateBr(ContBB);
+
+      Builder.SetInsertPoint(ContBB);
+      return;
+    };
+
+    return GenScopeSwitch();
+  }
+
+  if (CanUseSizedLibcall && AllowSizedLibcall) {
+    Val = Builder.CreateLoad(CoercedTy, ValPtr, Name + ".atomic.val");
+    Value *StoreCall = emitAtomicStoreN(DataSizeConst, Ptr, Val, MemorderCABI,
+                                        Builder, DL, TLI);
+    StoreCall->setName(Name);
+    if (StoreCall)
+      return;
+
+    // emitAtomiStoreN can return nullptr if the backend does not
+    // support sized libcalls. Fall back to the non-sized libcall and remove the
+    // unused load again.
+  }
+
+  if (CanUseLibcall && AllowLibcall) {
+    // Fallback to a libcall function. From here on IsWeak/Scope/IsVolatile is
+    // ignored. IsWeak is assumed to be false, Scope is assumed to be
+    // SyncScope::System (strongest possible assumption synchronizing with
+    // everything, instead of just a subset of sibling threads), and volatile
+    // does not apply to function calls.
+
+    Value *DataSizeVal =
+        ConstantInt::get(getSizeTTy(Builder, TLI), DataSizeConst);
+    Value *StoreCall = emitAtomicStore(DataSizeVal, Ptr, ValPtr, MemorderCABI,
+                                       Builder, DL, TLI);
+    if (StoreCall)
+      return;
+  }
+
+  report_fatal_error(
+      "__atomic_store builtin not supported by any available means");
+}
+
+Value *llvm::emitAtomicCompareExchangeBuiltin(
+    Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
+    std::variant<Value *, bool> IsWeak, bool IsVolatile,
+    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
+    std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
+        FailureMemorder,
+    std::variant<Value *, SyncScope::ID, StringRef> Scope, Value *PrevPtr,
+    Type *DataTy, std::optional<uint64_t> DataSize,
+    std::optional<uint64_t> AvailableSize, MaybeAlign Align,
+    IRBuilderBase &Builder, const DataLayout &DL, const TargetLibraryInfo *TLI,
+    const TargetLowering *TL,
+    ArrayRef<std::pair<uint32_t, StringRef>> SyncScopes,
+    StringRef FallbackScope, llvm::Twine Name, bool AllowInstruction,
+    bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall) {
+  assert(Ptr->getType()->isPointerTy());
+  assert(ExpectedPtr->getType()->isPointerTy());
+  assert(DesiredPtr->getType()->isPointerTy());
+  assert(TLI);
+
+  LLVMContext &Ctx = Builder.getContext();
+  Function *CurFn = Builder.GetInsertBlock()->getParent();
+
+  unsigned MaxAtomicSizeSupported = 16;
+  if (TL)
+    MaxAtomicSizeSupported = TL->getMaxAtomicSizeInBitsSupported() / 8;
+
+  uint64_t DataSizeConst;
+  if (DataSize) {
+    DataSizeConst = *DataSize;
+  } else {
+    TypeSize DS = DL.getTypeStoreSize(DataTy);
+    DataSizeConst = DS.getFixedValue();
+  }
+  uint64_t AvailableSizeConst = AvailableSize.value_or(DataSizeConst);
+  assert(DataSizeConst <= AvailableSizeConst);
+
+#ifndef NDEBUG
+  if (DataTy) {
+    // 'long double' (80-bit extended precision) behaves strange here.
+    // DL.getTypeStoreSize says it is 10 bytes
+    // Clang says it is 12 bytes
+    // AtomicExpandPass would disagree with CGAtomic (not for cmpxchg that does
+    // not support floats, so AtomicExpandPass doesn't even know it originally
+    // was an FP80)
+    TypeSize DS = DL.getTypeStoreSize(DataTy);
+    assert(DS.getKnownMinValue() <= DataSizeConst &&
+           "Must access at least all the relevant bits of the data, possibly "
+           "some more for padding");
+  }
+#endif
+
+  Type *BoolTy = Builder.getInt1Ty();
+  Type *IntTy = getIntTy(Builder, TLI);
+
+  uint64_t PreferredSize = PowerOf2Ceil(DataSizeConst);
+  if (!PreferredSize || PreferredSize > MaxAtomicSizeSupported)
+    PreferredSize = DataSizeConst;
+
+  llvm::Align EffectiveAlign;
+  if (Align) {
+    EffectiveAlign = *Align;
+  } else {
+    // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
+    //
+    //   The alignment is only optional when parsing textual IR; for in-memory
+    //   IR, it is always present. If unspecified, the alignment is assumed to
+    //   be equal to the size of the ‘<value>’ type.
+    //
+    // We prefer safety here and assume no alignment, unless
+    // getPointerAlignment() can determine the actual alignment.
+    EffectiveAlign = Ptr->getPointerAlignment(DL);
+  }
+
+  // Only use the original data type if it is compatible with cmpxchg (and sized
+  // libcall function) and matches the preferred size. No type punning needed
+  // for __atomic_compare_exchange which only takes pointers.
+  Type *CoercedTy = nullptr;
+  if (DataTy && DataSizeConst == PreferredSize &&
+      (DataTy->isIntegerTy() || DataTy->isPointerTy()))
+    CoercedTy = DataTy;
+  else if (PreferredSize <= 16)
+    CoercedTy = IntegerType::get(Ctx, PreferredSize * 8);
+
+  std::optional<AtomicOrdering> SuccessMemorderConst;
+  // For resolving the SuccessMemorder/FailureMemorder arguments. If it is
+  // constant, determine the AtomicOrdering for use with the cmpxchg
+  // instruction. Also determines the llvm::Value to be passed to
+  // __atomic_compare_exchange in case cmpxchg is not legal.
+  auto processMemorder = [&](auto MemorderVariant)
+      -> std::pair<std::optional<AtomicOrdering>, Value *> {
+    if (holds_alternative_if_exists<std::monostate>(MemorderVariant)) {
+      // Derive FailureMemorder from SucccessMemorder
+      if (SuccessMemorderConst) {
+        AtomicOrdering MOFailure =
+            llvm::AtomicCmpXchgInst::getStrongestFailureOrdering(
+                *SuccessMemorderConst);
+        MemorderVariant = MOFailure;
+      }
+    }
+
+    if (std::holds_alternative<AtomicOrdering>(MemorderVariant)) {
+      auto Memorder = std::get<AtomicOrdering>(MemorderVariant);
+      return std::make_pair(
+          Memorder,
+          ConstantInt::get(IntTy, static_cast<uint64_t>(toCABI(Memorder))));
+    }
+
     if (std::holds_alternative<AtomicOrderingCABI>(MemorderVariant)) {
       auto MemorderCABI = std::get<AtomicOrderingCABI>(MemorderVariant);
       return std::make_pair(
@@ -196,8 +864,9 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
     return std::make_pair(std::nullopt, IntVal);
   };
 
+  Value *SuccessMemorderCABI;
   auto [IsWeakConst, IsWeakVal] = processIsWeak(IsWeak);
-  auto [SuccessMemorderConst, SuccessMemorderCABI] =
+  std::tie(SuccessMemorderConst, SuccessMemorderCABI) =
       processMemorder(SuccessMemorder);
   auto [FailureMemorderConst, FailureMemorderCABI] =
       processMemorder(FailureMemorder);
@@ -241,7 +910,9 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
                                   FailureMemorderConst && IsWeakConst &&
                                   ScopeConst;
   bool CanUseSizedLibcall =
-      canUseSizedAtomicCall(PreferredSize, EffectiveAlign, DL);
+      canUseSizedAtomicCall(PreferredSize, EffectiveAlign, DL) &&
+      ScopeConst == SyncScope::System;
+  bool CanUseLibcall = ScopeConst == SyncScope::System;
 
   Value *ExpectedVal;
   Value *DesiredVal;
@@ -254,19 +925,19 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
     AtomicCmpXchgInst *AtomicInst =
         Builder.CreateAtomicCmpXchg(Ptr, ExpectedVal, DesiredVal, Align,
                                     SuccessMemorder, FailureMemorder, Scope);
-    AtomicInst->setName("cmpxchg.pair");
+    AtomicInst->setName(Name + ".cmpxchg.pair");
     AtomicInst->setAlignment(EffectiveAlign);
     AtomicInst->setWeak(IsWeak);
     AtomicInst->setVolatile(IsVolatile);
 
     if (PrevPtr) {
-      Value *PreviousVal =
-          Builder.CreateExtractValue(AtomicInst, /*Idxs=*/0, "cmpxchg.prev");
+      Value *PreviousVal = Builder.CreateExtractValue(AtomicInst, /*Idxs=*/0,
+                                                      Name + ".cmpxchg.prev");
       Builder.CreateStore(PreviousVal, PrevPtr);
     }
 
-    Value *SuccessFailureVal =
-        Builder.CreateExtractValue(AtomicInst, /*Idxs=*/1, "cmpxchg.success");
+    Value *SuccessFailureVal = Builder.CreateExtractValue(
+        AtomicInst, /*Idxs=*/1, Name + ".cmpxchg.success");
 
     assert(SuccessFailureVal->getType()->isIntegerTy(1));
     return SuccessFailureVal;
@@ -275,8 +946,9 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
   if (CanUseSingleCmpxchngInst && AllowInstruction) {
     // FIXME: Need to get alignment correct
     ExpectedVal =
-        Builder.CreateLoad(CoercedTy, ExpectedPtr, "cmpxchg.expected");
-    DesiredVal = Builder.CreateLoad(CoercedTy, DesiredPtr, "cmpxchg.desired");
+        Builder.CreateLoad(CoercedTy, ExpectedPtr, Name + ".cmpxchg.expected");
+    DesiredVal =
+        Builder.CreateLoad(CoercedTy, DesiredPtr, Name + ".cmpxchg.desired");
     return EmitCmpxchngInst(*IsWeakConst, *ScopeConst, *SuccessMemorderConst,
                             *FailureMemorderConst);
   }
@@ -288,13 +960,14 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
   // __atomic_compare_exchange function. In that case the switching was very
   // unnecessary but cannot be undone.
   if (CanUseCmpxchngInst && AllowSwitch && AllowInstruction) {
-    auto createBasicBlock = [&](const Twine &Name) {
-      return BasicBlock::Create(Ctx, Name, CurFn);
+    auto createBasicBlock = [&](const Twine &BBName) {
+      return BasicBlock::Create(Ctx, Name + BBName, CurFn);
     };
 
     ExpectedVal =
-        Builder.CreateLoad(CoercedTy, ExpectedPtr, "cmpxchg.expected");
-    DesiredVal = Builder.CreateLoad(CoercedTy, DesiredPtr, "cmpxchg.desired");
+        Builder.CreateLoad(CoercedTy, ExpectedPtr, Name + ".cmpxchg.expected");
+    DesiredVal =
+        Builder.CreateLoad(CoercedTy, DesiredPtr, Name + ".cmpxchg.desired");
 
     auto GenFailureMemorderSwitch =
         [&](bool IsWeak, SyncScope::ID Scope,
@@ -355,7 +1028,7 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
       Builder.CreateBr(ContBB);
 
       Builder.SetInsertPoint(ContBB);
-      PHINode *Result = Builder.CreatePHI(BoolTy, 3, "cmpxcgh.success");
+      PHINode *Result = Builder.CreatePHI(BoolTy, 3, Name + ".cmpxchg.success");
       Result->addIncoming(MonotonicResult, MonotonicSourceBB);
       Result->addIncoming(AcquireResult, AcquireSourceBB);
       Result->addIncoming(SeqCstResult, SeqCstSourceBB);
@@ -368,12 +1041,12 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
         return GenFailureMemorderSwitch(IsWeak, Scope, *SuccessMemorderConst);
 
       // Create all the relevant BB's
-      BasicBlock *MonotonicBB = createBasicBlock("monotonic");
-      BasicBlock *AcquireBB = createBasicBlock("acquire");
-      BasicBlock *ReleaseBB = createBasicBlock("release");
-      BasicBlock *AcqRelBB = createBasicBlock("acqrel");
-      BasicBlock *SeqCstBB = createBasicBlock("seqcst");
-      BasicBlock *ContBB = createBasicBlock("atomic.continue");
+      BasicBlock *MonotonicBB = createBasicBlock(".monotonic");
+      BasicBlock *AcquireBB = createBasicBlock(".acquire");
+      BasicBlock *ReleaseBB = createBasicBlock(".release");
+      BasicBlock *AcqRelBB = createBasicBlock(".acqrel");
+      BasicBlock *SeqCstBB = createBasicBlock(".seqcst");
+      BasicBlock *ContBB = createBasicBlock(".atomic.continue");
 
       // Create the switch for the split
       // MonotonicBB is arbitrarily chosen as the default case; in practice,
@@ -384,7 +1057,7 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
       llvm::SwitchInst *SI = Builder.CreateSwitch(Order, MonotonicBB);
 
       Builder.SetInsertPoint(ContBB);
-      PHINode *Result = Builder.CreatePHI(BoolTy, 5, "cmpxcgh.success");
+      PHINode *Result = Builder.CreatePHI(BoolTy, 5, Name + ".cmpxchg.success");
 
       // Emit all the different atomics
       Builder.SetInsertPoint(MonotonicBB);
@@ -445,19 +1118,19 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
       for (const auto &S : SyncScopes) {
         if (FallbackScope == S.second)
           continue; // always the default case
-        BB[S.first] = createBasicBlock(Twine("cmpxchg.scope.") + S.second);
+        BB[S.first] = createBasicBlock(Twine(".cmpxchg.scope.") + S.second);
       }
 
-      BasicBlock *DefaultBB = createBasicBlock("atomic.scope.fallback");
-      BasicBlock *ContBB = createBasicBlock("atomic.scope.continue");
+      BasicBlock *DefaultBB = createBasicBlock(".cmpxchg.scope.fallback");
+      BasicBlock *ContBB = createBasicBlock(".cmpxchg.scope.continue");
 
       Builder.SetInsertPoint(ContBB);
-      PHINode *Result =
-          Builder.CreatePHI(BoolTy, SyncScopes.size() + 1, "cmpxchg.success");
+      PHINode *Result = Builder.CreatePHI(BoolTy, SyncScopes.size() + 1,
+                                          Name + ".cmpxchg.success");
 
       Value *SC = Builder.CreateIntCast(ScopeVal, Builder.getInt32Ty(),
                                         /*IsSigned*/ false,
-                                        "atomic.cmpxchg.scope.cast");
+                                        Name + ".cmpxchg.scope.cast");
       // If unsupported synch scope is encountered at run time, assume a
       // fallback synch scope value.
       SwitchInst *SI = Builder.CreateSwitch(SC, DefaultBB);
@@ -487,9 +1160,9 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
         return GenScopeSwitch(*IsWeakConst);
 
       // Create all the relevant BB's
-      BasicBlock *StrongBB = createBasicBlock("cmpxchg.strong");
-      BasicBlock *WeakBB = createBasicBlock("cmpxchg.weak");
-      BasicBlock *ContBB = createBasicBlock("cmpxchg.continue");
+      BasicBlock *StrongBB = createBasicBlock(".cmpxchg.strong");
+      BasicBlock *WeakBB = createBasicBlock(".cmpxchg.weak");
+      BasicBlock *ContBB = createBasicBlock(".cmpxchg.continue");
 
       // FIXME: Why is this a switch?
       llvm::SwitchInst *SI = Builder.CreateSwitch(IsWeakVal, WeakBB);
@@ -506,7 +1179,8 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
       Builder.CreateBr(ContBB);
 
       Builder.SetInsertPoint(ContBB);
-      PHINode *Result = Builder.CreatePHI(BoolTy, 2, "cmpxchg.isweak.success");
+      PHINode *Result =
+          Builder.CreatePHI(BoolTy, 2, Name + ".cmpxchg.isweak.success");
       Result->addIncoming(WeakResult, WeakSourceBB);
       Result->addIncoming(StrongResult, StrongSourceBB);
       return Result;
@@ -515,31 +1189,17 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
     return GenWeakSwitch();
   }
 
-  // Fallback to a libcall function. From here on IsWeak/Scope/IsVolatile is
-  // ignored. IsWeak is assumed to be false, Scope is assumed to be
-  // SyncScope::System (strongest possible assumption synchronizing with
-  // everything, instead of just a subset of sibling threads), and volatile does
-  // not apply to function calls.
-
-  // FIXME: Some AMDGCN regression tests the addrspace, but
-  // __atomic_compare_exchange by definition is addrsspace(0) and
-  // emitAtomicCompareExchange will complain about it.
-  if (Ptr->getType()->getPointerAddressSpace() ||
-      ExpectedPtr->getType()->getPointerAddressSpace() ||
-      DesiredPtr->getType()->getPointerAddressSpace())
-    return Builder.getInt1(false);
-
   if (CanUseSizedLibcall && AllowSizedLibcall) {
     LoadInst *DesiredVal =
         Builder.CreateLoad(IntegerType::get(Ctx, PreferredSize * 8), DesiredPtr,
-                           "cmpxchg.desired");
+                           Name + ".cmpxchg.desired");
     Value *SuccessResult = emitAtomicCompareExchangeN(
         PreferredSize, Ptr, ExpectedPtr, DesiredVal, SuccessMemorderCABI,
         FailureMemorderCABI, Builder, DL, TLI);
     if (SuccessResult) {
       Value *SuccessBool =
           Builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, SuccessResult,
-                            Builder.getInt8(0), "cmpxchg.success");
+                            Builder.getInt8(0), Name + ".cmpxchg.success");
 
       if (PrevPtr && PrevPtr != ExpectedPtr)
         Builder.CreateMemCpy(PrevPtr, {}, ExpectedPtr, {}, DataSizeConst);
@@ -552,42 +1212,61 @@ Value *llvm::emitAtomicCompareExchangeBuiltin(
     DesiredVal->eraseFromParent();
   }
 
-  // FIXME: emitAtomicCompareExchange may fail if a function declaration with
-  // the same name but different signature has already been emitted. Since the
-  // function name starts with "__", i.e. is reserved for use by the compiler,
-  // this should not happen.
-  // It may also fail if the target's TargetLibraryInfo claims that
-  // __atomic_compare_exchange is not supported. In either case there is no
-  // fallback for atomics not supported by the target and we have to crash. 
-  Value *SuccessResult = emitAtomicCompareExchange(
-      ConstantInt::get(getSizeTTy(Builder, TLI), DataSizeConst), Ptr,
-      ExpectedPtr, DesiredPtr, SuccessMemorderCABI, FailureMemorderCABI,
-      Builder, DL, TLI);
-  if (!SuccessResult)
-    report_fatal_error("expandAtomicOpToLibcall shouldn't fail for CAS");
+  if (CanUseLibcall && AllowLibcall) {
+    // Fallback to a libcall function. From here on IsWeak/Scope/IsVolatile is
+    // ignored. IsWeak is assumed to be false, Scope is assumed to be
+    // SyncScope::System (strongest possible assumption synchronizing with
+    // everything, instead of just a subset of sibling threads), and volatile
+    // does not apply to function calls.
 
-  Value *SuccessBool =
-      Builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, SuccessResult,
-                        Builder.getInt8(0), "cmpxchg.success");
+    // FIXME: Some AMDGCN regression tests the addrspace, but
+    // __atomic_compare_exchange by definition is addrsspace(0) and
+    // emitAtomicCompareExchange will complain about it.
+    if (Ptr->getType()->getPointerAddressSpace() ||
+        ExpectedPtr->getType()->getPointerAddressSpace() ||
+        DesiredPtr->getType()->getPointerAddressSpace())
+      return Builder.getInt1(false);
 
-  if (PrevPtr && PrevPtr != ExpectedPtr)
-    Builder.CreateMemCpy(PrevPtr, {}, ExpectedPtr, {}, DataSizeConst);
-  return SuccessBool;
+    // FIXME: emitAtomicCompareExchange may fail if a function declaration with
+    // the same name but different signature has already been emitted or the
+    // target does not support it. Since the function name starts with "__",
+    // i.e. is reserved for use by the compiler, this should not happen. It may
+    // also fail if the target's TargetLibraryInfo claims that
+    // __atomic_compare_exchange is not supported. In either case there is no
+    // fallback for atomics not supported by the target and we have to crash.
+    Value *SuccessResult = emitAtomicCompareExchange(
+        ConstantInt::get(getSizeTTy(Builder, TLI), DataSizeConst), Ptr,
+        ExpectedPtr, DesiredPtr, SuccessMemorderCABI, FailureMemorderCABI,
+        Builder, DL, TLI);
+    if (SuccessResult) {
+      Value *SuccessBool =
+          Builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, SuccessResult,
+                            Builder.getInt8(0), Name + ".cmpxchg.success");
+
+      if (PrevPtr && PrevPtr != ExpectedPtr)
+        Builder.CreateMemCpy(PrevPtr, {}, ExpectedPtr, {}, DataSizeConst);
+      return SuccessBool;
+    }
+  }
+
+  report_fatal_error(
+      "__atomic_compare_exchange builtin not supported by any available means");
 }
 
 Value *llvm::emitAtomicCompareExchangeBuiltin(
     Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
-    std::variant<Value *, bool> Weak, bool IsVolatile,
+    std::variant<Value *, bool> IsWeak, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
-    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> FailureMemorder,
+    std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
+        FailureMemorder,
     Value *PrevPtr, Type *DataTy, std::optional<uint64_t> DataSize,
     std::optional<uint64_t> AvailableSize, MaybeAlign Align,
     IRBuilderBase &Builder, const DataLayout &DL, const TargetLibraryInfo *TLI,
-    const TargetLowering *TL, bool AllowInstruction, bool AllowSwitch,
-    bool AllowSizedLibcall) {
+    const TargetLowering *TL, llvm::Twine Name, bool AllowInstruction,
+    bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall) {
   return emitAtomicCompareExchangeBuiltin(
-      Ptr, ExpectedPtr, DesiredPtr, Weak, IsVolatile, SuccessMemorder,
+      Ptr, ExpectedPtr, DesiredPtr, IsWeak, IsVolatile, SuccessMemorder,
       FailureMemorder, SyncScope::System, PrevPtr, DataTy, DataSize,
-      AvailableSize, Align, Builder, DL, TLI, TL, {}, StringRef(),
-      AllowInstruction, AllowSwitch, AllowSizedLibcall);
+      AvailableSize, Align, Builder, DL, TLI, TL, {}, StringRef(), Name,
+      AllowInstruction, AllowSwitch, AllowSizedLibcall, AllowLibcall);
 }
