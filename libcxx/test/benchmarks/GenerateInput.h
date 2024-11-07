@@ -119,6 +119,13 @@ inline std::vector<std::string> getRandomStringInputs(size_t N) {
   return inputs;
 }
 
+inline std::vector<std::string> getShortRandomStringInputs(size_t N) {
+  std::vector<std::string> inputs;
+  for (size_t i = 0; i < N; ++i)
+    inputs.push_back(getRandomString(10)); // SSO
+  return inputs;
+}
+
 inline std::vector<std::string> getPrefixedRandomStringInputs(size_t N) {
   std::vector<std::string> inputs;
   constexpr int kSuffixLength = 32;

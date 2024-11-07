@@ -119,6 +119,90 @@ void BM_InsertValueRehash(benchmark::State& st, Container c, GenInputs gen) {
   }
 }
 
+// Wrap any Iterator into an input iterator
+template <typename Iterator>
+class InputIterator {
+  using iter_traits = std::iterator_traits<Iterator>;
+
+public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type        = typename iter_traits::value_type;
+  using difference_type   = typename iter_traits::difference_type;
+  using pointer           = typename iter_traits::pointer;
+  using reference         = typename iter_traits::reference;
+
+  InputIterator(Iterator it) : current_(it) {}
+
+  reference operator*() { return *current_; }
+  InputIterator& operator++() {
+    ++current_;
+    return *this;
+  }
+  InputIterator operator++(int) {
+    InputIterator tmp = *this;
+    ++(*this);
+    return tmp;
+  }
+
+  friend bool operator==(const InputIterator& lhs, const InputIterator& rhs) { return lhs.current_ == rhs.current_; }
+  friend bool operator!=(const InputIterator& lhs, const InputIterator& rhs) { return !(lhs == rhs); }
+
+private:
+  Iterator current_;
+};
+
+template <typename Iterator>
+InputIterator<Iterator> make_input_iterator(Iterator it) {
+  return InputIterator<Iterator>(it);
+}
+
+// Test case: vector is empty
+template <class Container, class GenInputs>
+void BM_InsertIterInputIterIterEmpty(benchmark::State& st, Container _, GenInputs gen) {
+  auto in = gen(st.range(0));
+  benchmark::DoNotOptimize(&in);
+  for (auto _ : st) {
+    Container c;
+    benchmark::DoNotOptimize(&c);
+    benchmark::DoNotOptimize(c.insert(c.begin(), make_input_iterator(in.begin()), make_input_iterator(in.end())));
+    benchmark::ClobberMemory();
+  }
+}
+
+// Test case: vector is half full
+template <class Container, class GenInputs>
+void BM_InsertIterInputIterIterHalfFull(benchmark::State& st, Container c, GenInputs gen) {
+  for (auto _ : st) {
+    st.PauseTiming();
+    c = gen(st.range(0));
+    c.reserve(c.size() * 2);
+    auto in = gen(c.size() + 10);
+    benchmark::DoNotOptimize(&c);
+    benchmark::DoNotOptimize(&in);
+    st.ResumeTiming();
+
+    benchmark::DoNotOptimize(c.insert(c.begin(), make_input_iterator(in.begin()), make_input_iterator(in.end())));
+    benchmark::ClobberMemory();
+  }
+}
+
+// Test case: vector is almost full
+template <class Container, class GenInputs>
+void BM_InsertIterInputIterIterFull(benchmark::State& st, Container c, GenInputs gen) {
+  for (auto _ : st) {
+    st.PauseTiming();
+    c = gen(st.range(0));
+    c.reserve(c.size() + 5);
+    auto in = gen(10);
+    benchmark::DoNotOptimize(&c);
+    benchmark::DoNotOptimize(&in);
+    st.ResumeTiming();
+
+    benchmark::DoNotOptimize(c.insert(c.begin(), make_input_iterator(in.begin()), make_input_iterator(in.end())));
+    benchmark::ClobberMemory();
+  }
+}
+
 template <class Container, class GenInputs>
 void BM_InsertDuplicate(benchmark::State& st, Container c, GenInputs gen) {
   auto in        = gen(st.range(0));
