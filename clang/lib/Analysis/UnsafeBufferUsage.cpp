@@ -441,12 +441,20 @@ public:
     return true;
   }
 
-  bool VisitDeclRefExpr(DeclRefExpr *dre) {
+  bool TraverseImplicitCastExpr(ImplicitCastExpr *E) {
+    if (EvaluateExpression(E)) {
+      return false;
+    } else {
+      return VisitorBase::TraverseImplicitCastExpr(E);
+    } 
+  }
+
+  bool TraverseDeclRefExpr(DeclRefExpr *dre) {
     val.push_back(Max);
     return false;
   }
 
-  bool VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
+  bool TraverseArraySubscriptExpr(ArraySubscriptExpr *E) {
     val.push_back(Max);
     return false;
   }
@@ -461,18 +469,38 @@ public:
     return false;
   }
 
-  bool VisitBinaryOperator(BinaryOperator *E) {
+  bool TraverseCompoundAssignOperator(CompoundAssignOperator *E) {
+    return TraverseBinaryOperator(E);
+  }
+ 
+  bool TraverseBinaryOperator(BinaryOperator *E) {
+    unsigned bwidth = Context.getIntWidth(E->getType());
 
+    auto evaluateSubExpr = [&, bwidth](Expr *E) -> llvm::APInt {
+      size_t size = val.size();
+      TraverseStmt(E);
+      assert(size != val.size());
+      llvm::APInt Result = val.back();
+      val.pop_back();
+      unsigned width = Result.getBitWidth();
+      if(bwidth < width)
+        Result = Result.trunc(bwidth);
+      else if(bwidth > width)
+        Result = APInt(bwidth, Result.getLimitedValue(), Result.isSignedIntN(width));
+      return Result;
+    };
+ 
     if (EvaluateExpression(E)) {
       return false;
     } else {
-      TraverseStmt(E->getLHS());
-      llvm::APInt LHS = val.back();
-      val.pop_back();
+      Expr *LHSExpr = E->getLHS()->IgnoreParenCasts();
+      Expr *RHSExpr = E->getRHS()->IgnoreParenCasts();
+      
+      unsigned bwidth = Context.getIntWidth(E->getType());
 
-      TraverseStmt(E->getRHS());
-      llvm::APInt RHS = val.back();
-      val.pop_back();
+      llvm::APInt LHS = evaluateSubExpr(LHSExpr);
+      llvm::APInt RHS = evaluateSubExpr(RHSExpr);
+
       llvm::APInt Result = Max;
 
       switch (E->getOpcode()) {
@@ -517,14 +545,20 @@ public:
     return true;
   }
 
-  bool VisitExpr(Expr *E) {
+  /*bool VisitExpr(Expr *E) {
     if (EvaluateExpression(E)) {
       return false;
     }
-    return VisitorBase::VisitExpr(E);
+    return true;
+  }*/
+
+  bool TraverseIntegerLiteral(IntegerLiteral *IL) {
+    val.push_back(IL->getValue());
+    return false;
   }
 
   APInt getValue() {
+    assert(val.size() == 1);
     if (val.size() == 1)
       return val[0];
     else // A pattern we didn't consider was encountered
