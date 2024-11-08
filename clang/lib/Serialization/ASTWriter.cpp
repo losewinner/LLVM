@@ -13,6 +13,7 @@
 #include "ASTCommon.h"
 #include "ASTReaderInternals.h"
 #include "MultiOnDiskHashTable.h"
+#include "TemplateArgumentHasher.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTUnresolvedSet.h"
 #include "clang/AST/AbstractTypeWriter.h"
@@ -4125,16 +4126,15 @@ public:
   explicit LazySpecializationInfoLookupTrait(ASTWriter &Writer)
       : Writer(Writer) {}
 
-  template <typename Col> data_type getData(Col &&C) {
+  template <typename Col, typename Col2> data_type getData(Col &&C, Col2 &ExistingInfo) {
     unsigned Start = Specs.size();
     for (auto *D : C) {
-      bool IsPartial = isa<ClassTemplatePartialSpecializationDecl,
-                           VarTemplatePartialSpecializationDecl>(D);
       NamedDecl *ND = getDeclForLocalLookup(
                            Writer.getLangOpts(), const_cast<NamedDecl *>(D));
-      Specs.push_back({GlobalDeclID(Writer.GetDeclRef(ND).getRawValue()),
-                       IsPartial});
+      Specs.push_back(GlobalDeclID(Writer.GetDeclRef(ND).getRawValue()));
     }
+    for (const serialization::reader::LazySpecializationInfo &Info : ExistingInfo)
+      Specs.push_back(Info);
     return std::make_pair(Start, Specs.size());
   }
 
@@ -4164,7 +4164,7 @@ public:
                                                   data_type_ref Lookup) {
     // 4 bytes for each slot.
     unsigned KeyLen = 4;
-    unsigned DataLen = serialization::reader::LazySpecializationInfo::Length *
+    unsigned DataLen = sizeof(serialization::reader::LazySpecializationInfo) *
                        (Lookup.second - Lookup.first);
 
     return emitULEBKeyDataLength(KeyLen, DataLen, Out);
@@ -4185,8 +4185,7 @@ public:
     uint64_t Start = Out.tell();
     (void)Start;
     for (unsigned I = Lookup.first, N = Lookup.second; I != N; ++I) {
-      LE.write<DeclID>(Specs[I].ID.getRawValue());
-      LE.write<bool>(Specs[I].IsPartial);
+      LE.write<DeclID>(Specs[I].getRawValue());
     }
     assert(Out.tell() - Start == DataLen && "Data length is wrong");
   }
@@ -4203,13 +4202,13 @@ unsigned CalculateODRHashForSpecs(const Decl *Spec) {
   else
     llvm_unreachable("New Specialization Kind?");
 
-  return TemplateArgumentList::ComputeODRHash(Args);
+  return StableHashForTemplateArguments(Args);
 }
 } // namespace
 
 void ASTWriter::GenerateSpecializationInfoLookupTable(
     const NamedDecl *D, llvm::SmallVectorImpl<const Decl *> &Specializations,
-    llvm::SmallVectorImpl<char> &LookupTable) {
+    llvm::SmallVectorImpl<char> &LookupTable, bool IsPartial) {
   assert(D->isFirstDecl());
 
   // Create the on-disk hash table representation.
@@ -4234,23 +4233,41 @@ void ASTWriter::GenerateSpecializationInfoLookupTable(
     Iter->second.push_back(cast<NamedDecl>(Specialization));
   }
 
-  for (auto Iter : SpecializationMaps)
-    Generator.insert(Iter.first, Trait.getData(Iter.second), Trait);
-
   auto *Lookups =
-      Chain ? Chain->getLoadedSpecializationsLookupTables(D) : nullptr;
+      Chain ? Chain->getLoadedSpecializationsLookupTables(D, IsPartial)
+            : nullptr;
+
+  for (auto &[HashValue, Specs] : SpecializationMaps) {
+    SmallVector<serialization::reader::LazySpecializationInfo, 16> ExisitingSpecs;
+    // We have to merge the lookup table manually here. We can't depend on the merge mechanism
+    // offered by clang::serialization::MultiOnDiskHashTableGenerator since that generator
+    // assumes the we'll get the same value with the same key.
+    // And also underlying llvm::OnDiskChainedHashTableGenerator assumes that we won't insert
+    // the values with the same key twice.
+    // So we have to merge the lookup table here manually.
+    if (Lookups)
+      ExisitingSpecs = Lookups->Table.find(HashValue);
+
+    Generator.insert(HashValue, Trait.getData(Specs, ExisitingSpecs), Trait);
+  }
+
   Generator.emit(LookupTable, Trait, Lookups ? &Lookups->Table : nullptr);
 }
 
 uint64_t ASTWriter::WriteSpecializationInfoLookupTable(
-    const NamedDecl *D, llvm::SmallVectorImpl<const Decl *> &Specializations) {
+    const NamedDecl *D, llvm::SmallVectorImpl<const Decl *> &Specializations,
+    bool IsPartial) {
 
   llvm::SmallString<4096> LookupTable;
-  GenerateSpecializationInfoLookupTable(D, Specializations, LookupTable);
+  GenerateSpecializationInfoLookupTable(D, Specializations, LookupTable,
+                                        IsPartial);
 
   uint64_t Offset = Stream.GetCurrentBitNo();
-  RecordData::value_type Record[] = {DECL_SPECIALIZATIONS};
-  Stream.EmitRecordWithBlob(DeclSpecializationsAbbrev, Record, LookupTable);
+  RecordData::value_type Record[] = {IsPartial ? DECL_PARTIAL_SPECIALIZATIONS
+                                               : DECL_SPECIALIZATIONS};
+  Stream.EmitRecordWithBlob(IsPartial ? DeclPartialSpecializationsAbbrev
+                                      : DeclSpecializationsAbbrev,
+                            Record, LookupTable);
 
   return Offset;
 }
@@ -5873,8 +5890,15 @@ void ASTWriter::WriteDeclAndTypes(ASTContext &Context) {
                       FunctionToLambdaMapAbbrev);
   }
 
-  if (!SpecializationsUpdates.empty())
-    WriteSpecializationsUpdates();
+  if (!SpecializationsUpdates.empty()) {
+    WriteSpecializationsUpdates(/*IsPartial=*/false);
+    SpecializationsUpdates.clear();
+  }
+
+  if (!PartialSpecializationsUpdates.empty()) {
+    WriteSpecializationsUpdates(/*IsPartial=*/true);
+    PartialSpecializationsUpdates.clear();
+  }
 
   const TranslationUnitDecl *TU = Context.getTranslationUnitDecl();
   // Create a lexical update block containing all of the declarations in the
@@ -5919,22 +5943,27 @@ void ASTWriter::WriteDeclAndTypes(ASTContext &Context) {
     WriteDeclContextVisibleUpdate(Context, DC);
 }
 
-void ASTWriter::WriteSpecializationsUpdates() {
+void ASTWriter::WriteSpecializationsUpdates(bool IsPartial) {
+  auto RecordType = IsPartial ? CXX_ADDED_TEMPLATE_PARTIAL_SPECIALIZATION
+                              : CXX_ADDED_TEMPLATE_SPECIALIZATION;
+
   auto Abv = std::make_shared<llvm::BitCodeAbbrev>();
-  Abv->Add(llvm::BitCodeAbbrevOp(UPDATE_SPECIALIZATION));
+  Abv->Add(llvm::BitCodeAbbrevOp(RecordType));
   Abv->Add(llvm::BitCodeAbbrevOp(llvm::BitCodeAbbrevOp::VBR, 6));
   Abv->Add(llvm::BitCodeAbbrevOp(llvm::BitCodeAbbrevOp::Blob));
   auto UpdateSpecializationAbbrev = Stream.EmitAbbrev(std::move(Abv));
 
-  for (auto &SpecializationUpdate : SpecializationsUpdates) {
+  auto &SpecUpdates =
+      IsPartial ? PartialSpecializationsUpdates : SpecializationsUpdates;
+  for (auto &SpecializationUpdate : SpecUpdates) {
     const NamedDecl *D = SpecializationUpdate.first;
 
     llvm::SmallString<4096> LookupTable;
     GenerateSpecializationInfoLookupTable(D, SpecializationUpdate.second,
-                                          LookupTable);
+                                          LookupTable, IsPartial);
 
     // Write the lookup table
-    RecordData::value_type Record[] = {UPDATE_SPECIALIZATION, getDeclID(D).getRawValue()};
+    RecordData::value_type Record[] = {RecordType, getDeclID(D).getRawValue()};
     Stream.EmitRecordWithBlob(UpdateSpecializationAbbrev, Record, LookupTable);
   }
 }
@@ -5972,25 +6001,6 @@ void ASTWriter::WriteDeclUpdatesBlocks(ASTContext &Context,
         assert(Update.getDecl() && "no decl to add?");
         Record.AddDeclRef(Update.getDecl());
         break;
-      case UPD_CXX_ADDED_TEMPLATE_SPECIALIZATION: {
-        const Decl *Spec = Update.getDecl();
-        assert(Spec && "no decl to add?");
-        Record.AddDeclRef(Spec);
-        ArrayRef<TemplateArgument> Args;
-        if (auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(Spec))
-          Args = CTSD->getTemplateArgs().asArray();
-        else if (auto *VTSD = dyn_cast<VarTemplateSpecializationDecl>(Spec))
-          Args = VTSD->getTemplateArgs().asArray();
-        else if (auto *FD = dyn_cast<FunctionDecl>(Spec))
-          Args = FD->getTemplateSpecializationArgs()->asArray();
-        assert(Args.size());
-        Record.push_back(TemplateArgumentList::ComputeODRHash(Args));
-        bool IsPartialSpecialization =
-            isa<ClassTemplatePartialSpecializationDecl>(Spec) ||
-            isa<VarTemplatePartialSpecializationDecl>(Spec);
-        Record.push_back(IsPartialSpecialization);
-        break;
-      }
       case UPD_CXX_ADDED_FUNCTION_DEFINITION:
       case UPD_CXX_ADDED_VAR_DEFINITION:
         break;
