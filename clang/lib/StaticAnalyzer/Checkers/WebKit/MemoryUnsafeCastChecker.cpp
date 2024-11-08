@@ -91,12 +91,9 @@ void WalkAST::VisitCastExpr(CastExpr *CE) {
       return;
     bool IsObjCSubType =
         !ASTC.hasSameType(ToDerivedQualType, FromBaseQualType) &&
-        ASTC.canAssignObjCInterfaces(FromBaseQualType
-                                     ->getAsObjCInterfacePointerType(),
-                                     ToDerivedQualType
-                                     ->getAsObjCInterfacePointerType());
+        ASTC.canAssignObjCInterfaces(BaseObjCPtrType, DerivedObjCPtrType);
     if (IsObjCSubType)
-      emitWarning(SE->getType(), ToDerivedQualType,AC, BR, Checker, CE);
+      emitWarning(SE->getType(), ToDerivedQualType, AC, BR, Checker, CE);
     return;
   }
   auto ToDerivedType = ToDerivedQualType->getPointeeCXXRecordDecl();

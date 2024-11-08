@@ -45,7 +45,6 @@ class CommandEncoder : public WrappedObject<id<MTLCommandEncoder>> { };
 class RenderCommandEncoder final : public CommandEncoder
 {
 private:
-    // Override CommandEncoder
     id<MTLRenderCommandEncoder> get()
     {
         return static_cast<id<MTLRenderCommandEncoder>>(CommandEncoder::get());
