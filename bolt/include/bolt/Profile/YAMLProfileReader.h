@@ -183,6 +183,10 @@ private:
   /// Map a common LTO prefix to a set of binary functions.
   StringMap<std::unordered_set<BinaryFunction *>> LTOCommonNameFunctionMap;
 
+  /// For pseudo probe function matching.
+  /// Map profile GUID to YAML profile.
+  std::unordered_map<uint64_t, yaml::bolt::BinaryFunctionProfile *> GUIDMap;
+
   /// Function names in profile.
   StringSet<> ProfileFunctionNames;
 

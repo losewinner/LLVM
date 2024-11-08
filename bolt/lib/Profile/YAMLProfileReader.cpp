@@ -18,6 +18,10 @@
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/MC/MCPseudoProbe.h"
 #include "llvm/Support/CommandLine.h"
+#include <algorithm>
+
+#undef DEBUG_TYPE
+#define DEBUG_TYPE "bolt-prof"
 
 using namespace llvm;
 
@@ -46,6 +50,11 @@ llvm::cl::opt<bool>
     MatchWithCallGraph("match-with-call-graph",
                        cl::desc("Match functions with call graph"), cl::Hidden,
                        cl::cat(BoltOptCategory));
+
+llvm::cl::opt<bool>
+    MatchWithPseudoProbes("match-with-pseudo-probes",
+                          cl::desc("Match functions with pseudo probes"),
+                          cl::Hidden, cl::cat(BoltOptCategory));
 
 llvm::cl::opt<bool> ProfileUseDFS("profile-use-dfs",
                                   cl::desc("use DFS order for YAML profile"),
@@ -413,6 +422,19 @@ Error YAMLProfileReader::preprocessProfile(BinaryContext &BC) {
     }
   }
 
+  // Construct GUID->YamlBF mapping
+  if (!opts::MatchWithPseudoProbes)
+    return Error::success();
+  GUIDMap.reserve(YamlBP.Functions.size());
+  for (yaml::bolt::BinaryFunctionProfile &YamlBF : YamlBP.Functions) {
+    if (YamlBF.InlineTree.empty())
+      continue;
+    const yaml::bolt::InlineTreeNode &Node = YamlBF.InlineTree.front();
+    uint32_t GUIDIdx = Node.GUIDIndex == UINT32_MAX ? 0 : Node.GUIDIndex;
+    uint64_t GUID = YamlBP.PseudoProbeDesc.GUID[GUIDIdx];
+    GUIDMap[GUID] = &YamlBF;
+  }
+
   return Error::success();
 }
 
@@ -433,6 +455,22 @@ bool YAMLProfileReader::mayHaveProfileData(const BinaryFunction &BF) {
     if (const std::optional<StringRef> CommonName = getLTOCommonName(Name)) {
       if (LTOCommonNameMap.contains(*CommonName))
         return true;
+    }
+  }
+  if (opts::MatchWithPseudoProbes) {
+    SmallVector<StringRef, 0> Suffixes(
+        {".destroy", ".resume", ".llvm.", ".cold", ".warm"});
+    for (const MCSymbol *Sym : BF.getSymbols()) {
+      StringRef SymName = Sym->getName();
+      for (auto Name : {std::optional(NameResolver::restore(SymName)),
+                        getCommonName(SymName, false, Suffixes)}) {
+        if (!Name)
+          continue;
+        SymName = *Name;
+        uint64_t GUID = Function::getGUID(SymName);
+        if (GUIDMap.count(GUID))
+          return true;
+      }
     }
   }
 
@@ -649,7 +687,7 @@ decodeYamlInlineTree(const yaml::bolt::ProfilePseudoProbeDesc &YamlPD,
 }
 
 size_t YAMLProfileReader::matchWithPseudoProbes(BinaryContext &BC) {
-  if (!opts::StaleMatchingWithPseudoProbes)
+  if (!opts::StaleMatchingWithPseudoProbes && !opts::MatchWithPseudoProbes)
     return 0;
 
   const MCPseudoProbeDecoder *Decoder = BC.getPseudoProbeDecoder();
@@ -685,7 +723,106 @@ size_t YAMLProfileReader::matchWithPseudoProbes(BinaryContext &BC) {
       MatchSpecs.pop_back();
   }
 
-  return 0;
+  if (!opts::MatchWithPseudoProbes)
+    return 0;
+
+  size_t MatchedWithPseudoProbes = 0;
+  assert(Decoder &&
+         "If pseudo probes are in use, pseudo probe decoder should exist");
+
+  const auto &GUID2FuncDescMap = Decoder->getGUID2FuncDescMap();
+  std::vector<std::pair<uint64_t, const MCDecodedPseudoProbeInlineTree *>>
+      GUIDInlineTree;
+
+  // Construct the mapping between GUID (non-toplev) and inline tree
+  auto TopLevCount = Decoder->getDummyInlineRoot().getChildren().size();
+  for (const MCDecodedPseudoProbeInlineTree &Node :
+       llvm::drop_begin(Decoder->getInlineTreeVec(), TopLevCount))
+    GUIDInlineTree.emplace_back(Node.Guid, &Node);
+  llvm::sort(GUIDInlineTree);
+
+  // Construct the mapping from profile GUID to profile hash.
+  std::unordered_map<uint64_t, uint64_t> ProfileGUIDHash;
+  ProfileGUIDHash.reserve(YamlPD.GUID.size());
+  for (const auto &[GUID, HashIdx] : llvm::zip(YamlPD.GUID, YamlPD.GUIDHashIdx))
+    ProfileGUIDHash.emplace(GUID, YamlPD.Hash[HashIdx]);
+
+  std::unordered_map<uint64_t, BinaryFunction *> GUIDToBF;
+  for (BinaryFunction *BF : BC.getAllBinaryFunctions())
+    if (uint64_t GUID = BF->getGUID())
+      GUIDToBF[GUID] = BF;
+
+  for (auto &[YamlGUID, YamlBFPtr] : GUIDMap) {
+    LLVM_DEBUG(dbgs() << "Matching GUID " << Twine::utohexstr(YamlGUID)
+                      << '\n');
+    yaml::bolt::BinaryFunctionProfile &YamlBF = *YamlBFPtr;
+    if (YamlBF.Used)
+      continue;
+    LLVM_DEBUG(dbgs() << "Attempting to match " << YamlBF.Name
+                      << " using pseudo probes:\n");
+
+    // Look up corresponding GUID in the binary.
+    auto It = GUID2FuncDescMap.find(YamlGUID);
+    if (It == GUID2FuncDescMap.end()) {
+      LLVM_DEBUG(dbgs() << "no function with GUID=" << YamlGUID
+                        << " in the binary\n");
+      continue;
+    }
+
+    // Check if checksums match between profile and binary.
+    uint64_t YamlHash = ProfileGUIDHash[YamlGUID];
+    if (YamlHash != It->FuncHash) {
+      LLVM_DEBUG(dbgs() << "hash mismatch\n");
+      continue;
+    }
+
+    // Look for binary inline trees with match to YAML inline tree.
+    auto Range = llvm::make_range(std::equal_range(
+        GUIDInlineTree.begin(), GUIDInlineTree.end(),
+        std::make_pair(YamlGUID,
+                       (const MCDecodedPseudoProbeInlineTree *)nullptr),
+        llvm::less_first()));
+
+    size_t Matched = 0;
+    for (const MCDecodedPseudoProbeInlineTree *Node :
+         llvm::make_second_range(Range)) {
+      // Find top-level function containing Node.
+      const MCDecodedPseudoProbeInlineTree *Root = Node;
+      while (Root->hasInlineSite())
+        Root = (const MCDecodedPseudoProbeInlineTree *)Root->Parent;
+      assert(Root && "Invalid pseudo probe inline tree");
+      // Get binary function corresponding to that top-level function
+      auto BFIt = GUIDToBF.find(Root->Guid);
+      if (BFIt == GUIDToBF.end())
+        continue;
+      BinaryFunction *BF = BFIt->second;
+      assert(BF && "Invalid GUIDToBF mapping");
+
+      auto &BFMatchSpecs = BFToProbeMatchSpecs[BF];
+      InlineTreeNodeMapTy &InlineTreeMap =
+          BFMatchSpecs.emplace_back(InlineTreeNodeMapTy(), YamlBF).first;
+      size_t MatchedNodes =
+          InlineTreeMap.matchInlineTrees(*Decoder, YamlBF.InlineTree, Node);
+      // Skip if inline tree didn't match
+      if (!MatchedNodes)
+        BFMatchSpecs.pop_back();
+      ++Matched;
+      const auto ProbeIt = Node->getProbes().begin();
+      const auto *Probe =
+          (ProbeIt != Node->getProbes().end()) ? &*ProbeIt : nullptr;
+      LLVM_DEBUG(dbgs() << MatchedNodes << "/" << YamlBF.InlineTree.size()
+                        << " match with " << *BF << " at "
+                        << (Probe ? Probe->getInlineContextStr(GUID2FuncDescMap)
+                                  : "(none)")
+                        << '\n');
+    }
+    MatchedWithPseudoProbes += !!Matched;
+    YamlBF.Used |= !!Matched;
+    LLVM_DEBUG(dbgs() << "matched to " << Matched << " functions\n");
+    LLVM_DEBUG(dbgs() << "done\n");
+  }
+
+  return MatchedWithPseudoProbes;
 }
 
 size_t YAMLProfileReader::matchWithNameSimilarity(BinaryContext &BC) {
@@ -819,7 +956,7 @@ Error YAMLProfileReader::readProfile(BinaryContext &BC) {
     }
   }
 
-  if (opts::StaleMatchingWithPseudoProbes) {
+  if (opts::MatchWithPseudoProbes || opts::StaleMatchingWithPseudoProbes) {
     const MCPseudoProbeDecoder *Decoder = BC.getPseudoProbeDecoder();
     assert(Decoder &&
            "If pseudo probes are in use, pseudo probe decoder should exist");
@@ -849,7 +986,7 @@ Error YAMLProfileReader::readProfile(BinaryContext &BC) {
       errs() << "BOLT-WARNING: profile ignored for function " << YamlBF.Name
              << '\n';
 
-  if (opts::Verbosity >= 1) {
+  if (opts::Verbosity >= 0) {
     outs() << "BOLT-INFO: matched " << MatchedWithExactName
            << " functions with identical names\n";
     outs() << "BOLT-INFO: matched " << MatchedWithHash
@@ -858,6 +995,8 @@ Error YAMLProfileReader::readProfile(BinaryContext &BC) {
            << " functions with matching LTO common names\n";
     outs() << "BOLT-INFO: matched " << MatchedWithCallGraph
            << " functions with call graph\n";
+    outs() << "BOLT-INFO: matched " << MatchedWithPseudoProbes
+           << " functions with pseudo probes\n";
     outs() << "BOLT-INFO: matched " << MatchedWithNameSimilarity
            << " functions with similar names\n";
   }
@@ -870,8 +1009,16 @@ Error YAMLProfileReader::readProfile(BinaryContext &BC) {
     if (BinaryFunction *BF = YamlProfileToFunction.lookup(YamlBF.Id))
       parseFunctionProfile(*BF, YamlBF);
     else
-      ++NumUnused;
+      NumUnused += !YamlBF.Used;
   }
+
+  // Partial matching: pass phony profile for binary functions without
+  // corresponding real (non-partial) profile.
+  yaml::bolt::BinaryFunctionProfile Phony;
+  Phony.ExecCount = 1;
+  for (BinaryFunction *BF : llvm::make_first_range(BFToProbeMatchSpecs))
+    if (!ProfiledFunctions.count(BF))
+      parseFunctionProfile(*BF, Phony);
 
   BC.setNumUnusedProfiledObjects(NumUnused);
 
