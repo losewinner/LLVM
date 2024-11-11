@@ -142,14 +142,6 @@ New check aliases
   :doc:`bugprone-sizeof-expression
   <clang-tidy/checks/bugprone/sizeof-expression>` was added.
 
-- New alias :doc:`qt-integer-sign-comparison
-  <clang-tidy/checks/qt/integer-sign-comparison>` to
-  :doc:`modernize-use-integer-sign-comparison
-  <clang-tidy/checks/modernize/use-integer-sign-comparison>` check.
-
-  Replace comparisons between signed and unsigned integers with their safe
-  C++17 ``q20::cmp_*`` or C++20 ``std::cmp_*`` alternatives, if available.
-
 Changes in existing checks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

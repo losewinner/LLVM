@@ -34,7 +34,6 @@ public:
 
 private:
   utils::IncludeInserter IncludeInserter;
-  bool IsQtApplication = false;
 };
 
 } // namespace clang::tidy::modernize

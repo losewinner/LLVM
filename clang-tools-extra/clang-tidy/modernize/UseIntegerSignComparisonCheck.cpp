@@ -55,13 +55,11 @@ UseIntegerSignComparisonCheck::UseIntegerSignComparisonCheck(
     : ClangTidyCheck(Name, Context),
       IncludeInserter(Options.getLocalOrGlobal("IncludeStyle",
                                                utils::IncludeSorter::IS_LLVM),
-                      areDiagsSelfContained()),
-      IsQtApplication(Options.get("IsQtApplication", false)) {}
+                      areDiagsSelfContained()) {}
 
 void UseIntegerSignComparisonCheck::storeOptions(
     ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "IncludeStyle", IncludeInserter.getStyle());
-  Options.store(Opts, "IsQtApplication", IsQtApplication);
 }
 
 void UseIntegerSignComparisonCheck::registerMatchers(MatchFinder *Finder) {
@@ -142,22 +140,14 @@ void UseIntegerSignComparisonCheck::check(
       diag(BinaryOp->getBeginLoc(),
            "comparison between 'signed' and 'unsigned' integers");
 
-  if (!(getLangOpts().CPlusPlus17 && IsQtApplication) &&
-      !getLangOpts().CPlusPlus20)
+  if (!getLangOpts().CPlusPlus20)
     return;
 
-  std::string CmpNamespace;
-  std::string CmpHeader;
-  if (getLangOpts().CPlusPlus20) {
-    CmpNamespace = llvm::Twine("std::" + parseOpCode(OpCode)).str();
-    CmpHeader = "<utility>";
-  } else if (getLangOpts().CPlusPlus17 && IsQtApplication) {
-    CmpNamespace = llvm::Twine("q20::" + parseOpCode(OpCode)).str();
-    CmpHeader = "<QtCore/q20utility.h>";
-  }
+  const std::string CmpNamespace =
+      llvm::Twine("std::" + parseOpCode(OpCode)).str();
+  const std::string CmpHeader = "<utility>";
 
-  // Use qt-use-integer-sign-comparison when C++17 is available and only for Qt
-  // apps. Prefer modernize-use-integer-sign-comparison when C++20 is available!
+  // Prefer modernize-use-integer-sign-comparison when C++20 is available!
   if (SubExprLHS) {
     StringRef ExplicitLhsString =
         Lexer::getSourceText(CharSourceRange::getTokenRange(

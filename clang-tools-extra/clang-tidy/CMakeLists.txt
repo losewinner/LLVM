@@ -75,7 +75,6 @@ add_subdirectory(objc)
 add_subdirectory(openmp)
 add_subdirectory(performance)
 add_subdirectory(portability)
-add_subdirectory(qt)
 add_subdirectory(readability)
 add_subdirectory(zircon)
 set(ALL_CLANG_TIDY_CHECKS
@@ -100,7 +99,6 @@ set(ALL_CLANG_TIDY_CHECKS
   clangTidyOpenMPModule
   clangTidyPerformanceModule
   clangTidyPortabilityModule
-  clangTidyQtModule
   clangTidyReadabilityModule
   clangTidyZirconModule
   )

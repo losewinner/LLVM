@@ -32,8 +32,3 @@ Options
 
   A string specifying which include-style is used, `llvm` or `google`.
   Default is `llvm`.
-
-.. option:: IsQtApplication
-
-  When `true`, it is assumed that the code being analyzed is using the Qt framework.
-  Default is `false`.
