@@ -3762,22 +3762,25 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicReadFlt) {
   OpenMPIRBuilder::AtomicOpValue X = {XVal, Float32, false, false};
   OpenMPIRBuilder::AtomicOpValue V = {VVal, Float32, false, false};
 
-  Builder.restoreIP(OMPBuilder.createAtomicRead(Loc, X, V, AO));
+  OpenMPIRBuilder::InsertPointOrErrorTy AfterReadIP =
+      OMPBuilder.createAtomicRead(Loc, X, V, AO);
+  EXPECT_TRUE((bool)AfterReadIP);
+  Builder.restoreIP(*AfterReadIP);
 
-  IntegerType *IntCastTy =
-      IntegerType::get(M->getContext(), Float32->getScalarSizeInBits());
+  // IntegerType *IntCastTy = IntegerType::get(M->getContext(),
+  // Float32->getScalarSizeInBits());
 
   LoadInst *AtomicLoad = cast<LoadInst>(VVal->getNextNode());
   EXPECT_TRUE(AtomicLoad->isAtomic());
   EXPECT_EQ(AtomicLoad->getPointerOperand(), XVal);
 
-  BitCastInst *CastToFlt = cast<BitCastInst>(AtomicLoad->getNextNode());
-  EXPECT_EQ(CastToFlt->getSrcTy(), IntCastTy);
-  EXPECT_EQ(CastToFlt->getDestTy(), Float32);
-  EXPECT_EQ(CastToFlt->getOperand(0), AtomicLoad);
+  // BitCastInst *CastToFlt = cast<BitCastInst>(AtomicLoad->getNextNode());
+  // EXPECT_EQ(CastToFlt->getSrcTy(), IntCastTy);
+  // EXPECT_EQ(CastToFlt->getDestTy(), Float32);
+  // EXPECT_EQ(CastToFlt->getOperand(0), AtomicLoad);
 
-  StoreInst *StoreofAtomic = cast<StoreInst>(CastToFlt->getNextNode());
-  EXPECT_EQ(StoreofAtomic->getValueOperand(), CastToFlt);
+  StoreInst *StoreofAtomic = cast<StoreInst>(AtomicLoad->getNextNode());
+  EXPECT_EQ(StoreofAtomic->getValueOperand(), AtomicLoad);
   EXPECT_EQ(StoreofAtomic->getPointerOperand(), VVal);
 
   Builder.CreateRetVoid();
@@ -3804,7 +3807,10 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicReadInt) {
 
   BasicBlock *EntryBB = BB;
 
-  Builder.restoreIP(OMPBuilder.createAtomicRead(Loc, X, V, AO));
+  OpenMPIRBuilder::InsertPointOrErrorTy AfterReadIP =
+      OMPBuilder.createAtomicRead(Loc, X, V, AO);
+  EXPECT_TRUE((bool)AfterReadIP);
+  Builder.restoreIP(*AfterReadIP);
   LoadInst *AtomicLoad = nullptr;
   StoreInst *StoreofAtomic = nullptr;
 
@@ -3852,8 +3858,10 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteFlt) {
   AtomicOrdering AO = AtomicOrdering::Monotonic;
   Constant *ValToWrite = ConstantFP::get(Float32, 1.0);
 
-  Builder.restoreIP(
-      OMPBuilder.createAtomicWrite(Loc, AllocaIP, X, ValToWrite, AO));
+  OpenMPIRBuilder::InsertPointOrErrorTy AfterWriteIP =
+      OMPBuilder.createAtomicWrite(Loc, AllocaIP, X, ValToWrite, AO);
+  EXPECT_TRUE((bool)AfterWriteIP);
+  Builder.restoreIP(*AfterWriteIP);
 
   IntegerType *IntCastTy =
       IntegerType::get(M->getContext(), Float32->getScalarSizeInBits());
@@ -3890,8 +3898,10 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteInt) {
 
   BasicBlock *EntryBB = BB;
 
-  Builder.restoreIP(
-      OMPBuilder.createAtomicWrite(Loc, AllocaIP, X, ValToWrite, AO));
+  OpenMPIRBuilder::InsertPointOrErrorTy AfterWriteIP =
+      OMPBuilder.createAtomicWrite(Loc, AllocaIP, X, ValToWrite, AO);
+  EXPECT_TRUE((bool)AfterWriteIP);
+  Builder.restoreIP(*AfterWriteIP);
 
   StoreInst *StoreofAtomic = nullptr;
 

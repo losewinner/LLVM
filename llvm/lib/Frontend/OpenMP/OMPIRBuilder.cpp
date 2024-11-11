@@ -8028,7 +8028,7 @@ bool OpenMPIRBuilder::checkAndEmitFlushAfterAtomic(
   return Flush;
 }
 
-OpenMPIRBuilder::InsertPointTy
+OpenMPIRBuilder::InsertPointOrErrorTy
 OpenMPIRBuilder::createAtomicRead(const LocationDescription &Loc,
                                   AtomicOpValue &X, AtomicOpValue &V,
                                   AtomicOrdering AO) {
@@ -8047,29 +8047,33 @@ OpenMPIRBuilder::createAtomicRead(const LocationDescription &Loc,
   const DataLayout &DL = Builder.GetInsertBlock()->getDataLayout();
   Twine Name(X.Var->getName());
 
-  emitAtomicLoadBuiltin(X.Var,
-                        /*RetPtr=*/V.Var,
-                        /*IsVolatile=*/X.IsVolatile || V.IsVolatile,
-                        /*Memorder=*/AO,
-                        /*SyncScope=*/SyncScope::System,
-                        /*DataTy=*/XElemTy,
-                        /*DataSize=*/{},
-                        /*AvailableSize=*/{},
-                        /*Align=*/{},
-                        /*Builder=*/Builder,
-                        /*DL=*/DL,
-                        /*TLI=*/&TLI,
-                        /*TL=*/nullptr,
-                        /*SyncScopes=*/{},
-                        /*FallbackScope=*/StringRef(),
-                        /*Name=*/Name + ".atomic.read");
+  Error ALResult =
+      emitAtomicLoadBuiltin(X.Var,
+                            /*RetPtr=*/V.Var,
+                            /*IsVolatile=*/X.IsVolatile || V.IsVolatile,
+                            /*Memorder=*/AO,
+                            /*SyncScope=*/SyncScope::System,
+                            /*DataTy=*/XElemTy,
+                            /*DataSize=*/{},
+                            /*AvailableSize=*/{},
+                            /*Align=*/{},
+                            /*Builder=*/Builder,
+                            /*DL=*/DL,
+                            /*TLI=*/&TLI,
+                            /*TL=*/nullptr,
+                            /*SyncScopes=*/{},
+                            /*FallbackScope=*/StringRef(),
+                            /*Name=*/Name + ".atomic.read");
+  if (ALResult)
+    return std::move(ALResult);
+
   checkAndEmitFlushAfterAtomic(Loc, AO, AtomicKind::Read);
 
   //  LoadInst  *LoadedVal= Builder.CreateLoad(XElemTy, X.Var,  Name );
   return Builder.saveIP();
 }
 
-OpenMPIRBuilder::InsertPointTy
+OpenMPIRBuilder::InsertPointOrErrorTy
 OpenMPIRBuilder::createAtomicWrite(const LocationDescription &Loc,
                                    InsertPointTy AllocaIP, AtomicOpValue &X,
                                    Value *Expr, AtomicOrdering AO) {
@@ -8096,22 +8100,24 @@ OpenMPIRBuilder::createAtomicWrite(const LocationDescription &Loc,
   Builder.restoreIP(ContIP);
 
   Builder.CreateStore(Expr, ValPtr);
-  emitAtomicStoreBuiltin(X.Var,
-                         /*ValPtr=*/ValPtr,
-                         /*IsVolatile=*/X.IsVolatile,
-                         /*Memorder=*/AO,
-                         /*SyncScope=*/SyncScope::System,
-                         /*DataTy=*/XElemTy,
-                         /*DataSize=*/{},
-                         /*AvailableSize=*/{},
-                         /*Align=*/{},
-                         /*Builder=*/Builder,
-                         /*DL=*/DL,
-                         /*TLI=*/&TLI,
-                         /*TL=*/nullptr,
-                         /*SyncScopes=*/{},
-                         /*FallbackScope=*/StringRef(),
-                         /*Name=*/Name + ".atomic.write");
+  Error ASResult = emitAtomicStoreBuiltin(X.Var,
+                                          /*ValPtr=*/ValPtr,
+                                          /*IsVolatile=*/X.IsVolatile,
+                                          /*Memorder=*/AO,
+                                          /*SyncScope=*/SyncScope::System,
+                                          /*DataTy=*/XElemTy,
+                                          /*DataSize=*/{},
+                                          /*AvailableSize=*/{},
+                                          /*Align=*/{},
+                                          /*Builder=*/Builder,
+                                          /*DL=*/DL,
+                                          /*TLI=*/&TLI,
+                                          /*TL=*/nullptr,
+                                          /*SyncScopes=*/{},
+                                          /*FallbackScope=*/StringRef(),
+                                          /*Name=*/Name + ".atomic.write");
+  if (ASResult)
+    return ASResult;
 
   checkAndEmitFlushAfterAtomic(Loc, AO, AtomicKind::Write);
   return Builder.saveIP();
@@ -8225,44 +8231,47 @@ Expected<std::pair<Value *, Value *>> OpenMPIRBuilder::emitAtomicUpdate(
   const DataLayout &DL = Builder.GetInsertBlock()->getDataLayout();
   Twine Name(X->getName());
 
-  // Create new CFG.
-  BasicBlock *ContBB = splitBB(Builder, true, X->getName() + ".atomic.cont");
-  BasicBlock *ExitBB = splitBB(Builder, false, X->getName() + ".atomic.exit");
-  auto ContIP = Builder.saveIP();
-
-  // Reserve some stack space
+  // Reserve some stack space.
+  InsertPointTy InitIP = Builder.saveIP();
   Builder.restoreIP(AllocaIP);
   AllocaInst *OrigPtr =
       Builder.CreateAlloca(XElemTy, nullptr, Name + ".atomic.orig.ptr");
   AllocaInst *UpdPtr =
       Builder.CreateAlloca(XElemTy, nullptr, Name + ".atomic.upd.ptr");
-  AllocaInst *PrevPtr =
-      Builder.CreateAlloca(XElemTy, nullptr, Name + ".atomic.upd.prev");
+  Builder.restoreIP(InitIP);
 
-  // Emit the update transaction.
+  // Old value for first transaction. Every followup-transaction will use the
+  // prev value from cmpxchg.
+  Error ALResult = emitAtomicLoadBuiltin(X,
+                                         /*RetPtr=*/OrigPtr,
+                                         /*IsVolatile=*/false,
+                                         /*Memorder=*/AO,
+                                         /*SyncScope=*/SyncScope::System,
+                                         /*DataTy=*/XElemTy,
+                                         /*DataSize=*/{},
+                                         /*AvailableSize=*/{},
+                                         /*Align=*/{},
+                                         /*Builder=*/Builder,
+                                         /*DL=*/DL,
+                                         /*TLI=*/&TLI,
+                                         /*TL=*/nullptr,
+                                         /*SyncScopes=*/{},
+                                         /*FallbackScope=*/StringRef(),
+                                         /*Name=*/Name);
+  if (ALResult)
+    return std::move(ALResult);
+
+  // Create new CFG.
+  BasicBlock *ContBB = splitBB(Builder, true, X->getName() + ".atomic.cont");
+  BasicBlock *ExitBB = splitBB(Builder, false, X->getName() + ".atomic.exit");
+  InsertPointTy ContIP = Builder.saveIP();
+
+  // Emit the update transaction...
   Builder.SetInsertPoint(ContBB);
 
-  // 1. Get original value.
-  emitAtomicLoadBuiltin(X,
-                        /*RetPtr=*/OrigPtr,
-                        /*IsVolatile=*/false,
-                        /*Memorder=*/AO,
-                        /*SyncScope=*/SyncScope::System,
-                        /*DataTy=*/XElemTy,
-                        /*DataSize=*/{},
-                        /*AvailableSize=*/{},
-                        /*Align=*/{},
-                        /*Builder=*/Builder,
-                        /*DL=*/DL,
-                        /*TLI=*/&TLI,
-                        /*TL=*/nullptr,
-                        /*SyncScopes=*/{},
-                        /*FallbackScope=*/StringRef(),
-                        /*Name=*/Name);
-
-  // 2. Let the user code compute the new value.
+  // 1. Let the user code compute the new value.
   // FIXME: This should not be done by-value, as the type might be unreasonable
-  // large (e.g. i4096) and LLVM does not scale will with such large types.
+  // large (e.g. i4096) and LLVM does not scale well with such large types.
   Value *OrigVal = Builder.CreateLoad(XElemTy, OrigPtr, Name + ".atomic.orig");
   Expected<Value *> CBResult = UpdateOp(OrigVal, Builder);
   if (!CBResult)
@@ -8270,8 +8279,8 @@ Expected<std::pair<Value *, Value *>> OpenMPIRBuilder::emitAtomicUpdate(
   Value *UpdVal = *CBResult;
   Builder.CreateStore(UpdVal, UpdPtr);
 
-  // 3. AtomicCompareExchange to replace OrigVal with UpdVal.
-  Value *Success = emitAtomicCompareExchangeBuiltin(
+  // 2. AtomicCompareExchange to replace OrigVal with UpdVal.
+  Expected<Value *> ACEResult = emitAtomicCompareExchangeBuiltin(
       /*Ptr=*/X,
       /*ExpectedPtr=*/OrigPtr,
       /*DesiredPtr=*/UpdPtr,
@@ -8279,7 +8288,7 @@ Expected<std::pair<Value *, Value *>> OpenMPIRBuilder::emitAtomicUpdate(
       /*IsVolatile=*/false,
       /*SuccessMemorder=*/AO,
       /*FailureMemorder=*/{},
-      /*PrevPtr=*/PrevPtr,
+      /*PrevPtr=*/OrigPtr,
       /*DataTy=*/XElemTy,
       /*DataSize=*/{},
       /*AvailableSize=*/{},
@@ -8289,15 +8298,17 @@ Expected<std::pair<Value *, Value *>> OpenMPIRBuilder::emitAtomicUpdate(
       /*TLI=*/&TLI,
       /*TL=*/nullptr,
       /*Name=*/Name);
+  if (!ACEResult)
+    return ACEResult.takeError();
+  Value *Success = *ACEResult;
 
-  // 4. Repeat transaction until successful.
+  // 3. Repeat transaction until successful.
   Builder.CreateCondBr(Success, ExitBB, ContBB);
 
   // Continue when the update transaction was successful.
   Builder.restoreIP(ContIP);
-  Value *PrevVal = Builder.CreateLoad(XElemTy, PrevPtr, Name + ".atomic.prev");
 
-  return std::make_pair(OrigVal, PrevVal);
+  return std::make_pair(OrigVal, UpdVal);
 }
 
 OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createAtomicCapture(

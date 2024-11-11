@@ -17,6 +17,7 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/AtomicOrdering.h"
+#include "llvm/Support/Error.h"
 #include <cstdint>
 #include <variant>
 
@@ -32,7 +33,7 @@ namespace SyncScope {
 typedef uint8_t ID;
 }
 
-void emitAtomicLoadBuiltin(
+Error emitAtomicLoadBuiltin(
     Value *Ptr, Value *RetPtr,
     // std::variant<Value *, bool> IsWeak,
     bool IsVolatile,
@@ -46,7 +47,7 @@ void emitAtomicLoadBuiltin(
     bool AllowInstruction = true, bool AllowSwitch = true,
     bool AllowSizedLibcall = true, bool AllowLibcall = true);
 
-void emitAtomicStoreBuiltin(
+Error emitAtomicStoreBuiltin(
     Value *Ptr, Value *ValPtr,
     // std::variant<Value *, bool> IsWeak,
     bool IsVolatile,
@@ -73,11 +74,11 @@ void emitAtomicStoreBuiltin(
 /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#GCC_intrinsics
 ///
 /// @param Ptr         The memory location accessed atomically.
-/// @Param ExpectedPtr Pointer to the data expected at /p Ptr. The exchange will
-///                    only happen if the value at \p Ptr is equal to this. Data
-///                    at \p ExpectedPtr may or may not be be overwritten, so do
-///                    not use after this call.
-/// @Param DesiredPtr  Pointer to the data that the data at /p Ptr is replaced
+/// @Param ExpectedPtr Pointer to the data expected at \p Ptr. The exchange will
+///                    only happen if the value at \p Ptr is equal to this
+///                    (unless IsWeak is set). Data at \p ExpectedPtr may or may
+///                    not be be overwritten, so do not use after this call.
+/// @Param DesiredPtr  Pointer to the data that the data at \p Ptr is replaced
 ///                    with.
 /// @param IsWeak      If true, the exchange may not happen even if the data at
 ///                    \p Ptr equals to \p ExpectedPtr.
@@ -97,8 +98,13 @@ void emitAtomicStoreBuiltin(
 ///                    supports integer and pointers only. If any other type or
 ///                    omitted, type-prunes to an integer the holds at least \p
 ///                    DataSize bytes.
-/// @param PrevPtr     (optional) The value that /p Ptr had before the exchange
-///                    is stored here.
+/// @param PrevPtr     (optional) Receives the value at \p Ptr before the atomic
+///                    exchange is attempted. This means:
+///                    In case of success: The value at \p Ptr before the
+///                    update. That is, the value passed behind \p ExpectedPtr.
+///                    In case of failure: The current value at \p Ptr, i.e. the
+///                    atomic exchange is effectively only performace an atomic
+///                    load of that value.
 /// @param DataSize    Number of bytes to be exchanged.
 /// @param AvailableSize The total size that can be used for the atomic
 ///                    operation. It may include trailing padding in addition to
@@ -128,7 +134,7 @@ void emitAtomicStoreBuiltin(
 ///
 /// @return A boolean value that indicates whether the exchange has happened
 ///         (true) or not (false).
-Value *emitAtomicCompareExchangeBuiltin(
+Expected<Value *> emitAtomicCompareExchangeBuiltin(
     Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
     std::variant<Value *, bool> IsWeak, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
@@ -144,7 +150,7 @@ Value *emitAtomicCompareExchangeBuiltin(
     bool AllowInstruction = true, bool AllowSwitch = true,
     bool AllowSizedLibcall = true, bool AllowLibcall = true);
 
-Value *emitAtomicCompareExchangeBuiltin(
+Expected<Value *> emitAtomicCompareExchangeBuiltin(
     Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
     std::variant<Value *, bool> IsWeak, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
