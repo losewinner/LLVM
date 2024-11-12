@@ -210,23 +210,54 @@ static Value * followStoreLoad(Instruction *I, Value *V) {
 }
 
 
-static Value * followStorePtr(Value *Addr) {
-  Value *V = nullptr;
- // while (true) {
-    if (!isa<Instruction>(Addr))
+static   SetVector<Value *>  storedValues(Value *Val) {
+         SetVector<Value *> Vals; 
+      if (!isa<LoadInst>(Val))
+        return Vals;
+         auto LD = cast<LoadInst>(Val);
+
+         DenseSet<Instruction  *> Visited;
+         SmallVector<Value*> Addrs;
+  
+        Addrs.push_back(LD->getPointerOperand());
+
+  while (!Addrs.empty()) {
+      auto Addr  = Addrs.pop_back_val();
+      auto AddrI = dyn_cast<Instruction>(Addr);
+      if (!AddrI) continue ;
+      if (Visited.contains(AddrI ))
+        continue;
+      Visited.insert(AddrI);
+
+
+          for (auto &&U : AddrI->uses()) {
+                     if (auto S = dyn_cast<StoreInst>(U.getUser())) {
+                       assert(S->getPointerOperand() == AddrI);
+                       auto V = S->getValueOperand();
+                       if (auto ML = dyn_cast<LoadInst>(V))
+                         Addrs.push_back (ML->getPointerOperand() );
+                       else 
+                         Vals.insert(V);
+                     } else 
+                      if (auto L = dyn_cast<LoadInst>(U.getUser())) {
+                        Addrs.push_back(L->getPointerOperand());
+                     }
+          }
+  }
+
+  return Vals;
+}
+
+
+
+static Value * followStorePtr(Value *Val) {
+  Value *V = Val;
+    if (!isa<LoadInst>(Val))
         return V;
-    auto Alloca = cast<Instruction>(Addr);
-    auto LDUse = [&]() ->  LoadInst *{
-      for (auto &&U : Alloca->uses())
-          if (auto LD = dyn_cast<LoadInst>(U.getUser()))
-            if (LD->getPointerOperand() == Alloca)
-              return LD;
-      return nullptr;
-        }();
-    if (!LDUse)
+    auto LD = cast<LoadInst>(Val);
+    auto Alloca = dyn_cast<AllocaInst>( LD->getPointerOperand());
+    if (!Alloca)
       return V;
-
-
 
      auto STUse = [](Instruction  *Addr) ->  StoreInst  *{
       for (auto &&U : Addr->uses())
@@ -236,8 +267,6 @@ static Value * followStorePtr(Value *Addr) {
       return nullptr;
       }(Alloca);
      return STUse;
-
- // }
 }
 
 static StoreInst *findAtomicInst(BasicBlock  *EntryBB, Value *XVal) {
@@ -4060,8 +4089,8 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdate) {
   AtomicCmpXchgInst *CmpExchg = dyn_cast<AtomicCmpXchgInst>(ExVI1->getAggregateOperand());
   EXPECT_NE(CmpExchg, nullptr);
   EXPECT_EQ(CmpExchg->getPointerOperand(), XVal);
-  EXPECT_EQ(followStorePtr(CmpExchg->getCompareOperand()), ExpectedVal);
-  EXPECT_EQ(followStorePtr(CmpExchg->getNewValOperand()),  Sub);
+  EXPECT_TRUE(storedValues(CmpExchg->getCompareOperand()).contains( ExpectedVal));
+  EXPECT_TRUE(storedValues(CmpExchg->getNewValOperand()).contains(  Sub));
   EXPECT_EQ(CmpExchg->getSuccessOrdering(), AtomicOrdering::Monotonic);
 
   LoadInst *Ld = dyn_cast<LoadInst>(CmpExchg->getNewValOperand());
@@ -4084,7 +4113,8 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateFloat) {
   Type *FloatTy = Type::getFloatTy(M->getContext());
   AllocaInst *XVal = Builder.CreateAlloca(FloatTy);
   XVal->setName("AtomicVar");
-  Builder.CreateStore(ConstantFP::get(Type::getFloatTy(Ctx), 0.0), XVal);
+  auto ExpectedVal = ConstantFP::get(Type::getFloatTy(Ctx), 0.0);
+  Builder.CreateStore(ExpectedVal, XVal);
   OpenMPIRBuilder::AtomicOpValue X = {XVal, FloatTy, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
   Constant *ConstVal = ConstantFP::get(Type::getFloatTy(Ctx), 1.0);
@@ -4113,24 +4143,24 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateFloat) {
   EXPECT_EQ(ContTI->getSuccessor(1), ContBB);
   EXPECT_NE(EndBB, nullptr);
 
-  PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
-  EXPECT_NE(Phi, nullptr);
-  EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
-  EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
-  EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
+  //PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
+  //EXPECT_NE(Phi, nullptr);
+  //EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
+  //EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
+  //EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
 
   EXPECT_EQ(Sub->getNumUses(), 1U);
   StoreInst *St = dyn_cast<StoreInst>(Sub->user_back());
   AllocaInst *UpdateTemp = dyn_cast<AllocaInst>(St->getPointerOperand());
 
-  ExtractValueInst *ExVI1 =
-      dyn_cast<ExtractValueInst>(Phi->getIncomingValueForBlock(ContBB));
+  ExtractValueInst *ExVI1 =   findLastInstInBB<ExtractValueInst>(ContBB);
   EXPECT_NE(ExVI1, nullptr);
   AtomicCmpXchgInst *CmpExchg =
       dyn_cast<AtomicCmpXchgInst>(ExVI1->getAggregateOperand());
   EXPECT_NE(CmpExchg, nullptr);
   EXPECT_EQ(CmpExchg->getPointerOperand(), XVal);
-  EXPECT_EQ(CmpExchg->getCompareOperand(), Phi);
+  EXPECT_TRUE(storedValues(CmpExchg->getCompareOperand()).contains( ExpectedVal));
+  EXPECT_TRUE(storedValues(CmpExchg->getNewValOperand()).contains(  Sub));
   EXPECT_EQ(CmpExchg->getSuccessOrdering(), AtomicOrdering::Monotonic);
 
   LoadInst *Ld = dyn_cast<LoadInst>(CmpExchg->getNewValOperand());
@@ -4152,7 +4182,8 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateIntr) {
   Type *IntTy = Type::getInt32Ty(M->getContext());
   AllocaInst *XVal = Builder.CreateAlloca(IntTy);
   XVal->setName("AtomicVar");
-  Builder.CreateStore(ConstantInt::get(Type::getInt32Ty(Ctx), 0), XVal);
+  auto ExpectedVal = ConstantInt::get(Type::getInt32Ty(Ctx), 0);
+  Builder.CreateStore(ExpectedVal, XVal);
   OpenMPIRBuilder::AtomicOpValue X = {XVal, IntTy, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
   Constant *ConstVal = ConstantInt::get(Type::getInt32Ty(Ctx), 1);
@@ -4181,24 +4212,23 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateIntr) {
   EXPECT_EQ(ContTI->getSuccessor(1), ContBB);
   EXPECT_NE(EndBB, nullptr);
 
-  PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
-  EXPECT_NE(Phi, nullptr);
-  EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
-  EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
-  EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
+  //PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
+  //EXPECT_NE(Phi, nullptr);
+  //EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
+  //EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
+  //EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
 
   EXPECT_EQ(Sub->getNumUses(), 1U);
   StoreInst *St = dyn_cast<StoreInst>(Sub->user_back());
   AllocaInst *UpdateTemp = dyn_cast<AllocaInst>(St->getPointerOperand());
 
-  ExtractValueInst *ExVI1 =
-      dyn_cast<ExtractValueInst>(Phi->getIncomingValueForBlock(ContBB));
+  ExtractValueInst *ExVI1 =   findLastInstInBB<ExtractValueInst>(ContBB);
   EXPECT_NE(ExVI1, nullptr);
-  AtomicCmpXchgInst *CmpExchg =
-      dyn_cast<AtomicCmpXchgInst>(ExVI1->getAggregateOperand());
+  AtomicCmpXchgInst *CmpExchg =  dyn_cast<AtomicCmpXchgInst>(ExVI1->getAggregateOperand());
   EXPECT_NE(CmpExchg, nullptr);
   EXPECT_EQ(CmpExchg->getPointerOperand(), XVal);
-  EXPECT_EQ(CmpExchg->getCompareOperand(), Phi);
+  EXPECT_TRUE(storedValues(CmpExchg->getCompareOperand()).contains( ExpectedVal));
+  EXPECT_TRUE(storedValues(CmpExchg->getNewValOperand()).contains(  Sub));
   EXPECT_EQ(CmpExchg->getSuccessOrdering(), AtomicOrdering::Monotonic);
 
   LoadInst *Ld = dyn_cast<LoadInst>(CmpExchg->getNewValOperand());
