@@ -2,7 +2,7 @@
 ; RUN: opt %s -S -passes=msan 2>&1 | FileCheck %s
 
 target datalayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+target triple = "i386-unknown-linux-gnu"
 
 declare <1 x i64> @llvm.x86.ssse3.phadd.w(<1 x i64>, <1 x i64>) nounwind readnone
 
@@ -2615,7 +2615,7 @@ define void @test25(ptr %p, <1 x i64> %a) nounwind optsize ssp #0 {
 ; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i64 [[_MSPROP]] to <1 x i64>
 ; CHECK-NEXT:    [[MMX_VAR_I:%.*]] = bitcast i64 [[TMP0]] to <1 x i64>
 ; CHECK-NEXT:    [[TMP4:%.*]] = ptrtoint ptr [[P]] to i64
-; CHECK-NEXT:    [[TMP5:%.*]] = xor i64 [[TMP4]], 87960930222080
+; CHECK-NEXT:    [[TMP5:%.*]] = and i64 [[TMP4]], -2147483649
 ; CHECK-NEXT:    [[TMP6:%.*]] = inttoptr i64 [[TMP5]] to ptr
 ; CHECK-NEXT:    store <1 x i64> [[TMP3]], ptr [[TMP6]], align 1
 ; CHECK-NEXT:    [[_MSCMP:%.*]] = icmp ne i64 [[TMP1]], 0
