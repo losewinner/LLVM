@@ -151,9 +151,9 @@ public:
       case Instruction::Sub: {
         Value *X;
         if ((PatternMatch::match(I->getOperand(0),
-                                 m_OneUse(m_ZExt(m_Value(X)))) ||
+                                 m_OneUse(m_ZExtOrSExt(m_Value(X)))) ||
              PatternMatch::match(I->getOperand(1),
-                                 m_OneUse(m_ZExt(m_Value(X))))) &&
+                                 m_OneUse(m_ZExtOrSExt(m_Value(X))))) &&
             X->getType()->isIntegerTy(1))
           return SelectLike(I);
         break;
@@ -188,10 +188,10 @@ public:
       if (auto *BO = dyn_cast<BinaryOperator>(I)) {
         Value *X;
         if (PatternMatch::match(BO->getOperand(0),
-                                m_OneUse(m_ZExt(m_Value(X)))))
+                                m_OneUse(m_ZExtOrSExt(m_Value(X)))))
           return X;
         if (PatternMatch::match(BO->getOperand(1),
-                                m_OneUse(m_ZExt(m_Value(X)))))
+                                m_OneUse(m_ZExtOrSExt(m_Value(X)))))
           return X;
       }
 
@@ -238,10 +238,10 @@ public:
       if (auto *BO = dyn_cast<BinaryOperator>(I)) {
         Value *X;
         if (PatternMatch::match(BO->getOperand(0),
-                                m_OneUse(m_ZExt(m_Value(X)))))
+                                m_OneUse(m_ZExtOrSExt(m_Value(X)))))
           return BO->getOperand(1);
         if (PatternMatch::match(BO->getOperand(1),
-                                m_OneUse(m_ZExt(m_Value(X)))))
+                                m_OneUse(m_ZExtOrSExt(m_Value(X)))))
           return BO->getOperand(0);
       }
 
@@ -567,7 +567,11 @@ getTrueOrFalseValue(SelectOptimizeImpl::SelectLike SI, bool isTrue,
            "Only currently handling Add, Or and Sub instructions.");
     V = SI.getFalseValue();
     if (isTrue) {
-      Constant *CI = ConstantInt::get(V->getType(), 1);
+      bool HasSExt =
+          (BinOp->getOperand(0) == V && isa<SExtInst>(BinOp->getOperand(1))) ||
+          (BinOp->getOperand(1) == V && isa<SExtInst>(BinOp->getOperand(0)));
+      Constant *CI = HasSExt ? ConstantInt::get(V->getType(), -1)
+                             : ConstantInt::get(V->getType(), 1);
       V = IB.CreateBinOp(BinOp->getOpcode(), V, CI);
     }
   }
