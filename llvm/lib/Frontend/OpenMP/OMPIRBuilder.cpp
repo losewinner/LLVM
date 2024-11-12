@@ -8262,12 +8262,11 @@ Expected<std::pair<Value *, Value *>> OpenMPIRBuilder::emitAtomicUpdate(
     return std::move(ALResult);
 
   // Create new CFG.
-  BasicBlock *ContBB = splitBB(Builder, true, X->getName() + ".atomic.cont");
-  BasicBlock *ExitBB = splitBB(Builder, false, X->getName() + ".atomic.exit");
-  InsertPointTy ContIP = Builder.saveIP();
+  BasicBlock *DoneBB = splitBB(Builder, false, X->getName() + ".atomic.done");
+  BasicBlock *RetryBB = splitBB(Builder, true, X->getName() + ".atomic.retry");
 
   // Emit the update transaction...
-  Builder.SetInsertPoint(ContBB);
+  Builder.SetInsertPoint(RetryBB);
 
   // 1. Let the user code compute the new value.
   // FIXME: This should not be done by-value, as the type might be unreasonable
@@ -8303,10 +8302,10 @@ Expected<std::pair<Value *, Value *>> OpenMPIRBuilder::emitAtomicUpdate(
   Value *Success = *ACEResult;
 
   // 3. Repeat transaction until successful.
-  Builder.CreateCondBr(Success, ExitBB, ContBB);
+  Builder.CreateCondBr(Success, DoneBB,  RetryBB);
 
   // Continue when the update transaction was successful.
-  Builder.restoreIP(ContIP);
+  Builder.SetInsertPoint(DoneBB);
 
   return std::make_pair(OrigVal, UpdVal);
 }
