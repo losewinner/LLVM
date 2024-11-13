@@ -13,6 +13,7 @@
 #include "llvm/CodeGen/MachinePassManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
+#include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Support/AMDGPUAddrSpace.h"
 #include "llvm/Support/CodeGen.h"
 
@@ -111,9 +112,9 @@ ModulePass *createAMDGPUCtorDtorLoweringLegacyPass();
 void initializeAMDGPUCtorDtorLoweringLegacyPass(PassRegistry &);
 extern char &AMDGPUCtorDtorLoweringLegacyPassID;
 
-FunctionPass *createAMDGPULowerKernelArgumentsPass();
-void initializeAMDGPULowerKernelArgumentsPass(PassRegistry &);
-extern char &AMDGPULowerKernelArgumentsID;
+CallGraphSCCPass *createAMDGPULowerKernelArgumentsLegacyPass(const TargetMachine *TM);
+void initializeAMDGPULowerKernelArgumentsLegacyPass(PassRegistry &);
+extern char &AMDGPULowerKernelArgumentsLegacyPassID;
 
 FunctionPass *createAMDGPUPromoteKernelArgumentsPass();
 void initializeAMDGPUPromoteKernelArgumentsPass(PassRegistry &);
@@ -310,7 +311,7 @@ private:
 
 public:
   AMDGPULowerKernelArgumentsPass(TargetMachine &TM) : TM(TM){};
-  PreservedAnalyses run(Function &, FunctionAnalysisManager &);
+  PreservedAnalyses run(Module &, ModuleAnalysisManager &);
 };
 
 struct AMDGPUAttributorOptions {
