@@ -6539,6 +6539,46 @@ static void HandleBTFTypeTagAttribute(QualType &Type, const ParsedAttr &Attr,
       ::new (Ctx) BTFTypeTagAttr(Ctx, Attr, BTFTypeTag), Type);
 }
 
+static void handleWrapsAttr(QualType &Type, const ParsedAttr &Attr,
+                            TypeProcessingState &State, bool NoWraps = false) {
+  Sema &S = State.getSema();
+  ASTContext &Ctx = S.Context;
+
+  // wraps and no_wraps are most useful and consistent when used with C. Other
+  // languages have better alternatives within their type systems.
+  if (S.LangOpts.CPlusPlus || S.LangOpts.ObjC)
+    return;
+
+  if (!Type->isIntegerType()) {
+    S.Diag(Attr.getLoc(), diag::err_wraps_attr_var_decl_type_not_integer)
+        << (int)NoWraps << Type.getAsString();
+    Attr.setInvalid();
+    return;
+  }
+
+  if (NoWraps) {
+    const AttributedType *AT = Type.getTypePtr()->getAs<AttributedType>();
+    while (AT) {
+      if (AT->getAttr()->getParsedKind() == ParsedAttr::AT_Wraps) {
+        S.Diag(Attr.getLoc(), diag::err_wraps_attr_with_no_wraps_attr);
+        Attr.setInvalid();
+        return;
+      }
+      AT = AT->getModifiedType().getTypePtr()->getAs<AttributedType>();
+    }
+    Type =
+        State.getAttributedType(::new (Ctx) NoWrapsAttr(Ctx, Attr), Type, Type);
+  } else {
+    if (Type.hasNoWrapsAttr()) {
+      S.Diag(Attr.getLoc(), diag::err_wraps_attr_with_no_wraps_attr);
+      Attr.setInvalid();
+      return;
+    }
+    Type =
+        State.getAttributedType(::new (Ctx) WrapsAttr(Ctx, Attr), Type, Type);
+  }
+}
+
 /// HandleAddressSpaceTypeAttribute - Process an address_space attribute on the
 /// specified type.  The attribute contains 1 argument, the id of the address
 /// space for the type.
@@ -8708,6 +8748,12 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     case ParsedAttr::AT_BTFTypeTag:
       HandleBTFTypeTagAttribute(type, attr, state);
       attr.setUsedAsTypeAttr();
+      break;
+    case ParsedAttr::AT_Wraps:
+      handleWrapsAttr(type, attr, state);
+      break;
+    case ParsedAttr::AT_NoWraps:
+      handleWrapsAttr(type, attr, state, true);
       break;
 
     case ParsedAttr::AT_MayAlias:

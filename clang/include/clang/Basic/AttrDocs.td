@@ -8709,3 +8709,106 @@ Declares that a function potentially allocates heap memory, and prevents any pot
 of ``nonallocating`` by the compiler.
   }];
 }
+
+def WrapsDocs : Documentation {
+  let Category = DocCatField;
+  let Content = [{
+The ``wraps`` attribute can be used with type or variable declarations to
+denote that arithmetic containing attributed types or variables have defined
+overflow behavior. Specifically, the behavior is defined as being consistent
+with two's complement wrap-around. This is similar to ``-fwrapv`` but at the
+type and declaration level. For the purposes of sanitizers or warnings that
+concern themselves with the definedness of integer arithmetic, they will cease
+to instrument or warn about arithmetic that directly involves operands
+attributed with the ``wraps`` attribute.
+
+The ``signed-integer-overflow``, ``unsigned-integer-overflow``,
+``implicit-signed-integer-truncation`` and the
+``implicit-unsigned-integer-truncation`` sanitizers will not instrument
+arithmetic containing any operands attributed by ``wraps``. Similarly, the
+``-Winteger-overflow`` and ``-Wconstant-conversion`` warnings are disabled for
+these instances.
+
+The following example shows how one may disable ``signed-integer-overflow``
+sanitizer instrumentation using ``__attribute__((wraps))`` on a type definition
+when building with ``-fsanitize=signed-integer-overflow``:
+
+.. code-block:: c
+
+  typedef int __attribute__((wraps)) wrapping_int;
+
+  void foo(void) {
+    wrapping_int A = INT_MAX;
+    ++A; // no sanitizer instrumentation
+  }
+
+``wraps`` may also be used with function parameters or declarations of
+variables as well as members of structures.
+
+Using ``wraps`` on non-integer types will result in an error.
+
+``wraps`` persists through implicit type promotions and will be applied to the
+result type of arithmetic expressions containing a wrapping operand.
+``-Wimplicitly-discarded-wraps-attribute`` warnings can be caused in situations
+where the ``wraps`` attribute cannot persist through implicit type conversions.
+Disable this with ``-Wno-implicitly-discarded-wraps-attribute``.
+}];
+}
+
+def NoWrapsDocs : Documentation {
+  let Category = DocCatField;
+  let Content = [{
+The ``no_wraps`` attribute can be used to annotate types or variables as
+non-wrapping. This may serve as a helpful annotation to readers of code that
+particular arithmetic expressions involving these types or variables are not
+meant to wrap-around.
+
+``no_wraps`` only interacts with sanitizers and
+`Sanitizer special case lists <https://clang.llvm.org/docs/SanitizerSpecialCaseList.html>`_ but,
+unlike ``wraps``, it does not modify the signed overflow behavior of types it
+affects. Instead, you should use ``-fwrapv`` or ``-fno-wrapv`` to define signed
+overflow behavior at the language level in combination with ``wraps`` for
+type-level modifications.
+
+When overflow or truncation sanitizer instrumentation is modified at the
+type-level through `SSCLs <https://clang.llvm.org/docs/SanitizerSpecialCaseList.html>`_,
+``no_wraps`` or ``wraps`` may be used to override sanitizer behavior.
+
+For example, one may specify an ignorelist (with ``-fsanitize-ignorelist=``) to
+disable the ``signed-integer-overflow`` sanitizer for all types:
+
+.. code-block:: text
+
+  [signed-integer-overflow]
+  type:*
+
+``no_wraps`` can override the behavior provided by the ignorelist to
+effectively re-enable instrumentation for specific types or variables.
+
+.. code-block:: c
+
+  typedef int __attribute__((no_wraps)) non_wrapping_int;
+
+  void foo(non_wrapping_int A, int B) {
+      ++A; // will be instrumented if built with -fsanitize=signed-integer-overflow
+      ++B; // won't be instrumented as it is ignored by the ignorelist
+  }
+
+Like ``wraps``, ``no_wraps`` persists through implicit type promotions and will
+be automatically applied to the result type of arithmetic expressions
+containing a wrapping operand. ``-Wimplicitly-discarded-wraps-attribute``
+warnings can be caused in situations where the ``wraps`` or ``no_wraps``
+attribute cannot persist through implicit type conversions. Disable this with
+``-Wno-implicitly-discarded-wraps-attribute``.
+
+Applying both ``__attribute__((wraps))`` and ``__attribute__((no_wraps))``
+results in an error, as you should only use one or the other. Arithmetic binary
+operators containing both `wraps` and `no_wraps`-attributed types will only
+persist the `no_wraps` attribute towards the final resulting type.
+
+Like ``wraps``, ``no_wraps`` may also be used with function parameters or
+declarations of variables as well as members of structures but can not be used
+with non-integer types.
+}];
+}
+
