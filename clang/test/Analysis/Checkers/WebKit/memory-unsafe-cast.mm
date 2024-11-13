@@ -18,11 +18,11 @@
 @implementation DerivedClass
 -(void)testCasts:(BaseClass*)base {
   DerivedClass *derived = (DerivedClass*)base;
-  // expected-warning@-1{{Unsafe cast from base type 'BaseClass *' to derived type 'DerivedClass *'}}
+  // expected-warning@-1{{Unsafe cast from base type 'BaseClass' to derived type 'DerivedClass'}}
   DerivedClass *derived_static = static_cast<DerivedClass*>(base);
-  // expected-warning@-1{{Unsafe cast from base type 'BaseClass *' to derived type 'DerivedClass *'}}
+  // expected-warning@-1{{Unsafe cast from base type 'BaseClass' to derived type 'DerivedClass'}}
   DerivedClass *derived_reinterpret = reinterpret_cast<DerivedClass*>(base);
-  // expected-warning@-1{{Unsafe cast from base type 'BaseClass *' to derived type 'DerivedClass *'}}
+  // expected-warning@-1{{Unsafe cast from base type 'BaseClass' to derived type 'DerivedClass'}}
   base = (BaseClass*)derived;  // no warning
   base = (BaseClass*)base;  // no warning
 }
