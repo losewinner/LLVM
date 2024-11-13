@@ -2037,10 +2037,9 @@ bool LowerTypeTestsModule::lower() {
       // have the same name, but it's not the one we are looking for.
       if (F.hasLocalLinkage())
         continue;
-      if (ImportSummary->cfiFunctionDefs().count(std::string(F.getName())))
+      if (ImportSummary->cfiFunctionDefs().count(F.getName()))
         Defs.push_back(&F);
-      else if (ImportSummary->cfiFunctionDecls().count(
-                   std::string(F.getName())))
+      else if (ImportSummary->cfiFunctionDecls().count(F.getName()))
         Decls.push_back(&F);
     }
 
@@ -2096,8 +2095,12 @@ bool LowerTypeTestsModule::lower() {
     for (auto &I : *ExportSummary)
       for (auto &GVS : I.second.SummaryList)
         if (GVS->isLive())
-          for (const auto &Ref : GVS->refs())
+          for (const auto &Ref : GVS->refs()) {
             AddressTaken.insert(Ref.getGUID());
+            for (auto &RefGVS : Ref.getSummaryList())
+              if (auto Alias = dyn_cast<AliasSummary>(RefGVS.get()))
+                AddressTaken.insert(Alias->getAliaseeGUID());
+          }
 
     NamedMDNode *CfiFunctionsMD = M.getNamedMetadata("cfi.functions");
     if (CfiFunctionsMD) {
