@@ -212,3 +212,19 @@ void RISCVSubtarget::overrideSchedPolicy(MachineSchedPolicy &Policy,
   // register-pressure tracking. This will increase compile time.
   Policy.ShouldTrackPressure = true;
 }
+
+void RISCVSubtarget::overridePostRASchedPolicy(MachineSchedPolicy &Policy,
+                                               unsigned NumRegionInstrs) const {
+  MISchedPostRASched::Direction PostRASchedDirection =
+      getPostRASchedDirection();
+  if (PostRASchedDirection == MISchedPostRASched::TopDown) {
+    Policy.OnlyTopDown = true;
+    Policy.OnlyBottomUp = false;
+  } else if (PostRASchedDirection == MISchedPostRASched::BottomUp) {
+    Policy.OnlyTopDown = false;
+    Policy.OnlyBottomUp = true;
+  } else if (PostRASchedDirection == MISchedPostRASched::Bidirectional) {
+    Policy.OnlyTopDown = false;
+    Policy.OnlyBottomUp = false;
+  }
+}

@@ -81,13 +81,7 @@ cl::opt<bool> ForceTopDown("misched-topdown", cl::Hidden,
                            cl::desc("Force top-down list scheduling"));
 cl::opt<bool> ForceBottomUp("misched-bottomup", cl::Hidden,
                             cl::desc("Force bottom-up list scheduling"));
-namespace MISchedPostRASched {
-enum Direction {
-  TopDown,
-  BottomUp,
-  Bidirectional,
-};
-} // end namespace MISchedPostRASched
+
 cl::opt<MISchedPostRASched::Direction> PostRADirection(
     "misched-postra-direction", cl::Hidden,
     cl::desc("Post reg-alloc list scheduling direction"),
