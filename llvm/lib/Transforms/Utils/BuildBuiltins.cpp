@@ -71,15 +71,13 @@ constexpr bool holds_alternative_if_exists(const Variant &v) {
 class AtomicEmitter {
 public:
   AtomicEmitter(
-      Value *Ptr,
-      std::variant<Value *, bool> IsWeak, bool IsVolatile,
+      Value *Ptr, std::variant<Value *, bool> IsWeak, bool IsVolatile,
       std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
       std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
           FailureMemorder,
-      std::variant<Value *, SyncScope::ID, StringRef> Scope,
-      Type *DataTy, std::optional<uint64_t> DataSize,
-      std::optional<uint64_t> AvailableSize, MaybeAlign Align,
-      IRBuilderBase &Builder, const DataLayout &DL,
+      std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
+      std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
+      MaybeAlign Align, IRBuilderBase &Builder, const DataLayout &DL,
       const TargetLibraryInfo *TLI, const TargetLowering *TL,
       ArrayRef<std::pair<uint32_t, StringRef>> SyncScopes,
       StringRef FallbackScope, llvm::Twine Name, bool AllowInstruction,
@@ -133,7 +131,6 @@ protected:
   Value *ScopeVal;
   std::optional<bool> IsWeakConst;
   Value *IsWeakVal;
-
 
   BasicBlock *createBasicBlock(const Twine &BBName) {
     return BasicBlock::Create(Ctx, Name + BBName, CurFn);
@@ -391,217 +388,219 @@ protected:
     assert(DataSizeConst <= AvailableSizeConst);
 
 #ifndef NDEBUG
-  if (DataTy) {
-    // 'long double' (80-bit extended precision) behaves strange here.
-    // DL.getTypeStoreSize says it is 10 bytes
-    // Clang says it is 12 bytes
-    // AtomicExpandPass would disagree with CGAtomic (not for cmpxchg that does
-    // not support floats, so AtomicExpandPass doesn't even know it originally
-    // was an FP80)
-    TypeSize DS = DL.getTypeStoreSize(DataTy);
-    assert(DS.getKnownMinValue() <= DataSizeConst &&
-           "Must access at least all the relevant bits of the data, possibly "
-           "some more for padding");
-  }
+    if (DataTy) {
+      // 'long double' (80-bit extended precision) behaves strange here.
+      // DL.getTypeStoreSize says it is 10 bytes
+      // Clang says it is 12 bytes
+      // AtomicExpandPass would disagree with CGAtomic (not for cmpxchg that
+      // does not support floats, so AtomicExpandPass doesn't even know it
+      // originally was an FP80)
+      TypeSize DS = DL.getTypeStoreSize(DataTy);
+      assert(DS.getKnownMinValue() <= DataSizeConst &&
+             "Must access at least all the relevant bits of the data, possibly "
+             "some more for padding");
+    }
 #endif
 
-  Type *IntTy = getIntTy(Builder, TLI);
+    Type *IntTy = getIntTy(Builder, TLI);
 
-  PreferredSize = PowerOf2Ceil(DataSizeConst);
-  if (!PreferredSize || PreferredSize > MaxAtomicSizeSupported)
-    PreferredSize = DataSizeConst;
+    PreferredSize = PowerOf2Ceil(DataSizeConst);
+    if (!PreferredSize || PreferredSize > MaxAtomicSizeSupported)
+      PreferredSize = DataSizeConst;
 
-  if (Align) {
-    EffectiveAlign = *Align;
-  } else {
+    if (Align) {
+      EffectiveAlign = *Align;
+    } else {
+      // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
+      //
+      //   The alignment is only optional when parsing textual IR; for in-memory
+      //   IR, it is always present. If unspecified, the alignment is assumed to
+      //   be equal to the size of the ‘<value>’ type.
+      //
+      // We prefer safety here and assume no alignment, unless
+      // getPointerAlignment() can determine the actual alignment.
+      EffectiveAlign = AtomicPtr->getPointerAlignment(DL);
+    }
+
+    // Only use the original data type if it is compatible with the atomic
+    // instruction (and sized libcall function) and matches the preferred size.
+    // No type punning needed when the libcall function only takes pointers.
+    CoercedTy = DataTy;
+    // If we have rounded-up the data size, unconditionally coerce to a
+    // different type.
+    if (DataSizeConst != PreferredSize)
+      CoercedTy = IntegerType::get(Ctx, PreferredSize * 8);
+    if (CoerceType) {
+      if (DataTy && DataSizeConst == PreferredSize &&
+          (DataTy->isIntegerTy() || DataTy->isPointerTy()))
+        CoercedTy = DataTy;
+      else if (PreferredSize <= 16)
+        CoercedTy = IntegerType::get(Ctx, PreferredSize * 8);
+    }
+
+    // For resolving the SuccessMemorder/FailureMemorder arguments. If it is
+    // constant, determine the AtomicOrdering for use with the cmpxchg
+    // instruction. Also determines the llvm::Value to be passed to
+    // __atomic_compare_exchange in case cmpxchg is not legal.
+    auto processMemorder = [&](auto MemorderVariant)
+        -> std::pair<std::optional<AtomicOrdering>, Value *> {
+      if (holds_alternative_if_exists<std::monostate>(MemorderVariant)) {
+        // Derive FailureMemorder from SucccessMemorder
+        if (SuccessMemorderConst) {
+          AtomicOrdering MOFailure =
+              AtomicCmpXchgInst::getStrongestFailureOrdering(
+                  *SuccessMemorderConst);
+          MemorderVariant = MOFailure;
+        }
+      }
+
+      if (std::holds_alternative<AtomicOrdering>(MemorderVariant)) {
+        auto Memorder = std::get<AtomicOrdering>(MemorderVariant);
+        return std::make_pair(
+            Memorder,
+            ConstantInt::get(IntTy, static_cast<uint64_t>(toCABI(Memorder))));
+      }
+
+      if (std::holds_alternative<AtomicOrderingCABI>(MemorderVariant)) {
+        auto MemorderCABI = std::get<AtomicOrderingCABI>(MemorderVariant);
+        return std::make_pair(
+            fromCABI(MemorderCABI),
+            ConstantInt::get(IntTy, static_cast<uint64_t>(MemorderCABI)));
+      }
+
+      auto *MemorderCABI = std::get<Value *>(MemorderVariant);
+      if (auto *MO = dyn_cast<ConstantInt>(MemorderCABI)) {
+        uint64_t MOInt = MO->getZExtValue();
+        return std::make_pair(fromCABI(MOInt), MO);
+      }
+
+      return std::make_pair(std::nullopt, MemorderCABI);
+    };
+
+    auto processIsWeak =
+        [&](auto WeakVariant) -> std::pair<std::optional<bool>, Value *> {
+      if (std::holds_alternative<bool>(WeakVariant)) {
+        bool IsWeakBool = std::get<bool>(WeakVariant);
+        return std::make_pair(IsWeakBool, Builder.getInt1(IsWeakBool));
+      }
+
+      auto *BoolVal = std::get<Value *>(WeakVariant);
+      if (auto *BoolConst = dyn_cast<ConstantInt>(BoolVal)) {
+        uint64_t IsWeakBool = BoolConst->getZExtValue();
+        return std::make_pair(IsWeakBool != 0, BoolVal);
+      }
+
+      return std::make_pair(std::nullopt, BoolVal);
+    };
+
+    auto processScope = [&](auto ScopeVariant)
+        -> std::pair<std::optional<SyncScope::ID>, Value *> {
+      if (std::holds_alternative<SyncScope::ID>(ScopeVariant)) {
+        auto ScopeID = std::get<SyncScope::ID>(ScopeVariant);
+        return std::make_pair(ScopeID, nullptr);
+      }
+
+      if (std::holds_alternative<StringRef>(ScopeVariant)) {
+        auto ScopeName = std::get<StringRef>(ScopeVariant);
+        SyncScope::ID ScopeID = Ctx.getOrInsertSyncScopeID(ScopeName);
+        return std::make_pair(ScopeID, nullptr);
+      }
+
+      auto *IntVal = std::get<Value *>(ScopeVariant);
+      if (auto *InstConst = dyn_cast<ConstantInt>(IntVal)) {
+        uint64_t ScopeVal = InstConst->getZExtValue();
+        return std::make_pair(ScopeVal, IntVal);
+      }
+
+      return std::make_pair(std::nullopt, IntVal);
+    };
+
+    std::tie(IsWeakConst, IsWeakVal) = processIsWeak(IsWeak);
+    std::tie(SuccessMemorderConst, SuccessMemorderCABI) =
+        processMemorder(SuccessMemorder);
+    std::tie(FailureMemorderConst, FailureMemorderCABI) =
+        processMemorder(FailureMemorder);
+    std::tie(ScopeConst, ScopeVal) = processScope(Scope);
+
+    // Fix malformed inputs. We do not want to emit illegal IR.
+    //
+    // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
+    //
+    //   [failure_memorder] This memory order cannot be __ATOMIC_RELEASE nor
+    //   __ATOMIC_ACQ_REL. It also cannot be a stronger order than that
+    //   specified by success_memorder.
+    //
     // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
     //
-    //   The alignment is only optional when parsing textual IR; for in-memory
-    //   IR, it is always present. If unspecified, the alignment is assumed to
-    //   be equal to the size of the ‘<value>’ type.
+    //   Both ordering parameters must be at least monotonic, the failure
+    //   ordering cannot be either release or acq_rel.
     //
-    // We prefer safety here and assume no alignment, unless
-    // getPointerAlignment() can determine the actual alignment.
-    EffectiveAlign = AtomicPtr->getPointerAlignment(DL);
-  }
-
-  // Only use the original data type if it is compatible with the atomic instruction (and sized
-  // libcall function) and matches the preferred size. No type punning needed
-  // when the libcall function only takes pointers.
- CoercedTy = DataTy;
-          // If we have rounded-up the data size, unconditionally coerce to a different type.
-            if (DataSizeConst != PreferredSize)
-               CoercedTy = IntegerType::get(Ctx, PreferredSize * 8);
- if (CoerceType) {
-          if (DataTy && DataSizeConst == PreferredSize &&
-                 (DataTy->isIntegerTy() || DataTy->isPointerTy()))
-          CoercedTy = DataTy;
-        else if (PreferredSize <= 16)
-          CoercedTy = IntegerType::get(Ctx, PreferredSize * 8);
-}
-
-  // For resolving the SuccessMemorder/FailureMemorder arguments. If it is
-  // constant, determine the AtomicOrdering for use with the cmpxchg
-  // instruction. Also determines the llvm::Value to be passed to
-  // __atomic_compare_exchange in case cmpxchg is not legal.
-  auto processMemorder = [&](auto MemorderVariant)
-      -> std::pair<std::optional<AtomicOrdering>, Value *> {
-    if (holds_alternative_if_exists<std::monostate>(MemorderVariant)) {
-      // Derive FailureMemorder from SucccessMemorder
-      if (SuccessMemorderConst) {
-        AtomicOrdering MOFailure =
-            AtomicCmpXchgInst::getStrongestFailureOrdering(
-                *SuccessMemorderConst);
-        MemorderVariant = MOFailure;
-      }
+    if (FailureMemorderConst &&
+        ((*FailureMemorderConst == AtomicOrdering::Release) ||
+         (*FailureMemorderConst == AtomicOrdering::AcquireRelease))) {
+      // Fall back to monotonic atomic when illegal value is passed. As with the
+      // dynamic case below, it is an arbitrary choice.
+      FailureMemorderConst = AtomicOrdering::Monotonic;
+    }
+    if (FailureMemorderConst && SuccessMemorderConst &&
+        !isAtLeastOrStrongerThan(*SuccessMemorderConst,
+                                 *FailureMemorderConst)) {
+      // Make SuccessMemorder as least as strong as FailureMemorder
+      SuccessMemorderConst =
+          getMergedAtomicOrdering(*SuccessMemorderConst, *FailureMemorderConst);
     }
 
-    if (std::holds_alternative<AtomicOrdering>(MemorderVariant)) {
-      auto Memorder = std::get<AtomicOrdering>(MemorderVariant);
-      return std::make_pair(
-          Memorder,
-          ConstantInt::get(IntTy, static_cast<uint64_t>(toCABI(Memorder))));
+    // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
+    //
+    //   The type of ‘<cmp>’ must be an integer or pointer type whose bit width
+    //   is a power of two greater than or equal to eight and less than or equal
+    //   to a target-specific size limit.
+    bool CanUseInst = PreferredSize <= MaxAtomicSizeSupported &&
+                      llvm::isPowerOf2_64(PreferredSize) && CoercedTy;
+    bool CanUseSingleInst = CanUseInst && SuccessMemorderConst &&
+                            FailureMemorderConst && IsWeakConst && ScopeConst;
+    bool CanUseSizedLibcall =
+        canUseSizedAtomicCall(PreferredSize, EffectiveAlign, DL) &&
+        ScopeConst == SyncScope::System;
+    bool CanUseLibcall = ScopeConst == SyncScope::System;
+
+    if (CanUseSingleInst && AllowInstruction) {
+      prepareInst();
+
+      return emitInst(*IsWeakConst, *ScopeConst, *SuccessMemorderConst,
+                      *FailureMemorderConst);
     }
 
-    if (std::holds_alternative<AtomicOrderingCABI>(MemorderVariant)) {
-      auto MemorderCABI = std::get<AtomicOrderingCABI>(MemorderVariant);
-      return std::make_pair(
-          fromCABI(MemorderCABI),
-          ConstantInt::get(IntTy, static_cast<uint64_t>(MemorderCABI)));
+    // Switching only needed for cmpxchg instruction which requires constant
+    // arguments.
+    // FIXME: If AtomicExpandPass later considers the cmpxchg not lowerable for
+    // the given target, it will also generate a call to the
+    // __atomic_compare_exchange function. In that case the switching was very
+    // unnecessary but cannot be undone.
+    if (CanUseInst && AllowSwitch && AllowInstruction) {
+      prepareInst();
+      return emitWeakSwitch();
     }
 
-    auto *MemorderCABI = std::get<Value *>(MemorderVariant);
-    if (auto *MO = dyn_cast<ConstantInt>(MemorderCABI)) {
-      uint64_t MOInt = MO->getZExtValue();
-      return std::make_pair(fromCABI(MOInt), MO);
+    // Fallback to a libcall function. From here on IsWeak/Scope/IsVolatile is
+    // ignored. IsWeak is assumed to be false, Scope is assumed to be
+    // SyncScope::System (strongest possible assumption synchronizing with
+    // everything, instead of just a subset of sibling threads), and volatile
+    // does not apply to function calls.
+
+    if (CanUseSizedLibcall && AllowSizedLibcall) {
+      Expected<Value *> SizedLibcallResult = emitSizedLibcall();
+      if (SizedLibcallResult)
+        return SizedLibcallResult;
     }
 
-    return std::make_pair(std::nullopt, MemorderCABI);
-  };
-
-  auto processIsWeak =
-      [&](auto WeakVariant) -> std::pair<std::optional<bool>, Value *> {
-    if (std::holds_alternative<bool>(WeakVariant)) {
-      bool IsWeakBool = std::get<bool>(WeakVariant);
-      return std::make_pair(IsWeakBool, Builder.getInt1(IsWeakBool));
+    if (CanUseLibcall && AllowLibcall) {
+      Expected<Value *> LibcallResult = emitSizedLibcall();
+      if (LibcallResult)
+        return LibcallResult;
     }
 
-    auto *BoolVal = std::get<Value *>(WeakVariant);
-    if (auto *BoolConst = dyn_cast<ConstantInt>(BoolVal)) {
-      uint64_t IsWeakBool = BoolConst->getZExtValue();
-      return std::make_pair(IsWeakBool != 0, BoolVal);
-    }
-
-    return std::make_pair(std::nullopt, BoolVal);
-  };
-
-  auto processScope = [&](auto ScopeVariant)
-      -> std::pair<std::optional<SyncScope::ID>, Value *> {
-    if (std::holds_alternative<SyncScope::ID>(ScopeVariant)) {
-      auto ScopeID = std::get<SyncScope::ID>(ScopeVariant);
-      return std::make_pair(ScopeID, nullptr);
-    }
-
-    if (std::holds_alternative<StringRef>(ScopeVariant)) {
-      auto ScopeName = std::get<StringRef>(ScopeVariant);
-      SyncScope::ID ScopeID = Ctx.getOrInsertSyncScopeID(ScopeName);
-      return std::make_pair(ScopeID, nullptr);
-    }
-
-    auto *IntVal = std::get<Value *>(ScopeVariant);
-    if (auto *InstConst = dyn_cast<ConstantInt>(IntVal)) {
-      uint64_t ScopeVal = InstConst->getZExtValue();
-      return std::make_pair(ScopeVal, IntVal);
-    }
-
-    return std::make_pair(std::nullopt, IntVal);
-  };
-
-  std::tie(IsWeakConst, IsWeakVal) = processIsWeak(IsWeak);
-  std::tie(SuccessMemorderConst, SuccessMemorderCABI) =
-      processMemorder(SuccessMemorder);
-  std::tie(FailureMemorderConst, FailureMemorderCABI) =
-      processMemorder(FailureMemorder);
-  std::tie(ScopeConst, ScopeVal) = processScope(Scope);
-
-  // Fix malformed inputs. We do not want to emit illegal IR.
-  //
-  // https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
-  //
-  //   [failure_memorder] This memory order cannot be __ATOMIC_RELEASE nor
-  //   __ATOMIC_ACQ_REL. It also cannot be a stronger order than that
-  //   specified by success_memorder.
-  //
-  // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
-  //
-  //   Both ordering parameters must be at least monotonic, the failure
-  //   ordering cannot be either release or acq_rel.
-  //
-  if (FailureMemorderConst &&
-      ((*FailureMemorderConst == AtomicOrdering::Release) ||
-       (*FailureMemorderConst == AtomicOrdering::AcquireRelease))) {
-    // Fall back to monotonic atomic when illegal value is passed. As with the
-    // dynamic case below, it is an arbitrary choice.
-    FailureMemorderConst = AtomicOrdering::Monotonic;
-  }
-  if (FailureMemorderConst && SuccessMemorderConst &&
-      !isAtLeastOrStrongerThan(*SuccessMemorderConst, *FailureMemorderConst)) {
-    // Make SuccessMemorder as least as strong as FailureMemorder
-    SuccessMemorderConst =
-        getMergedAtomicOrdering(*SuccessMemorderConst, *FailureMemorderConst);
-  }
-
-  // https://llvm.org/docs/LangRef.html#cmpxchg-instruction
-  //
-  //   The type of ‘<cmp>’ must be an integer or pointer type whose bit width is
-  //   a power of two greater than or equal to eight and less than or equal to a
-  //   target-specific size limit.
-  bool CanUseInst = PreferredSize <= MaxAtomicSizeSupported &&
-                    llvm::isPowerOf2_64(PreferredSize) && CoercedTy;
-  bool CanUseSingleInst = CanUseInst && SuccessMemorderConst &&
-                          FailureMemorderConst && IsWeakConst && ScopeConst;
-  bool CanUseSizedLibcall =
-      canUseSizedAtomicCall(PreferredSize, EffectiveAlign, DL) &&
-      ScopeConst == SyncScope::System;
-  bool CanUseLibcall = ScopeConst == SyncScope::System;
-
-  if (CanUseSingleInst && AllowInstruction) {
-    prepareInst();
-
-    return emitInst(*IsWeakConst, *ScopeConst, *SuccessMemorderConst,
-                    *FailureMemorderConst);
-  }
-
-  // Switching only needed for cmpxchg instruction which requires constant
-  // arguments.
-  // FIXME: If AtomicExpandPass later considers the cmpxchg not lowerable for
-  // the given target, it will also generate a call to the
-  // __atomic_compare_exchange function. In that case the switching was very
-  // unnecessary but cannot be undone.
-  if (CanUseInst && AllowSwitch && AllowInstruction) {
-    prepareInst();
-    return emitWeakSwitch();
-  }
-
-  // Fallback to a libcall function. From here on IsWeak/Scope/IsVolatile is
-  // ignored. IsWeak is assumed to be false, Scope is assumed to be
-  // SyncScope::System (strongest possible assumption synchronizing with
-  // everything, instead of just a subset of sibling threads), and volatile
-  // does not apply to function calls.
-
-  if (CanUseSizedLibcall && AllowSizedLibcall) {
-    Expected<Value *> SizedLibcallResult = emitSizedLibcall();
-    if (SizedLibcallResult)
-      return SizedLibcallResult;
-  }
-
-  if (CanUseLibcall && AllowLibcall) {
-    Expected<Value *> LibcallResult = emitSizedLibcall();
-    if (LibcallResult)
-      return LibcallResult;
-  }
-
-  return makeFallbackError();
+    return makeFallbackError();
   }
 };
 
@@ -621,8 +620,8 @@ protected:
   Value *emitInst(bool IsWeak, SyncScope::ID Scope,
                   AtomicOrdering SuccessMemorder,
                   AtomicOrdering FailureMemorder) override {
-    LoadInst *AtomicInst =
-        Builder.CreateLoad(CoercedTy, AtomicPtr, IsVolatile, Name + ".atomic.load");
+    LoadInst *AtomicInst = Builder.CreateLoad(CoercedTy, AtomicPtr, IsVolatile,
+                                              Name + ".atomic.load");
     AtomicInst->setAtomic(SuccessMemorder, Scope);
     AtomicInst->setAlignment(EffectiveAlign);
     AtomicInst->setVolatile(IsVolatile);
@@ -634,8 +633,8 @@ protected:
   }
 
   Expected<Value *> emitSizedLibcall() override {
-    Value *LoadResult = emitAtomicLoadN(PreferredSize, AtomicPtr, SuccessMemorderCABI,
-                                        Builder, DL, TLI);
+    Value *LoadResult = emitAtomicLoadN(PreferredSize, AtomicPtr,
+                                        SuccessMemorderCABI, Builder, DL, TLI);
     LoadResult->setName(Name);
     if (LoadResult) {
       Builder.CreateStore(LoadResult, RetPtr);
@@ -761,7 +760,7 @@ public:
     this->ExpectedPtr = ExpectedPtr;
     this->DesiredPtr = DesiredPtr;
     this->ActualPtr = ActualPtr;
-    return emit(/*CoerceType*/true);
+    return emit(/*CoerceType*/ true);
   }
 
 protected:
@@ -889,8 +888,7 @@ Error llvm::emitAtomicLoadBuiltin(
 }
 
 Error llvm::emitAtomicStoreBuiltin(
-    Value *AtomicPtr, Value *ValPtr,
-    bool IsVolatile,
+    Value *AtomicPtr, Value *ValPtr, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
     std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
     std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
@@ -922,10 +920,9 @@ Expected<Value *> llvm::emitAtomicCompareExchangeBuiltin(
     StringRef FallbackScope, llvm::Twine Name, bool AllowInstruction,
     bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall) {
   AtomicCompareExchangeEmitter Emitter(
-      AtomicPtr, IsWeak, IsVolatile, SuccessMemorder, FailureMemorder, Scope, DataTy,
-      DataSize, AvailableSize, Align, Builder, DL, TLI, TL, SyncScopes,
+      AtomicPtr, IsWeak, IsVolatile, SuccessMemorder, FailureMemorder, Scope,
+      DataTy, DataSize, AvailableSize, Align, Builder, DL, TLI, TL, SyncScopes,
       FallbackScope, Name, AllowInstruction, AllowSwitch, AllowSizedLibcall,
       AllowLibcall);
   return Emitter.emitCmpXchg(ExpectedPtr, DesiredPtr, PrevPtr);
 }
-

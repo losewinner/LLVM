@@ -8045,9 +8045,9 @@ OpenMPIRBuilder::createAtomicRead(const LocationDescription &Loc,
   Triple T(Builder.GetInsertBlock()->getModule()->getTargetTriple());
   TargetLibraryInfoImpl TLII(T);
   TargetLibraryInfo TLI(TLII);
-TargetLowering *TL = nullptr;
+  TargetLowering *TL = nullptr;
   const DataLayout &DL = Builder.GetInsertBlock()->getDataLayout();
-  Twine Name=X.Var->getName();
+  Twine Name = X.Var->getName();
 
   Error ALResult =
       emitAtomicLoadBuiltin(X.Var,
@@ -8081,7 +8081,7 @@ OpenMPIRBuilder::createAtomicWrite(const LocationDescription &Loc,
   if (!updateToLocation(Loc))
     return Loc.IP;
 
-    assert(!isConflictIP(Loc.IP, AllocaIP) && "IPs must not be ambiguous");
+  assert(!isConflictIP(Loc.IP, AllocaIP) && "IPs must not be ambiguous");
   assert(X.Var->getType()->isPointerTy() &&
          "OMP Atomic expects a pointer to target memory");
   Type *XElemTy = X.ElemTy;
@@ -8090,14 +8090,14 @@ OpenMPIRBuilder::createAtomicWrite(const LocationDescription &Loc,
   Triple T(Builder.GetInsertBlock()->getModule()->getTargetTriple());
   TargetLibraryInfoImpl TLII(T);
   TargetLibraryInfo TLI(TLII);
-TargetLowering *TL = nullptr;
+  TargetLowering *TL = nullptr;
   const DataLayout &DL = Builder.GetInsertBlock()->getDataLayout();
-  Twine Name=X.Var->getName();
+  Twine Name = X.Var->getName();
 
   // Reserve some stack space.
   InsertPointTy ContIP = Builder.saveIP();
   Builder.restoreIP(AllocaIP);
-  Value * ValPtr = Builder.CreateAlloca(XElemTy, nullptr, Name + ".atomic.val");
+  Value *ValPtr = Builder.CreateAlloca(XElemTy, nullptr, Name + ".atomic.val");
   Builder.restoreIP(ContIP);
 
   Builder.CreateStore(Expr, ValPtr);
@@ -8226,10 +8226,9 @@ Expected<std::pair<Value *, Value *>> OpenMPIRBuilder::emitAtomicUpdate(
   Triple T(Builder.GetInsertBlock()->getModule()->getTargetTriple());
   TargetLibraryInfoImpl TLII(T);
   TargetLibraryInfo TLI(TLII);
-TargetLowering *TL = nullptr;
+  TargetLowering *TL = nullptr;
   const DataLayout &DL = Builder.GetInsertBlock()->getDataLayout();
   Twine Name(X->getName());
-
 
   // Reserve some stack space.
   InsertPointTy InitIP = Builder.saveIP();
@@ -8242,7 +8241,7 @@ TargetLowering *TL = nullptr;
 
   // Old value for first transaction. Every followup-transaction will use the
   // prev value from cmpxchg.
-  Error ALResult = emitAtomicLoadBuiltin(/*AtomicPtr*/X,
+  Error ALResult = emitAtomicLoadBuiltin(/*AtomicPtr*/ X,
                                          /*RetPtr=*/ExpectedOrActualPtr,
                                          /*IsVolatile=*/false,
                                          /*Memorder=*/AO,
@@ -8263,13 +8262,14 @@ TargetLowering *TL = nullptr;
 
   // Create new CFG.
   BasicBlock *DoneBB = splitBBWithSuffix(Builder, false, ".atomic.done");
-  BasicBlock *RetryBB = splitBBWithSuffix(Builder, true,  ".atomic.retry");
+  BasicBlock *RetryBB = splitBBWithSuffix(Builder, true, ".atomic.retry");
 
   // Emit the update transaction...
   Builder.SetInsertPoint(RetryBB);
 
   // 1. Let the user code compute the new value.
-  Value *OrigVal = Builder.CreateLoad(XElemTy, ExpectedOrActualPtr, Name + ".atomic.orig");
+  Value *OrigVal =
+      Builder.CreateLoad(XElemTy, ExpectedOrActualPtr, Name + ".atomic.orig");
   Expected<Value *> CBResult = UpdateOp(OrigVal, Builder);
   if (!CBResult)
     return CBResult.takeError();
@@ -8285,8 +8285,8 @@ TargetLowering *TL = nullptr;
       /*IsVolatile=*/false,
       /*SuccessMemorder=*/AO,
       /*FailureMemorder=*/{},
-    /*SyncScope=*/SyncScope::System,
-    /*ActualPtr=*/ExpectedOrActualPtr,
+      /*SyncScope=*/SyncScope::System,
+      /*ActualPtr=*/ExpectedOrActualPtr,
       /*DataTy=*/XElemTy,
       /*DataSize=*/{},
       /*AvailableSize=*/{},
@@ -8296,14 +8296,14 @@ TargetLowering *TL = nullptr;
       /*TLI=*/&TLI,
       /*TL=*/nullptr,
       /*SyncScopes=*/{},
-    /*FallbackScope=*/{},
+      /*FallbackScope=*/{},
       /*Name=*/Name);
   if (!ACEResult)
     return ACEResult.takeError();
   Value *Success = *ACEResult;
 
   // 3. Repeat transaction until successful.
-  Builder.CreateCondBr(Success, DoneBB,  RetryBB);
+  Builder.CreateCondBr(Success, DoneBB, RetryBB);
 
   // Continue with user code when the update transaction was successful.
   Builder.SetInsertPoint(DoneBB);
@@ -8344,7 +8344,7 @@ OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createAtomicCapture(
 }
 
 OpenMPIRBuilder::InsertPointTy OpenMPIRBuilder::createAtomicCompare(
-    const LocationDescription &Loc,   AtomicOpValue &X, AtomicOpValue &V,
+    const LocationDescription &Loc, AtomicOpValue &X, AtomicOpValue &V,
     AtomicOpValue &R, Value *E, Value *D, AtomicOrdering AO,
     omp::OMPAtomicCompareOp Op, bool IsXBinopExpr, bool IsPostfixUpdate,
     bool IsFailOnly) {

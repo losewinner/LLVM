@@ -43,8 +43,6 @@ using namespace omp;
 
 namespace {
 
-
-
 /// Create an instruction that uses the values in \p Values. We use "printf"
 /// just because it is often used for this purpose in test code, but it is never
 /// executed here.
@@ -176,101 +174,97 @@ static omp::ScheduleKind getSchedKind(omp::OMPScheduleType SchedType) {
   }
 }
 
-
-static Value * followStoreLoad(Instruction *I, Value *V) {
+static Value *followStoreLoad(Instruction *I, Value *V) {
   while (true) {
-      Value *Addr;
+    Value *Addr;
     while (true) {
-      I= I->getPrevNode();
+      I = I->getPrevNode();
       if (!I)
         return V;
       if (!isa<LoadInst>(I))
-        continue ;
+        continue;
       auto LoadI = cast<LoadInst>(I);
       if (LoadI != V)
-        continue ;
+        continue;
       Addr = LoadI->getPointerOperand();
-      V =nullptr;
+      V = nullptr;
       break;
     }
 
     while (true) {
-       I = I->getPrevNode();
+      I = I->getPrevNode();
       if (!I)
         return V;
-            if (!isa<StoreInst>(I))
-        continue ;
+      if (!isa<StoreInst>(I))
+        continue;
       auto StoreI = cast<StoreInst>(I);
-      if (StoreI->getPointerOperand() != Addr )
-        continue ;
+      if (StoreI->getPointerOperand() != Addr)
+        continue;
       V = StoreI->getValueOperand();
       break;
     }
   }
 }
 
+static SetVector<Value *> storedValues(Value *Val) {
+  SetVector<Value *> Vals;
+  if (!isa<LoadInst>(Val))
+    return Vals;
+  auto LD = cast<LoadInst>(Val);
 
-static   SetVector<Value *>  storedValues(Value *Val) {
-         SetVector<Value *> Vals; 
-      if (!isa<LoadInst>(Val))
-        return Vals;
-         auto LD = cast<LoadInst>(Val);
+  DenseSet<Instruction *> Visited;
+  SmallVector<Value *> Addrs;
 
-         DenseSet<Instruction  *> Visited;
-         SmallVector<Value*> Addrs;
-  
-        Addrs.push_back(LD->getPointerOperand());
+  Addrs.push_back(LD->getPointerOperand());
 
   while (!Addrs.empty()) {
-      auto Addr  = Addrs.pop_back_val();
-      auto AddrI = dyn_cast<Instruction>(Addr);
-      if (!AddrI) continue ;
-      if (Visited.contains(AddrI ))
-        continue;
-      Visited.insert(AddrI);
+    auto Addr = Addrs.pop_back_val();
+    auto AddrI = dyn_cast<Instruction>(Addr);
+    if (!AddrI)
+      continue;
+    if (Visited.contains(AddrI))
+      continue;
+    Visited.insert(AddrI);
 
-
-          for (auto &&U : AddrI->uses()) {
-                     if (auto S = dyn_cast<StoreInst>(U.getUser())) {
-                       assert(S->getPointerOperand() == AddrI);
-                       auto V = S->getValueOperand();
-                       if (auto ML = dyn_cast<LoadInst>(V))
-                         Addrs.push_back (ML->getPointerOperand() );
-                       else 
-                         Vals.insert(V);
-                     } else 
-                      if (auto L = dyn_cast<LoadInst>(U.getUser())) {
-                        Addrs.push_back(L->getPointerOperand());
-                     }
-          }
+    for (auto &&U : AddrI->uses()) {
+      if (auto S = dyn_cast<StoreInst>(U.getUser())) {
+        assert(S->getPointerOperand() == AddrI);
+        auto V = S->getValueOperand();
+        if (auto ML = dyn_cast<LoadInst>(V))
+          Addrs.push_back(ML->getPointerOperand());
+        else
+          Vals.insert(V);
+      } else if (auto L = dyn_cast<LoadInst>(U.getUser())) {
+        Addrs.push_back(L->getPointerOperand());
+      }
+    }
   }
 
   return Vals;
 }
 
-
-
-static Value * followStorePtr(Value *Val) {
+static Value *followStorePtr(Value *Val) {
   Value *V = Val;
-    if (!isa<LoadInst>(Val))
-        return V;
-    auto LD = cast<LoadInst>(Val);
-    auto Alloca = dyn_cast<AllocaInst>( LD->getPointerOperand());
-    if (!Alloca)
-      return V;
+  if (!isa<LoadInst>(Val))
+    return V;
+  auto LD = cast<LoadInst>(Val);
+  auto Alloca = dyn_cast<AllocaInst>(LD->getPointerOperand());
+  if (!Alloca)
+    return V;
 
-     auto STUse = [](Instruction  *Addr) ->  StoreInst  *{
-      for (auto &&U : Addr->uses())
-          if (auto ST = dyn_cast<StoreInst>(U.getUser()))
-            if (ST->getPointerOperand() == Addr && !isa<LoadInst>( ST->getValueOperand()))
-              return ST;
-      return nullptr;
-      }(Alloca);
-     return STUse;
+  auto STUse = [](Instruction *Addr) -> StoreInst * {
+    for (auto &&U : Addr->uses())
+      if (auto ST = dyn_cast<StoreInst>(U.getUser()))
+        if (ST->getPointerOperand() == Addr &&
+            !isa<LoadInst>(ST->getValueOperand()))
+          return ST;
+    return nullptr;
+  }(Alloca);
+  return STUse;
 }
 
-static StoreInst *findAtomicInst(BasicBlock  *EntryBB, Value *XVal) {
-  StoreInst *StoreofAtomic=nullptr;
+static StoreInst *findAtomicInst(BasicBlock *EntryBB, Value *XVal) {
+  StoreInst *StoreofAtomic = nullptr;
   for (Instruction &Cur : *EntryBB) {
     if (isa<StoreInst>(Cur)) {
       StoreofAtomic = cast<StoreInst>(&Cur);
@@ -279,18 +273,16 @@ static StoreInst *findAtomicInst(BasicBlock  *EntryBB, Value *XVal) {
       StoreofAtomic = nullptr;
     }
   }
-  return  StoreofAtomic;
+  return StoreofAtomic;
 }
 
-template <typename T> static T* findLastInstInBB(BasicBlock *BB) {
-  for (Instruction &Cur :  reverse(*BB)) {
-    if (T *Candidate = dyn_cast<T>(&Cur)) 
+template <typename T> static T *findLastInstInBB(BasicBlock *BB) {
+  for (Instruction &Cur : reverse(*BB)) {
+    if (T *Candidate = dyn_cast<T>(&Cur))
       return Candidate;
   }
-  return  nullptr;
+  return nullptr;
 }
-
-
 
 class OpenMPIRBuilderTest : public testing::Test {
 protected:
@@ -3981,12 +3973,15 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteFlt) {
   EXPECT_TRUE((bool)AfterWriteIP);
   Builder.restoreIP(*AfterWriteIP);
 
-//  IntegerType *IntCastTy = IntegerType::get(M->getContext(), Float32->getScalarSizeInBits());
+  //  IntegerType *IntCastTy = IntegerType::get(M->getContext(),
+  //  Float32->getScalarSizeInBits());
 
- // Value *ExprCast = Builder.CreateBitCast(ValToWrite, IntCastTy);
+  // Value *ExprCast = Builder.CreateBitCast(ValToWrite, IntCastTy);
 
-StoreInst *StoreofAtomic = findAtomicInst(OMPBuilder.getInsertionPoint().getBlock(), XVal);
-  EXPECT_EQ(followStoreLoad(StoreofAtomic, StoreofAtomic->getValueOperand()), ValToWrite);
+  StoreInst *StoreofAtomic =
+      findAtomicInst(OMPBuilder.getInsertionPoint().getBlock(), XVal);
+  EXPECT_EQ(followStoreLoad(StoreofAtomic, StoreofAtomic->getValueOperand()),
+            ValToWrite);
   EXPECT_EQ(StoreofAtomic->getPointerOperand(), XVal);
   EXPECT_TRUE(StoreofAtomic->isAtomic());
 
@@ -4022,11 +4017,10 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteInt) {
 
   StoreInst *StoreofAtomic = findAtomicInst(EntryBB, XVal);
 
-
-
   EXPECT_NE(StoreofAtomic, nullptr);
   EXPECT_TRUE(StoreofAtomic->isAtomic());
-  EXPECT_EQ(followStoreLoad(StoreofAtomic, StoreofAtomic->getValueOperand()), ValToWrite);
+  EXPECT_EQ(followStoreLoad(StoreofAtomic, StoreofAtomic->getValueOperand()),
+            ValToWrite);
 
   Builder.CreateRetVoid();
   OMPBuilder.finalize();
@@ -4062,10 +4056,11 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdate) {
     Sub = IRB.CreateSub(ConstVal, Atomic);
     return Sub;
   };
-  OpenMPIRBuilder::InsertPointOrErrorTy AfterIP = OMPBuilder.createAtomicUpdate(Builder, AllocaIP, X, Expr, AO, RMWOp, UpdateOp, IsXLHSInRHSPart);
+  OpenMPIRBuilder::InsertPointOrErrorTy AfterIP = OMPBuilder.createAtomicUpdate(
+      Builder, AllocaIP, X, Expr, AO, RMWOp, UpdateOp, IsXLHSInRHSPart);
   assert(AfterIP && "unexpected error");
   Builder.restoreIP(*AfterIP);
-   BasicBlock *DoneBB = Builder.GetInsertBlock();
+  BasicBlock *DoneBB = Builder.GetInsertBlock();
   BasicBlock *ContBB = DoneBB->getSinglePredecessor();
   BranchInst *ContTI = dyn_cast<BranchInst>(ContBB->getTerminator());
   EXPECT_NE(ContTI, nullptr);
@@ -4074,11 +4069,11 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdate) {
   EXPECT_EQ(ContTI->getSuccessor(1), ContBB);
   EXPECT_NE(EndBB, nullptr);
 
-  //PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
-  //EXPECT_NE(Phi, nullptr);
-  //EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
-  //EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
-  //EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
+  // PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
+  // EXPECT_NE(Phi, nullptr);
+  // EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
+  // EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
+  // EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
 
   EXPECT_EQ(Sub->getNumUses(), 1U);
   StoreInst *St = dyn_cast<StoreInst>(Sub->user_back());
@@ -4086,11 +4081,13 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdate) {
 
   ExtractValueInst *ExVI1 = findLastInstInBB<ExtractValueInst>(ContBB);
   EXPECT_NE(ExVI1, nullptr);
-  AtomicCmpXchgInst *CmpExchg = dyn_cast<AtomicCmpXchgInst>(ExVI1->getAggregateOperand());
+  AtomicCmpXchgInst *CmpExchg =
+      dyn_cast<AtomicCmpXchgInst>(ExVI1->getAggregateOperand());
   EXPECT_NE(CmpExchg, nullptr);
   EXPECT_EQ(CmpExchg->getPointerOperand(), XVal);
-  EXPECT_TRUE(storedValues(CmpExchg->getCompareOperand()).contains( ExpectedVal));
-  EXPECT_TRUE(storedValues(CmpExchg->getNewValOperand()).contains(  Sub));
+  EXPECT_TRUE(
+      storedValues(CmpExchg->getCompareOperand()).contains(ExpectedVal));
+  EXPECT_TRUE(storedValues(CmpExchg->getNewValOperand()).contains(Sub));
   EXPECT_EQ(CmpExchg->getSuccessOrdering(), AtomicOrdering::Monotonic);
 
   LoadInst *Ld = dyn_cast<LoadInst>(CmpExchg->getNewValOperand());
@@ -4143,24 +4140,25 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateFloat) {
   EXPECT_EQ(ContTI->getSuccessor(1), ContBB);
   EXPECT_NE(EndBB, nullptr);
 
-  //PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
-  //EXPECT_NE(Phi, nullptr);
-  //EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
-  //EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
-  //EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
+  // PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
+  // EXPECT_NE(Phi, nullptr);
+  // EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
+  // EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
+  // EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
 
   EXPECT_EQ(Sub->getNumUses(), 1U);
   StoreInst *St = dyn_cast<StoreInst>(Sub->user_back());
   AllocaInst *UpdateTemp = dyn_cast<AllocaInst>(St->getPointerOperand());
 
-  ExtractValueInst *ExVI1 =   findLastInstInBB<ExtractValueInst>(ContBB);
+  ExtractValueInst *ExVI1 = findLastInstInBB<ExtractValueInst>(ContBB);
   EXPECT_NE(ExVI1, nullptr);
   AtomicCmpXchgInst *CmpExchg =
       dyn_cast<AtomicCmpXchgInst>(ExVI1->getAggregateOperand());
   EXPECT_NE(CmpExchg, nullptr);
   EXPECT_EQ(CmpExchg->getPointerOperand(), XVal);
-  EXPECT_TRUE(storedValues(CmpExchg->getCompareOperand()).contains( ExpectedVal));
-  EXPECT_TRUE(storedValues(CmpExchg->getNewValOperand()).contains(  Sub));
+  EXPECT_TRUE(
+      storedValues(CmpExchg->getCompareOperand()).contains(ExpectedVal));
+  EXPECT_TRUE(storedValues(CmpExchg->getNewValOperand()).contains(Sub));
   EXPECT_EQ(CmpExchg->getSuccessOrdering(), AtomicOrdering::Monotonic);
 
   LoadInst *Ld = dyn_cast<LoadInst>(CmpExchg->getNewValOperand());
@@ -4212,23 +4210,25 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateIntr) {
   EXPECT_EQ(ContTI->getSuccessor(1), ContBB);
   EXPECT_NE(EndBB, nullptr);
 
-  //PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
-  //EXPECT_NE(Phi, nullptr);
-  //EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
-  //EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
-  //EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
+  // PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
+  // EXPECT_NE(Phi, nullptr);
+  // EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
+  // EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
+  // EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
 
   EXPECT_EQ(Sub->getNumUses(), 1U);
   StoreInst *St = dyn_cast<StoreInst>(Sub->user_back());
   AllocaInst *UpdateTemp = dyn_cast<AllocaInst>(St->getPointerOperand());
 
-  ExtractValueInst *ExVI1 =   findLastInstInBB<ExtractValueInst>(ContBB);
+  ExtractValueInst *ExVI1 = findLastInstInBB<ExtractValueInst>(ContBB);
   EXPECT_NE(ExVI1, nullptr);
-  AtomicCmpXchgInst *CmpExchg =  dyn_cast<AtomicCmpXchgInst>(ExVI1->getAggregateOperand());
+  AtomicCmpXchgInst *CmpExchg =
+      dyn_cast<AtomicCmpXchgInst>(ExVI1->getAggregateOperand());
   EXPECT_NE(CmpExchg, nullptr);
   EXPECT_EQ(CmpExchg->getPointerOperand(), XVal);
-  EXPECT_TRUE(storedValues(CmpExchg->getCompareOperand()).contains( ExpectedVal));
-  EXPECT_TRUE(storedValues(CmpExchg->getNewValOperand()).contains(  Sub));
+  EXPECT_TRUE(
+      storedValues(CmpExchg->getCompareOperand()).contains(ExpectedVal));
+  EXPECT_TRUE(storedValues(CmpExchg->getNewValOperand()).contains(Sub));
   EXPECT_EQ(CmpExchg->getSuccessOrdering(), AtomicOrdering::Monotonic);
 
   LoadInst *Ld = dyn_cast<LoadInst>(CmpExchg->getNewValOperand());
