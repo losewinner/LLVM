@@ -1822,7 +1822,6 @@ Value *llvm::emitAtomicLoad(Value *Size, Value *Ptr, Value *Ret,
                             const DataLayout &DL,
                             const TargetLibraryInfo *TLI) {
   Type *VoidTy = B.getVoidTy();
-  Type *BoolTy = B.getInt8Ty();
   Type *SizeTTy = getSizeTTy(B, TLI);
   Type *PtrTy = B.getPtrTy();
   Type *IntTy = getIntTy(B, TLI);
@@ -1857,8 +1856,6 @@ Value *llvm::emitAtomicLoadN(size_t Size, Value *Ptr, Value *Memorder,
     return nullptr;
   }
 
-  Type *VoidTy = B.getVoidTy();
-  Type *BoolTy = B.getInt8Ty();
   Type *PtrTy = B.getPtrTy();
   Type *ValTy = B.getIntNTy(Size * 8);
   Type *IntTy = getIntTy(B, TLI);
@@ -1871,7 +1868,6 @@ Value *llvm::emitAtomicStore(Value *Size, Value *Ptr, Value *ValPtr,
                              const DataLayout &DL,
                              const TargetLibraryInfo *TLI) {
   Type *VoidTy = B.getVoidTy();
-  Type *BoolTy = B.getInt8Ty();
   Type *SizeTTy = getSizeTTy(B, TLI);
   Type *PtrTy = B.getPtrTy();
   Type *IntTy = getIntTy(B, TLI);
@@ -1908,7 +1904,6 @@ Value *llvm::emitAtomicStoreN(size_t Size, Value *Ptr, Value *Val,
   }
 
   Type *VoidTy = B.getVoidTy();
-  Type *BoolTy = B.getInt8Ty();
   Type *PtrTy = B.getPtrTy();
   Type *ValTy = B.getIntNTy(Size * 8);
   Type *IntTy = getIntTy(B, TLI);
