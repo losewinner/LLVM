@@ -79,7 +79,7 @@ public:
       std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
           FailureMemorder,
       std::variant<Value *, SyncScope::ID, StringRef> Scope,
-      //   Value *PrevPtr,
+      //   Value *ActualPtr,
       Type *DataTy, std::optional<uint64_t> DataSize,
       std::optional<uint64_t> AvailableSize, MaybeAlign Align,
       IRBuilderBase &Builder, const DataLayout &DL,
@@ -377,10 +377,8 @@ protected:
 
   virtual Expected<Value *> makeFallbackError() = 0;
 
-  Expected<Value *> emit() {
+  Expected<Value *> emit(bool CoerceType = false) {
     assert(Ptr->getType()->isPointerTy());
-    //   assert(ExpectedPtr->getType()->isPointerTy());
-    //   assert(DesiredPtr->getType()->isPointerTy());
     assert(TLI);
 
     unsigned MaxAtomicSizeSupported = 16;
@@ -431,14 +429,20 @@ protected:
     EffectiveAlign = Ptr->getPointerAlignment(DL);
   }
 
-  // Only use the original data type if it is compatible with cmpxchg (and sized
+  // Only use the original data type if it is compatible with the atomic instruction (and sized
   // libcall function) and matches the preferred size. No type punning needed
-  // for __atomic_compare_exchange which only takes pointers.
-  if (DataTy && DataSizeConst == PreferredSize &&
-      (DataTy->isIntegerTy() || DataTy->isPointerTy()))
-    CoercedTy = DataTy;
-  else if (PreferredSize <= 16)
-    CoercedTy = IntegerType::get(Ctx, PreferredSize * 8);
+  // when the libcall function only takes pointers.
+ CoercedTy = DataTy;
+          // If we have rounded-up the data size, unconditionally coerce to a different type.
+            if (DataSizeConst != PreferredSize)
+               CoercedTy = IntegerType::get(Ctx, PreferredSize * 8);
+ if (CoerceType) {
+          if (DataTy && DataSizeConst == PreferredSize &&
+                 (DataTy->isIntegerTy() || DataTy->isPointerTy()))
+          CoercedTy = DataTy;
+        else if (PreferredSize <= 16)
+          CoercedTy = IntegerType::get(Ctx, PreferredSize * 8);
+}
 
   // For resolving the SuccessMemorder/FailureMemorder arguments. If it is
   // constant, determine the AtomicOrdering for use with the cmpxchg
@@ -450,7 +454,7 @@ protected:
       // Derive FailureMemorder from SucccessMemorder
       if (SuccessMemorderConst) {
         AtomicOrdering MOFailure =
-            llvm::AtomicCmpXchgInst::getStrongestFailureOrdering(
+            AtomicCmpXchgInst::getStrongestFailureOrdering(
                 *SuccessMemorderConst);
         MemorderVariant = MOFailure;
       }
@@ -749,21 +753,25 @@ public:
   using AtomicEmitter::AtomicEmitter;
 
   Expected<Value *> emitCmpXchg(Value *ExpectedPtr, Value *DesiredPtr,
-                                Value *PrevPtr) {
+                                Value *ActualPtr) {
     assert(ExpectedPtr->getType()->isPointerTy());
     assert(DesiredPtr->getType()->isPointerTy());
-    assert(!PrevPtr || PrevPtr->getType()->isPointerTy());
+    assert(!ActualPtr || ActualPtr->getType()->isPointerTy());
+    assert(Ptr != ExpectedPtr);
+    assert(Ptr != DesiredPtr);
+    assert(Ptr != ActualPtr);
+    assert(ActualPtr != DesiredPtr);
 
     this->ExpectedPtr = ExpectedPtr;
     this->DesiredPtr = DesiredPtr;
-    this->PrevPtr = PrevPtr;
-    return emit();
+    this->ActualPtr = ActualPtr;
+    return emit(/*CoerceType*/true);
   }
 
 protected:
   Value *ExpectedPtr;
   Value *DesiredPtr;
-  Value *PrevPtr;
+  Value *ActualPtr;
   Value *ExpectedVal;
   Value *DesiredVal;
 
@@ -785,10 +793,10 @@ protected:
     AtomicInst->setWeak(IsWeak);
     AtomicInst->setVolatile(IsVolatile);
 
-    if (PrevPtr) {
+    if (ActualPtr) {
       Value *PreviousVal = Builder.CreateExtractValue(AtomicInst, /*Idxs=*/0,
                                                       Name + ".cmpxchg.prev");
-      Builder.CreateStore(PreviousVal, PrevPtr);
+      Builder.CreateStore(PreviousVal, ActualPtr);
     }
     Value *SuccessFailureVal = Builder.CreateExtractValue(
         AtomicInst, /*Idxs=*/1, Name + ".cmpxchg.success");
@@ -809,8 +817,8 @@ protected:
           Builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, SuccessResult,
                             Builder.getInt8(0), Name + ".cmpxchg.success");
 
-      if (PrevPtr && PrevPtr != ExpectedPtr)
-        Builder.CreateMemCpy(PrevPtr, {}, ExpectedPtr, {}, DataSizeConst);
+      if (ActualPtr && ActualPtr != ExpectedPtr)
+        Builder.CreateMemCpy(ActualPtr, {}, ExpectedPtr, {}, DataSizeConst);
       return SuccessBool;
     }
 
@@ -847,8 +855,8 @@ protected:
           Builder.CreateCmp(CmpInst::Predicate::ICMP_EQ, SuccessResult,
                             Builder.getInt8(0), Name + ".cmpxchg.success");
 
-      if (PrevPtr && PrevPtr != ExpectedPtr)
-        Builder.CreateMemCpy(PrevPtr, {}, ExpectedPtr, {}, DataSizeConst);
+      if (ActualPtr && ActualPtr != ExpectedPtr)
+        Builder.CreateMemCpy(ActualPtr, {}, ExpectedPtr, {}, DataSizeConst);
       return SuccessBool;
     }
 

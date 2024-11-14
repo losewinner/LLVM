@@ -3250,12 +3250,12 @@ public:
   ///                     the case the comparison is '=='.
   ///
   /// \return Insertion point after generated atomic capture IR.
-  InsertPointTy
-  createAtomicCompare(const LocationDescription &Loc, AtomicOpValue &X,
+  InsertPointOrErrorTy
+  createAtomicCompare(const LocationDescription &Loc,  InsertPointTy AllocaIP, AtomicOpValue &X,
                       AtomicOpValue &V, AtomicOpValue &R, Value *E, Value *D,
                       AtomicOrdering AO, omp::OMPAtomicCompareOp Op,
                       bool IsXBinopExpr, bool IsPostfixUpdate, bool IsFailOnly);
-  InsertPointTy createAtomicCompare(const LocationDescription &Loc,
+  InsertPointOrErrorTy createAtomicCompare(const LocationDescription &Loc, InsertPointTy AllocaIP, 
                                     AtomicOpValue &X, AtomicOpValue &V,
                                     AtomicOpValue &R, Value *E, Value *D,
                                     AtomicOrdering AO,

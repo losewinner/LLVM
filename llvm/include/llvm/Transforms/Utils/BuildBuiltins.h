@@ -143,13 +143,12 @@ Error emitAtomicStoreBuiltin(
 ///                    supports integer and pointers only. If any other type or
 ///                    omitted, type-prunes to an integer the holds at least \p
 ///                    DataSize bytes.
-/// @param PrevPtr     (optional) Receives the value at \p Ptr before the atomic
+/// @param ActualPtr   (optional) Receives the value at \p Ptr before the atomic
 ///                    exchange is attempted. This means:
-///                    In case of success: The value at \p Ptr before the
-///                    update. That is, the value passed behind \p ExpectedPtr.
-///                    In case of failure: The current value at \p Ptr, i.e. the
-///                    atomic exchange is effectively only performace an atomic
-///                    load of that value.
+///                    In case of success:
+///                      The value at \p Ptr before the update. That is, the value passed behind \p ExpectedPtr.
+///                    In case of failure (including spurious failures if IsWeak):
+///                      The current value at \p Ptr, i.e. the operation effectively was an atomic load of that value using FailureMemorder semantics.
 /// @param DataSize    Number of bytes to be exchanged.
 /// @param AvailableSize The total size that can be used for the atomic
 ///                    operation. It may include trailing padding in addition to

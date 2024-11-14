@@ -68,10 +68,10 @@ enum FuncArgTypeID : char {
   Long,    // Either 32 or 64 bits.
   IntX,    // Any integer type.
   Int64,
-  LLong,  // 64 bits on all targets.
-  SizeT,  // size_t.
-  SSizeT, // POSIX ssize_t.
   Int128,
+  LLong,    // 64 bits on all targets.
+  SizeT,    // size_t.
+  SSizeT,   // POSIX ssize_t.
   Flt,      // IEEE float.
   Dbl,      // IEEE double.
   LDbl,     // Any floating type (TODO: tighten this up).
