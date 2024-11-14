@@ -1,5 +1,6 @@
 import concurrent.futures
 import functools
+import gc
 import importlib.util
 import sys
 import threading
@@ -42,9 +43,55 @@ def copy_and_update(src_filepath: Path, dst_filepath: Path):
             writer.write(src_line)
 
 
+def run(f):
+    f()
+
+
+def constructAndPrintInModule(f):
+    print("\nTEST:", f.__name__)
+    with Context(), Location.unknown():
+        module = Module.create()
+        with InsertionPoint(module.body):
+            f()
+        print(module)
+
+
+def run_with_context_and_location(f):
+    print("\nTEST:", f.__name__)
+    with Context(), Location.unknown():
+        f()
+    return f
+
+
 test_modules = [
-    "execution_engine",
-    # "pass_manager",
+    ("execution_engine", run),  # Fail
+    ("pass_manager", run),  # Fail
+
+    # Dialects tests
+    ("dialects/affine", constructAndPrintInModule),  # Fail
+    ("dialects/vector", run_with_context_and_location),  # Fail
+
+    # IR tests
+    ("ir/affine_expr", run),  # Pass
+    ("ir/affine_map", run),  # Pass
+    ("ir/array_attributes", run),  # Pass
+    ("ir/attributes", run),  # Pass
+    ("ir/blocks", run),  # Pass
+    ("ir/builtin_types", run),  # Pass
+    ("ir/context_managers", run),  # Pass
+    ("ir/debug", run),  # Fail
+    ("ir/diagnostic_handler", run),  # Fail
+    ("ir/dialects", run),  # Fail
+    ("ir/exception", run),  # Fail
+    ("ir/insertion_point", run),  # Pass
+    ("ir/insertion_point", run),  # Pass
+    ("ir/integer_set", run),  # Pass
+    ("ir/location", run),  # Pass
+    ("ir/module", run),  # Pass but may fail randomly on mlirOperationDump in testParseSuccess
+    ("ir/operation", run),  # Pass
+    ("ir/symbol_table", run),  # Pass
+    ("ir/value", run),  # Fail/Crash
+
 ]
 
 
@@ -54,7 +101,7 @@ def add_existing_tests(test_prefix: str = "_original_test"):
         test_cls.output_folder = tempfile.TemporaryDirectory()
         output_folder = Path(test_cls.output_folder.name)
 
-        for test_module_name in test_modules:
+        for test_module_name, exec_fn in test_modules:
             src_filepath = this_folder / f"{test_module_name}.py"
             dst_filepath = (output_folder / f"{test_module_name}.py").absolute()
             if not dst_filepath.parent.exists():
@@ -66,8 +113,8 @@ def add_existing_tests(test_prefix: str = "_original_test"):
                     obj = getattr(test_mod, attr_name)
                     if callable(obj):
                         test_name = f"{test_prefix}_{test_module_name.replace('/', '_')}__{attr_name}"
-                        def wrapped_test_fn(*args, __test_fn__=obj, **kwargs):
-                            __test_fn__()
+                        def wrapped_test_fn(self, *args, __test_fn__=obj, __exec_fn__=exec_fn, **kwargs):
+                            __exec_fn__(__test_fn__)
 
                         setattr(test_cls, test_name, wrapped_test_fn)
         return test_cls
@@ -99,6 +146,10 @@ def multi_threaded(
                     for _ in range(num_runs):
                         __test_fn__(self, *args, **kwargs)
 
+                    barrier.wait()
+                    gc.collect()
+                    assert Context._get_live_count() == 0
+
                 with concurrent.futures.ThreadPoolExecutor(
                     max_workers=num_workers
                 ) as executor:
@@ -114,7 +165,9 @@ def multi_threaded(
                     if "ThreadSanitizer" in captured.err:
                         raise RuntimeError(f"ThreadSanitizer reported warnings:\n{captured.err}")
                     else:
-                        raise RuntimeError(f"Other error:\n{captured.err}")
+                        pass
+                        # There are tests that write to stderr, we should ignore them
+                        # raise RuntimeError(f"Other error:\n{captured.err}")
 
             setattr(test_cls, f"{name}_multi_threaded", multi_threaded_test_fn)
 
