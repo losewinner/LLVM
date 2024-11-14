@@ -1059,13 +1059,13 @@ static bool matchType(FuncArgTypeID ArgTy, const Type *Ty, unsigned IntBits,
     return Ty->isIntegerTy() && Ty->getPrimitiveSizeInBits() >= IntBits;
   case Int64:
     return Ty->isIntegerTy(64);
+  case Int128:
+    return Ty->isIntegerTy(128);
   case LLong:
     return Ty->isIntegerTy(64);
   case SizeT:
   case SSizeT:
     return Ty->isIntegerTy(SizeTBits);
-  case Int128:
-    return Ty->isIntegerTy(128);
   case Flt:
     return Ty->isFloatTy();
   case Dbl:

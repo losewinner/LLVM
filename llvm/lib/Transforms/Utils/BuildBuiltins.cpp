@@ -5,10 +5,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This file implements some functions for lowering compiler builtins.
-//
-//===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/BuildBuiltins.h"
 #include "llvm/CodeGen/TargetLowering.h"
@@ -68,6 +64,7 @@ constexpr bool holds_alternative_if_exists(const Variant &v) {
   }
 }
 
+/// Common code for emitting an atomic builtin (load, store, cmpxchg).
 class AtomicEmitter {
 public:
   AtomicEmitter(
@@ -869,9 +866,7 @@ protected:
 } // namespace
 
 Error llvm::emitAtomicLoadBuiltin(
-    Value *AtomicPtr, Value *RetPtr,
-    //  std::variant<Value *, bool> IsWeak,
-    bool IsVolatile,
+    Value *AtomicPtr, Value *RetPtr, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
     std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
     std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,

@@ -174,7 +174,9 @@ static omp::ScheduleKind getSchedKind(omp::OMPScheduleType SchedType) {
   }
 }
 
-static Value *followStoreLoad(Instruction *I, Value *V) {
+/// For a chain of loads and stores inside a BB, searches the first value that
+/// \p V is equal to.
+static Value *followStoreLoadInBB(Instruction *I, Value *V) {
   while (true) {
     Value *Addr;
     while (true) {
@@ -183,7 +185,7 @@ static Value *followStoreLoad(Instruction *I, Value *V) {
         return V;
       if (!isa<LoadInst>(I))
         continue;
-      auto LoadI = cast<LoadInst>(I);
+      auto *LoadI = cast<LoadInst>(I);
       if (LoadI != V)
         continue;
       Addr = LoadI->getPointerOperand();
@@ -197,7 +199,7 @@ static Value *followStoreLoad(Instruction *I, Value *V) {
         return V;
       if (!isa<StoreInst>(I))
         continue;
-      auto StoreI = cast<StoreInst>(I);
+      auto *StoreI = cast<StoreInst>(I);
       if (StoreI->getPointerOperand() != Addr)
         continue;
       V = StoreI->getValueOperand();
@@ -206,61 +208,52 @@ static Value *followStoreLoad(Instruction *I, Value *V) {
   }
 }
 
+/// Searches for the last occurance of an instruction of type \p T in \p BB.
+template <typename T> static T *findLastInstInBB(BasicBlock *BB) {
+  for (Instruction &Cur : reverse(*BB)) {
+    if (T *Candidate = dyn_cast<T>(&Cur))
+      return Candidate;
+  }
+  return nullptr;
+}
+
+/// Collects and returns all llvm::Value's that might be the same as \p Val
+/// without taking control flow into account. Backtracks through loads and
+/// stores of allocas, but not PHIs (yet).
 static SetVector<Value *> storedValues(Value *Val) {
   SetVector<Value *> Vals;
   if (!isa<LoadInst>(Val))
     return Vals;
-  auto LD = cast<LoadInst>(Val);
+  LoadInst *LD = cast<LoadInst>(Val);
 
   DenseSet<Instruction *> Visited;
   SmallVector<Value *> Addrs;
 
   Addrs.push_back(LD->getPointerOperand());
-
   while (!Addrs.empty()) {
-    auto Addr = Addrs.pop_back_val();
-    auto AddrI = dyn_cast<Instruction>(Addr);
+    Value *Addr = Addrs.pop_back_val();
+    auto *AddrI = dyn_cast<Instruction>(Addr);
     if (!AddrI)
       continue;
     if (Visited.contains(AddrI))
       continue;
     Visited.insert(AddrI);
 
-    for (auto &&U : AddrI->uses()) {
-      if (auto S = dyn_cast<StoreInst>(U.getUser())) {
+    for (Use &U : AddrI->uses()) {
+      if (auto *S = dyn_cast<StoreInst>(U.getUser())) {
         assert(S->getPointerOperand() == AddrI);
-        auto V = S->getValueOperand();
-        if (auto ML = dyn_cast<LoadInst>(V))
+        Value *V = S->getValueOperand();
+        if (auto *ML = dyn_cast<LoadInst>(V))
           Addrs.push_back(ML->getPointerOperand());
-        else
-          Vals.insert(V);
-      } else if (auto L = dyn_cast<LoadInst>(U.getUser())) {
+        Vals.insert(V);
+      } else if (auto *L = dyn_cast<LoadInst>(U.getUser())) {
         Addrs.push_back(L->getPointerOperand());
+        Vals.insert(L);
       }
     }
   }
 
   return Vals;
-}
-
-static Value *followStorePtr(Value *Val) {
-  Value *V = Val;
-  if (!isa<LoadInst>(Val))
-    return V;
-  auto LD = cast<LoadInst>(Val);
-  auto Alloca = dyn_cast<AllocaInst>(LD->getPointerOperand());
-  if (!Alloca)
-    return V;
-
-  auto STUse = [](Instruction *Addr) -> StoreInst * {
-    for (auto &&U : Addr->uses())
-      if (auto ST = dyn_cast<StoreInst>(U.getUser()))
-        if (ST->getPointerOperand() == Addr &&
-            !isa<LoadInst>(ST->getValueOperand()))
-          return ST;
-    return nullptr;
-  }(Alloca);
-  return STUse;
 }
 
 static StoreInst *findAtomicInst(BasicBlock *EntryBB, Value *XVal) {
@@ -274,14 +267,6 @@ static StoreInst *findAtomicInst(BasicBlock *EntryBB, Value *XVal) {
     }
   }
   return StoreofAtomic;
-}
-
-template <typename T> static T *findLastInstInBB(BasicBlock *BB) {
-  for (Instruction &Cur : reverse(*BB)) {
-    if (T *Candidate = dyn_cast<T>(&Cur))
-      return Candidate;
-  }
-  return nullptr;
 }
 
 class OpenMPIRBuilderTest : public testing::Test {
@@ -3877,17 +3862,9 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicReadFlt) {
   EXPECT_TRUE((bool)AfterReadIP);
   Builder.restoreIP(*AfterReadIP);
 
-  // IntegerType *IntCastTy = IntegerType::get(M->getContext(),
-  // Float32->getScalarSizeInBits());
-
   LoadInst *AtomicLoad = cast<LoadInst>(VVal->getNextNode());
   EXPECT_TRUE(AtomicLoad->isAtomic());
   EXPECT_EQ(AtomicLoad->getPointerOperand(), XVal);
-
-  // BitCastInst *CastToFlt = cast<BitCastInst>(AtomicLoad->getNextNode());
-  // EXPECT_EQ(CastToFlt->getSrcTy(), IntCastTy);
-  // EXPECT_EQ(CastToFlt->getDestTy(), Float32);
-  // EXPECT_EQ(CastToFlt->getOperand(0), AtomicLoad);
 
   StoreInst *StoreofAtomic = cast<StoreInst>(AtomicLoad->getNextNode());
   EXPECT_EQ(StoreofAtomic->getValueOperand(), AtomicLoad);
@@ -3973,15 +3950,11 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteFlt) {
   EXPECT_TRUE((bool)AfterWriteIP);
   Builder.restoreIP(*AfterWriteIP);
 
-  //  IntegerType *IntCastTy = IntegerType::get(M->getContext(),
-  //  Float32->getScalarSizeInBits());
-
-  // Value *ExprCast = Builder.CreateBitCast(ValToWrite, IntCastTy);
-
   StoreInst *StoreofAtomic =
       findAtomicInst(OMPBuilder.getInsertionPoint().getBlock(), XVal);
-  EXPECT_EQ(followStoreLoad(StoreofAtomic, StoreofAtomic->getValueOperand()),
-            ValToWrite);
+  EXPECT_EQ(
+      followStoreLoadInBB(StoreofAtomic, StoreofAtomic->getValueOperand()),
+      ValToWrite);
   EXPECT_EQ(StoreofAtomic->getPointerOperand(), XVal);
   EXPECT_TRUE(StoreofAtomic->isAtomic());
 
@@ -4019,8 +3992,9 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicWriteInt) {
 
   EXPECT_NE(StoreofAtomic, nullptr);
   EXPECT_TRUE(StoreofAtomic->isAtomic());
-  EXPECT_EQ(followStoreLoad(StoreofAtomic, StoreofAtomic->getValueOperand()),
-            ValToWrite);
+  EXPECT_EQ(
+      followStoreLoadInBB(StoreofAtomic, StoreofAtomic->getValueOperand()),
+      ValToWrite);
 
   Builder.CreateRetVoid();
   OMPBuilder.finalize();
@@ -4038,7 +4012,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdate) {
   IntegerType *Int32 = Type::getInt32Ty(M->getContext());
   AllocaInst *XVal = Builder.CreateAlloca(Int32);
   XVal->setName("AtomicVar");
-  auto ExpectedVal = ConstantInt::get(Type::getInt32Ty(Ctx), 0U);
+  ConstantInt *ExpectedVal = ConstantInt::get(Type::getInt32Ty(Ctx), 0U);
   Builder.CreateStore(ExpectedVal, XVal);
   OpenMPIRBuilder::AtomicOpValue X = {XVal, Int32, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
@@ -4068,12 +4042,6 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdate) {
   EXPECT_TRUE(ContTI->isConditional());
   EXPECT_EQ(ContTI->getSuccessor(1), ContBB);
   EXPECT_NE(EndBB, nullptr);
-
-  // PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
-  // EXPECT_NE(Phi, nullptr);
-  // EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
-  // EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
-  // EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
 
   EXPECT_EQ(Sub->getNumUses(), 1U);
   StoreInst *St = dyn_cast<StoreInst>(Sub->user_back());
@@ -4110,7 +4078,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateFloat) {
   Type *FloatTy = Type::getFloatTy(M->getContext());
   AllocaInst *XVal = Builder.CreateAlloca(FloatTy);
   XVal->setName("AtomicVar");
-  auto ExpectedVal = ConstantFP::get(Type::getFloatTy(Ctx), 0.0);
+  ConstantFP *ExpectedVal = ConstantFP::get(Type::getFloatTy(Ctx), 0.0);
   Builder.CreateStore(ExpectedVal, XVal);
   OpenMPIRBuilder::AtomicOpValue X = {XVal, FloatTy, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
@@ -4139,12 +4107,6 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateFloat) {
   EXPECT_TRUE(ContTI->isConditional());
   EXPECT_EQ(ContTI->getSuccessor(1), ContBB);
   EXPECT_NE(EndBB, nullptr);
-
-  // PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
-  // EXPECT_NE(Phi, nullptr);
-  // EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
-  // EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
-  // EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
 
   EXPECT_EQ(Sub->getNumUses(), 1U);
   StoreInst *St = dyn_cast<StoreInst>(Sub->user_back());
@@ -4180,7 +4142,7 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateIntr) {
   Type *IntTy = Type::getInt32Ty(M->getContext());
   AllocaInst *XVal = Builder.CreateAlloca(IntTy);
   XVal->setName("AtomicVar");
-  auto ExpectedVal = ConstantInt::get(Type::getInt32Ty(Ctx), 0);
+  ConstantInt *ExpectedVal = ConstantInt::get(Type::getInt32Ty(Ctx), 0);
   Builder.CreateStore(ExpectedVal, XVal);
   OpenMPIRBuilder::AtomicOpValue X = {XVal, IntTy, false, false};
   AtomicOrdering AO = AtomicOrdering::Monotonic;
@@ -4209,12 +4171,6 @@ TEST_F(OpenMPIRBuilderTest, OMPAtomicUpdateIntr) {
   EXPECT_TRUE(ContTI->isConditional());
   EXPECT_EQ(ContTI->getSuccessor(1), ContBB);
   EXPECT_NE(EndBB, nullptr);
-
-  // PHINode *Phi = dyn_cast<PHINode>(&ContBB->front());
-  // EXPECT_NE(Phi, nullptr);
-  // EXPECT_EQ(Phi->getNumIncomingValues(), 2U);
-  // EXPECT_EQ(Phi->getIncomingBlock(0), EntryBB);
-  // EXPECT_EQ(Phi->getIncomingBlock(1), ContBB);
 
   EXPECT_EQ(Sub->getNumUses(), 1U);
   StoreInst *St = dyn_cast<StoreInst>(Sub->user_back());

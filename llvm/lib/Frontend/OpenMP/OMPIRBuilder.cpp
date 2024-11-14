@@ -8189,7 +8189,7 @@ Expected<std::pair<Value *, Value *>> OpenMPIRBuilder::emitAtomicUpdate(
     InsertPointTy AllocaIP, Value *X, Type *XElemTy, Value *Expr,
     AtomicOrdering AO, AtomicRMWInst::BinOp RMWOp,
     AtomicUpdateCallbackTy &UpdateOp, bool VolatileX, bool IsXBinopExpr) {
-  assert(XElemTy);
+  assert(XElemTy && "Argument must not be NULL");
 
   bool emitRMWOp = false;
   switch (RMWOp) {
@@ -8240,7 +8240,7 @@ Expected<std::pair<Value *, Value *>> OpenMPIRBuilder::emitAtomicUpdate(
   Builder.restoreIP(InitIP);
 
   // Old value for first transaction. Every followup-transaction will use the
-  // prev value from cmpxchg.
+  // actual value from cmpxchg.
   Error ALResult = emitAtomicLoadBuiltin(/*AtomicPtr*/ X,
                                          /*RetPtr=*/ExpectedOrActualPtr,
                                          /*IsVolatile=*/false,
