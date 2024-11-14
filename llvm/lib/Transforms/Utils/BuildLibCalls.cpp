@@ -1306,6 +1306,12 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_atomic_load_4:
   case LibFunc_atomic_load_8:
   case LibFunc_atomic_load_16:
+  case LibFunc_atomic_store:
+  case LibFunc_atomic_store_1:
+  case LibFunc_atomic_store_2:
+  case LibFunc_atomic_store_4:
+  case LibFunc_atomic_store_8:
+  case LibFunc_atomic_store_16:
   case LibFunc_atomic_compare_exchange:
   case LibFunc_atomic_compare_exchange_1:
   case LibFunc_atomic_compare_exchange_2:
@@ -1313,8 +1319,8 @@ bool llvm::inferNonMandatoryLibFuncAttrs(Function &F,
   case LibFunc_atomic_compare_exchange_8:
   case LibFunc_atomic_compare_exchange_16:
     Changed |= setArgsNoUndef(F);
-    Changed |= setWillReturn(F);
     Changed |= setDoesNotThrow(F);
+    Changed |= setWillReturn(F);
     break;
   default:
     // FIXME: It'd be really nice to cover all the library functions we're
@@ -1422,6 +1428,20 @@ FunctionCallee llvm::getOrInsertLibFunc(Module *M, const TargetLibraryInfo &TLI,
   case LibFunc_atomic_load_4:
   case LibFunc_atomic_load_8:
   case LibFunc_atomic_load_16:
+    setRetExtAttr(*F, TLI);    // return
+    setArgExtAttr(*F, 3, TLI); // Memorder
+    break;
+
+  case LibFunc_atomic_store:
+    setArgExtAttr(*F, 4, TLI); // Memorder
+    break;
+
+  case LibFunc_atomic_store_1:
+  case LibFunc_atomic_store_2:
+  case LibFunc_atomic_store_4:
+  case LibFunc_atomic_store_8:
+  case LibFunc_atomic_store_16:
+    setArgExtAttr(*F, 2, TLI); // Val
     setArgExtAttr(*F, 3, TLI); // Memorder
     break;
 

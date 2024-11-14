@@ -6,7 +6,8 @@
 ! added to this directory and sub-directories.
 !===----------------------------------------------------------------------===!
 
-!RUN: %flang_fc1 -triple x86_64-unknown-linux-gnu -emit-llvm -fopenmp %s -o - | FileCheck %s
+!TODO: Disable passes that run even with -O0 (Clang: -disable-llvm-passes)
+!RUN: %flang_fc1 -triple x86_64-unknown-linux-gnu -emit-llvm -fopenmp -mllvm --disable-llvm %s -o - | FileCheck %s
 
 ! CHECK-LABEL: define {{.*}}@_QQmain(
 ! CHECK-NEXT:    %[[DOTATOMIC_ORIG_PTR:.+]] = alloca { float, float }, align 8

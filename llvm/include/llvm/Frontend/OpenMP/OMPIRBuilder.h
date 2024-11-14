@@ -3084,8 +3084,7 @@ private:
   ///                     (e.g. true for X = X BinOp Expr)
   ///
   /// \returns A pair of the old value of X before the update, and the value
-  ///          used for the update.
-  /// FIXME: "Value used for the update"? Should be "the updated value"?
+  ///          after the update.
   Expected<std::pair<Value *, Value *>>
   emitAtomicUpdate(InsertPointTy AllocaIP, Value *X, Type *XElemTy, Value *Expr,
                    AtomicOrdering AO, AtomicRMWInst::BinOp RMWOp,

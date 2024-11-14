@@ -6,7 +6,48 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements some functions for lowering compiler builtins.
+// This file implements some functions for lowering compiler builtins,
+// specifically for atomics. Currently, LLVM-IR has no representation of atomics
+// that can be used independent of its arguments:
+//
+// * The instructions load atomic, store atomic, atomicrmw, and cmpxchg can only
+//   be used with constant memory model, sync scope, data sizes (that must be
+//   power-of-2), volatile and weak property, and should not be used with data
+//   types that are untypically large which may slow down the compiler.
+//
+// * libcall (in GCC's case: libatomic; LLVM: Compiler-RT) functions work with
+//   any data size, but are slower. Specialized functions for a selected number
+//   of data sizes exist as well. They do not support sync scops, the volatile
+//   or weakness property. These functions may be implemented using a lock and
+//   availability depends on the target triple (e.g. GPU devices cannot
+//   implement a global lock by design).
+//
+// Whe want to mimic Clang's behaviour:
+//
+// * Prefer atomic instructions over libcall functions whenever possible. When a
+//   target backend does not support atomic instructions natively,
+//   AtomicExpandPass, LowerAtomicPass, or some backend-specific pass lower will
+//   convert such instructions to a libcall function call. The reverse is not
+//   the case, i.e. once a libcall function is emitted, there is no pass that
+//   optimizes it into an instruction.
+//
+// * When passed a non-constant enum argument which the instruction requires to
+//   be constant, then emit a switch case for each enum case.
+//
+// Clang currently doesn't actually check whether the target actually supports
+// atomic libcall functions so it will always fall back to a libcall function
+// even if the target does not support it. That is, emitting an atomic builtin
+// may fail and a frontend needs to handle this case.
+//
+// Clang also assumes that the maximum supported data size of atomic instruction
+// is 16, despite this is target-dependent and should be queried using
+// TargetLowing::getMaxAtomicSizeInBitsSupported(). However, TargetMachine
+// (which is a factory for TargetLowing) is not available during Clang's CodeGen
+// phase, it is only created for the LLVM pass pipeline.
+//
+// The functions in this file are intended to handle the complexity of builtins
+// so frontends do not need to care about the details. In the future LLVM may
+// introduce more generic atomic constructs that is lowered by an LLVM pass.
 //
 //===----------------------------------------------------------------------===//
 
@@ -33,10 +74,12 @@ namespace SyncScope {
 typedef uint8_t ID;
 }
 
+/// Emit the __atomic_load builtin. This may either be lowered to the load LLVM
+/// instruction, or to one of the following libcall functions: __atomic_load_1,
+/// __atomic_load_2, __atomic_load_4, __atomic_load_8, __atomic_load_16,
+/// __atomic_load.
 Error emitAtomicLoadBuiltin(
-    Value *Ptr, Value *RetPtr,
-    // std::variant<Value *, bool> IsWeak,
-    bool IsVolatile,
+    Value *Ptr, Value *RetPtr, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
     std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
     std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
@@ -47,10 +90,12 @@ Error emitAtomicLoadBuiltin(
     bool AllowInstruction = true, bool AllowSwitch = true,
     bool AllowSizedLibcall = true, bool AllowLibcall = true);
 
+/// Emit the __atomic_store builtin. It may either be lowered to the store LLVM
+/// instruction, or to one of the following libcall functions: __atomic_store_1,
+/// __atomic_store_2, __atomic_store_4, __atomic_store_8, __atomic_store_16,
+/// __atomic_static.
 Error emitAtomicStoreBuiltin(
-    Value *Ptr, Value *ValPtr,
-    // std::variant<Value *, bool> IsWeak,
-    bool IsVolatile,
+    Value *Ptr, Value *ValPtr, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
     std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
     std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
@@ -61,7 +106,7 @@ Error emitAtomicStoreBuiltin(
     bool AllowInstruction = true, bool AllowSwitch = true,
     bool AllowSizedLibcall = true, bool AllowLibcall = true);
 
-/// Emit a call to the __atomic_compare_exchange builtin. This may either be
+/// Emit the __atomic_compare_exchange builtin. This may either be
 /// lowered to the cmpxchg LLVM instruction, or to one of the following libcall
 /// functions: __atomic_compare_exchange_1, __atomic_compare_exchange_2,
 /// __atomic_compare_exchange_4, __atomic_compare_exchange_8,
