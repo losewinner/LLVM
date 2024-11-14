@@ -8,30 +8,32 @@ module attributes {test.name = "simple"} {
     return
   }
 
+  // CHECK-NOT: Node{{.*}}func_b
   func.func private @func_b()
 
-  // CHECK: Node{{.*}}func_c
+  // CHECK: Node{{.*}}func_c{{.*}}private
   // CHECK-NEXT: Call-Edge{{.*}}Unknown-Callee-Node
-  func.func @func_c() {
+  func.func private @func_c() {
     call @func_b() : () -> ()
     return
   }
 
   // CHECK: Node{{.*}}func_d
-  // CHECK-NEXT: Call-Edge{{.*}}func_c
+  // CHECK-NEXT: Call-Edge{{.*}}func_c{{.*}}private
   func.func @func_d() {
     call @func_c() : () -> ()
     return
   }
 
   // CHECK: Node{{.*}}func_e
-  // CHECK-DAG: Call-Edge{{.*}}func_c
+  // CHECK-DAG: Call-Edge{{.*}}func_c{{.*}}private
   // CHECK-DAG: Call-Edge{{.*}}func_d
   // CHECK-DAG: Call-Edge{{.*}}func_e
+  // CHECK-DAG: Ref-Edge{{.*}}func_a
   func.func @func_e() {
     call @func_c() : () -> ()
     call @func_d() : () -> ()
-    call @func_e() : () -> ()
+    call @func_e() { use = @func_a } : () -> ()
     return
   }
 
@@ -49,6 +51,39 @@ module attributes {test.name = "simple"} {
     call_indirect %fn() : () -> ()
     return
   }
+
+  // CHECK: Node{{.*}}func_g
+  // CHECK: Ref-Edge{{.*}}func_c
+  // CHECK: Call-Edge{{.*}}Unknown-Callee-Node
+  func.func @func_g() -> (() -> ()) {
+    // A private symbol maybe escaped.
+    %0 = func.constant @func_c : () -> ()
+    call_indirect %0() : () -> ()
+    return %0 : () -> ()
+  }
+
+  // CHECK: Node{{.*}}func_h{{.*}}private
+  func.func private @func_h() {
+    return
+  }
+
+  // Referenced symbol declarations is ignored.
+  "live.user"() { use = @func_b } : () -> ()
+  // non-callable top level operation reference callable symbol
+  "live.user"() { use = @func_c } : () -> ()
+  func.call @func_h() : () -> ()
+
+  // CHECK: Node{{.*}}External-Caller-Node
+  // CHECK-NEXT: Ref-Edge{{.*}}func_a
+  // CHECK-NEXT: Ref-Edge{{.*}}func_d
+  // CHECK-NEXT: Ref-Edge{{.*}}func_e
+  // CHECK-NEXT: Ref-Edge{{.*}}func_f
+  // CHECK-NEXT: Ref-Edge{{.*}}func_g
+  // CHECK-NOT: Ref-Edge{{.*}}func_b
+  // CHECK-NEXT: Ref-Edge{{.*}}func_c{{.*}}private
+  // CHECK-NEXT: Ref-Edge{{.*}}func_h{{.*}}private
+
+  // CHECK: Node{{.*}}Unknown-Callee-Node
 }
 
 // -----
@@ -56,18 +91,24 @@ module attributes {test.name = "simple"} {
 // CHECK-LABEL: Testing : "nested"
 module attributes {test.name = "nested"} {
   module @nested_module {
-    // CHECK: Node{{.*}}func_a
-    func.func @func_a() {
+    // CHECK: Node{{.*}}func_a{{.*}}nested
+    func.func nested @func_a() {
       return
     }
   }
 
   // CHECK: Node{{.*}}func_b
-  // CHECK: Call-Edge{{.*}}func_a
+  // CHECK: Call-Edge{{.*}}func_a{{.*}}nested
   func.func @func_b() {
     "test.conversion_call_op"() { callee = @nested_module::@func_a } : () -> ()
     return
   }
+
+  // CHECK: Node{{.*}}External-Caller-Node
+  // CHECK-NEXT: Ref-Edge{{.*}}func_b
+  // CHECK-NOT: Ref-Edge{{.*}}func_a
+
+  // CHECK: Node{{.*}}Unknown-Callee-Node
 }
 
 // -----
@@ -95,4 +136,3 @@ module attributes {test.name = "SCC"} {
   // CHECK: SCC :
   // CHECK-NEXT: Node{{.*}}External-Caller-Node
 }
-

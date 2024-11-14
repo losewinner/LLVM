@@ -16,6 +16,7 @@
 #ifndef MLIR_ANALYSIS_CALLGRAPH_H
 #define MLIR_ANALYSIS_CALLGRAPH_H
 
+#include "mlir/IR/SymbolTable.h"
 #include "mlir/Support/LLVM.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/MapVector.h"
@@ -42,11 +43,12 @@ public:
   /// This class represents a directed edge between two nodes in the callgraph.
   class Edge {
     enum class Kind {
-      // An 'Abstract' edge represents an opaque, non-operation, reference
-      // between this node and the target. Edges of this type are only valid
-      // from the external node, as there is no valid connection to an operation
-      // in the module.
-      Abstract,
+      // A 'Ref' edge represents a reference between this node and the target.
+      // Edges of this type exist whenever any operation references a callable
+      // node. A callable node which may be referenced externally is connected
+      // with a reference edge from the entry node. All 'Call' edges and 'Child'
+      // edges are inherently reference edges in the callgraph.
+      Ref,
 
       // A 'Call' edge represents a direct reference to the target node via a
       // call-like operation within the callable region of this node.
@@ -60,8 +62,8 @@ public:
     };
 
   public:
-    /// Returns true if this edge represents an `Abstract` edge.
-    bool isAbstract() const { return targetAndKind.getInt() == Kind::Abstract; }
+    /// Returns true if this edge represents an `Ref` edge.
+    bool isRef() const { return targetAndKind.getInt() == Kind::Ref; }
 
     /// Returns true if this edge represents a `Call` edge.
     bool isCall() const { return targetAndKind.getInt() == Kind::Call; }
@@ -95,16 +97,21 @@ public:
   /// on non-external nodes.
   Region *getCallableRegion() const;
 
-  /// Adds an abstract reference edge to the given node. An abstract edge does
-  /// not come from any observable operations, so this is only valid on the
-  /// external node.
-  void addAbstractEdge(CallGraphNode *node);
+  /// Adds a reference edge to the given node. A reference comes from
+  /// external node or any observable operations.
+  void addRefEdge(CallGraphNode *node);
 
   /// Add an outgoing call edge from this node.
   void addCallEdge(CallGraphNode *node);
 
   /// Adds a reference edge to the given child node.
   void addChildEdge(CallGraphNode *child);
+
+  /// Remove edges to the target node.
+  void removeEdgesTo(CallGraphNode *target);
+
+  /// Remove all edges for this callgraph node.
+  void removeAllEdges();
 
   /// Iterator over the outgoing edges of this node.
   using iterator = SmallVectorImpl<Edge>::const_iterator;
@@ -113,6 +120,13 @@ public:
 
   /// Returns true if this node has any child edges.
   bool hasChildren() const;
+
+  /// Return true if this node is dead.
+  bool isDead() const { return !isExternal() && getNumReferences() == 0; }
+
+  /// Returns the number of edges in this callgraph that connected
+  /// to this node.
+  unsigned getNumReferences() const { return NumReferences; }
 
 private:
   /// DenseMap info for callgraph edges.
@@ -142,6 +156,17 @@ private:
   SetVector<Edge, SmallVector<Edge, 4>,
             llvm::SmallDenseSet<Edge, 4, EdgeKeyInfo>>
       edges;
+
+  /// The number of edges in this callgraph that connected to this
+  /// callgraph node.
+  unsigned NumReferences = 0;
+
+  /// Decrease reference counter when an edge connected to this callgraph node
+  /// is removed.
+  void dropRef() { --NumReferences; }
+
+  /// Add reference counter when a new edge is connected to this callgraph node.
+  void addRef() { ++NumReferences; }
 
   // Provide access to private methods.
   friend class CallGraph;
@@ -184,13 +209,13 @@ public:
   /// registered.
   CallGraphNode *lookupNode(Region *region) const;
 
-  /// Return the callgraph node representing an external caller.
-  CallGraphNode *getExternalCallerNode() const {
+  /// Return the callgraph node representing the entry node of this callgraph.
+  CallGraphNode *getEntryNode() const {
     return const_cast<CallGraphNode *>(&externalCallerNode);
   }
 
-  /// Return the callgraph node representing an indirect callee.
-  CallGraphNode *getUnknownCalleeNode() const {
+  /// Return the callgraph node representing the exit node of this callgraph.
+  CallGraphNode *getExitNode() const {
     return const_cast<CallGraphNode *>(&unknownCalleeNode);
   }
 
@@ -199,6 +224,11 @@ public:
   /// is used when resolving calls that reference callables via a symbol
   /// reference.
   CallGraphNode *resolveCallable(CallOpInterface call,
+                                 SymbolTableCollection &symbolTable) const;
+
+  /// Resolve the callable for given symbol to a node in the callgraph, or the
+  /// external node if a valid node was not resolved.
+  CallGraphNode *resolveCallable(Operation *op, SymbolRefAttr symbolRef,
                                  SymbolTableCollection &symbolTable) const;
 
   /// Erase the given node from the callgraph.
@@ -217,10 +247,10 @@ private:
   /// The set of nodes within the callgraph.
   NodeMapT nodes;
 
-  /// A special node used to indicate an external caller.
+  /// A special node used to indicate an entry callgraph node.
   CallGraphNode externalCallerNode;
 
-  /// A special node used to indicate an unknown callee.
+  /// A special node used to indicate an exit callgraph node.
   CallGraphNode unknownCalleeNode;
 };
 
@@ -254,7 +284,7 @@ struct GraphTraits<const mlir::CallGraph *>
     : public GraphTraits<const mlir::CallGraphNode *> {
   /// The entry node into the graph is the external node.
   static NodeRef getEntryNode(const mlir::CallGraph *cg) {
-    return cg->getExternalCallerNode();
+    return cg->getEntryNode();
   }
 
   // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
