@@ -8064,7 +8064,7 @@ TargetLowering *TL = nullptr;
                             /*TLI=*/&TLI,
                             /*TL=*/TL,
                             /*SyncScopes=*/{},
-                            /*FallbackScope=*/StringRef(),
+                            /*FallbackScope=*/{},
                             /*Name=*/Name + ".atomic.read");
   if (ALResult)
     return std::move(ALResult);
@@ -8115,7 +8115,7 @@ TargetLowering *TL = nullptr;
                                           /*TLI=*/&TLI,
                                           /*TL=*/TL,
                                           /*SyncScopes=*/{},
-                                          /*FallbackScope=*/StringRef(),
+                                          /*FallbackScope=*/{},
                                           /*Name=*/Name + ".atomic.write");
   if (ASResult)
     return ASResult;
@@ -8136,7 +8136,6 @@ OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createAtomicUpdate(
     Type *XTy = X.Var->getType();
     assert(XTy->isPointerTy() &&
            "OMP Atomic expects a pointer to target memory");
-    Type *XElemTy = X.ElemTy;
     assert((RMWOp != AtomicRMWInst::Max) && (RMWOp != AtomicRMWInst::Min) &&
            (RMWOp != AtomicRMWInst::UMax) && (RMWOp != AtomicRMWInst::UMin) &&
            "OpenMP atomic does not support LT or GT operations");
@@ -8235,16 +8234,16 @@ TargetLowering *TL = nullptr;
   // Reserve some stack space.
   InsertPointTy InitIP = Builder.saveIP();
   Builder.restoreIP(AllocaIP);
-  AllocaInst *OrigPtr =
+  AllocaInst *ExpectedOrActualPtr =
       Builder.CreateAlloca(XElemTy, nullptr, Name + ".atomic.expected.ptr");
-  AllocaInst *UpdPtr =
+  AllocaInst *DesiredPtr =
       Builder.CreateAlloca(XElemTy, nullptr, Name + ".atomic.desired.ptr");
   Builder.restoreIP(InitIP);
 
   // Old value for first transaction. Every followup-transaction will use the
   // prev value from cmpxchg.
-  Error ALResult = emitAtomicLoadBuiltin(X,
-                                         /*RetPtr=*/OrigPtr,
+  Error ALResult = emitAtomicLoadBuiltin(/*AtomicPtr*/X,
+                                         /*RetPtr=*/ExpectedOrActualPtr,
                                          /*IsVolatile=*/false,
                                          /*Memorder=*/AO,
                                          /*SyncScope=*/SyncScope::System,
@@ -8257,7 +8256,7 @@ TargetLowering *TL = nullptr;
                                          /*TLI=*/&TLI,
                                          /*TL=*/TL,
                                          /*SyncScopes=*/{},
-                                         /*FallbackScope=*/StringRef(),
+                                         /*FallbackScope=*/{},
                                          /*Name=*/Name);
   if (ALResult)
     return std::move(ALResult);
@@ -8270,23 +8269,24 @@ TargetLowering *TL = nullptr;
   Builder.SetInsertPoint(RetryBB);
 
   // 1. Let the user code compute the new value.
-  Value *OrigVal = Builder.CreateLoad(XElemTy, OrigPtr, Name + ".atomic.orig");
+  Value *OrigVal = Builder.CreateLoad(XElemTy, ExpectedOrActualPtr, Name + ".atomic.orig");
   Expected<Value *> CBResult = UpdateOp(OrigVal, Builder);
   if (!CBResult)
     return CBResult.takeError();
   Value *UpdVal = *CBResult;
-  Builder.CreateStore(UpdVal, UpdPtr);
+  Builder.CreateStore(UpdVal, DesiredPtr);
 
   // 2. AtomicCompareExchange to replace OrigVal with UpdVal.
   Expected<Value *> ACEResult = emitAtomicCompareExchangeBuiltin(
       /*Ptr=*/X,
-      /*ExpectedPtr=*/OrigPtr,
-      /*DesiredPtr=*/UpdPtr,
+      /*ExpectedPtr=*/ExpectedOrActualPtr,
+      /*DesiredPtr=*/DesiredPtr,
       /*IsWeak=*/true,
       /*IsVolatile=*/false,
       /*SuccessMemorder=*/AO,
       /*FailureMemorder=*/{},
-      /*ActualPtr=*/OrigPtr,
+    /*SyncScope=*/SyncScope::System,
+    /*ActualPtr=*/ExpectedOrActualPtr,
       /*DataTy=*/XElemTy,
       /*DataSize=*/{},
       /*AvailableSize=*/{},
@@ -8295,6 +8295,8 @@ TargetLowering *TL = nullptr;
       /*DL=*/DL,
       /*TLI=*/&TLI,
       /*TL=*/nullptr,
+      /*SyncScopes=*/{},
+    /*FallbackScope=*/{},
       /*Name=*/Name);
   if (!ACEResult)
     return ACEResult.takeError();
@@ -8321,7 +8323,6 @@ OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createAtomicCapture(
     Type *XTy = X.Var->getType();
     assert(XTy->isPointerTy() &&
            "OMP Atomic expects a pointer to target memory");
-    Type *XElemTy = X.ElemTy;
     assert((RMWOp != AtomicRMWInst::Max) && (RMWOp != AtomicRMWInst::Min) &&
            "OpenMP atomic does not support LT or GT operations");
   });
@@ -8342,8 +8343,8 @@ OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createAtomicCapture(
   return Builder.saveIP();
 }
 
-OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createAtomicCompare(
-    const LocationDescription &Loc,  InsertPointTy AllocaIP, AtomicOpValue &X, AtomicOpValue &V,
+OpenMPIRBuilder::InsertPointTy OpenMPIRBuilder::createAtomicCompare(
+    const LocationDescription &Loc,   AtomicOpValue &X, AtomicOpValue &V,
     AtomicOpValue &R, Value *E, Value *D, AtomicOrdering AO,
     omp::OMPAtomicCompareOp Op, bool IsXBinopExpr, bool IsPostfixUpdate,
     bool IsFailOnly) {

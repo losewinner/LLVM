@@ -72,14 +72,11 @@ class AtomicEmitter {
 public:
   AtomicEmitter(
       Value *Ptr,
-      //   Value *ExpectedPtr,
-      //  Value *DesiredPtr,
       std::variant<Value *, bool> IsWeak, bool IsVolatile,
       std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
       std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
           FailureMemorder,
       std::variant<Value *, SyncScope::ID, StringRef> Scope,
-      //   Value *ActualPtr,
       Type *DataTy, std::optional<uint64_t> DataSize,
       std::optional<uint64_t> AvailableSize, MaybeAlign Align,
       IRBuilderBase &Builder, const DataLayout &DL,
@@ -88,7 +85,7 @@ public:
       StringRef FallbackScope, llvm::Twine Name, bool AllowInstruction,
       bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall)
       : Ctx(Builder.getContext()), CurFn(Builder.GetInsertBlock()->getParent()),
-        Ptr(Ptr), IsWeak(IsWeak), IsVolatile(IsVolatile),
+        AtomicPtr(Ptr), IsWeak(IsWeak), IsVolatile(IsVolatile),
         SuccessMemorder(SuccessMemorder), FailureMemorder(FailureMemorder),
         Scope(Scope), DataTy(DataTy), DataSize(DataSize),
         AvailableSize(AvailableSize), Align(Align), Builder(Builder), DL(DL),
@@ -101,7 +98,7 @@ protected:
   LLVMContext &Ctx;
   Function *CurFn;
 
-  Value *Ptr;
+  Value *AtomicPtr;
   std::variant<Value *, bool> IsWeak;
   bool IsVolatile;
   std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder;
@@ -136,8 +133,7 @@ protected:
   Value *ScopeVal;
   std::optional<bool> IsWeakConst;
   Value *IsWeakVal;
-  //  Value *ExpectedVal;
-  //  Value *DesiredVal;
+
 
   BasicBlock *createBasicBlock(const Twine &BBName) {
     return BasicBlock::Create(Ctx, Name + BBName, CurFn);
@@ -378,7 +374,7 @@ protected:
   virtual Expected<Value *> makeFallbackError() = 0;
 
   Expected<Value *> emit(bool CoerceType = false) {
-    assert(Ptr->getType()->isPointerTy());
+    assert(AtomicPtr->getType()->isPointerTy());
     assert(TLI);
 
     unsigned MaxAtomicSizeSupported = 16;
@@ -426,7 +422,7 @@ protected:
     //
     // We prefer safety here and assume no alignment, unless
     // getPointerAlignment() can determine the actual alignment.
-    EffectiveAlign = Ptr->getPointerAlignment(DL);
+    EffectiveAlign = AtomicPtr->getPointerAlignment(DL);
   }
 
   // Only use the original data type if it is compatible with the atomic instruction (and sized
@@ -626,7 +622,7 @@ protected:
                   AtomicOrdering SuccessMemorder,
                   AtomicOrdering FailureMemorder) override {
     LoadInst *AtomicInst =
-        Builder.CreateLoad(CoercedTy, Ptr, IsVolatile, Name + ".atomic.load");
+        Builder.CreateLoad(CoercedTy, AtomicPtr, IsVolatile, Name + ".atomic.load");
     AtomicInst->setAtomic(SuccessMemorder, Scope);
     AtomicInst->setAlignment(EffectiveAlign);
     AtomicInst->setVolatile(IsVolatile);
@@ -638,7 +634,7 @@ protected:
   }
 
   Expected<Value *> emitSizedLibcall() override {
-    Value *LoadResult = emitAtomicLoadN(PreferredSize, Ptr, SuccessMemorderCABI,
+    Value *LoadResult = emitAtomicLoadN(PreferredSize, AtomicPtr, SuccessMemorderCABI,
                                         Builder, DL, TLI);
     LoadResult->setName(Name);
     if (LoadResult) {
@@ -662,7 +658,7 @@ protected:
 
     Value *DataSizeVal =
         ConstantInt::get(getSizeTTy(Builder, TLI), DataSizeConst);
-    Value *LoadCall = emitAtomicLoad(DataSizeVal, Ptr, RetPtr,
+    Value *LoadCall = emitAtomicLoad(DataSizeVal, AtomicPtr, RetPtr,
                                      SuccessMemorderCABI, Builder, DL, TLI);
     if (LoadCall) {
       LoadCall->setName(Name);
@@ -701,7 +697,7 @@ protected:
   Value *emitInst(bool IsWeak, SyncScope::ID Scope,
                   AtomicOrdering SuccessMemorder,
                   AtomicOrdering FailureMemorder) override {
-    StoreInst *AtomicInst = Builder.CreateStore(Val, Ptr, IsVolatile);
+    StoreInst *AtomicInst = Builder.CreateStore(Val, AtomicPtr, IsVolatile);
     AtomicInst->setAtomic(SuccessMemorder, Scope);
     AtomicInst->setAlignment(EffectiveAlign);
     AtomicInst->setVolatile(IsVolatile);
@@ -710,7 +706,7 @@ protected:
 
   Expected<Value *> emitSizedLibcall() override {
     Val = Builder.CreateLoad(CoercedTy, ValPtr, Name + ".atomic.val");
-    Value *StoreCall = emitAtomicStoreN(DataSizeConst, Ptr, Val,
+    Value *StoreCall = emitAtomicStoreN(DataSizeConst, AtomicPtr, Val,
                                         SuccessMemorderCABI, Builder, DL, TLI);
     StoreCall->setName(Name);
     if (StoreCall)
@@ -732,7 +728,7 @@ protected:
 
     Value *DataSizeVal =
         ConstantInt::get(getSizeTTy(Builder, TLI), DataSizeConst);
-    Value *StoreCall = emitAtomicStore(DataSizeVal, Ptr, ValPtr,
+    Value *StoreCall = emitAtomicStore(DataSizeVal, AtomicPtr, ValPtr,
                                        SuccessMemorderCABI, Builder, DL, TLI);
     if (StoreCall)
       return nullptr;
@@ -757,9 +753,9 @@ public:
     assert(ExpectedPtr->getType()->isPointerTy());
     assert(DesiredPtr->getType()->isPointerTy());
     assert(!ActualPtr || ActualPtr->getType()->isPointerTy());
-    assert(Ptr != ExpectedPtr);
-    assert(Ptr != DesiredPtr);
-    assert(Ptr != ActualPtr);
+    assert(AtomicPtr != ExpectedPtr);
+    assert(AtomicPtr != DesiredPtr);
+    assert(AtomicPtr != ActualPtr);
     assert(ActualPtr != DesiredPtr);
 
     this->ExpectedPtr = ExpectedPtr;
@@ -786,7 +782,7 @@ protected:
                   AtomicOrdering SuccessMemorder,
                   AtomicOrdering FailureMemorder) override {
     AtomicCmpXchgInst *AtomicInst =
-        Builder.CreateAtomicCmpXchg(Ptr, ExpectedVal, DesiredVal, Align,
+        Builder.CreateAtomicCmpXchg(AtomicPtr, ExpectedVal, DesiredVal, Align,
                                     SuccessMemorder, FailureMemorder, Scope);
     AtomicInst->setName(Name + ".cmpxchg.pair");
     AtomicInst->setAlignment(EffectiveAlign);
@@ -810,7 +806,7 @@ protected:
         Builder.CreateLoad(IntegerType::get(Ctx, PreferredSize * 8), DesiredPtr,
                            Name + ".cmpxchg.desired");
     Value *SuccessResult = emitAtomicCompareExchangeN(
-        PreferredSize, Ptr, ExpectedPtr, DesiredVal, SuccessMemorderCABI,
+        PreferredSize, AtomicPtr, ExpectedPtr, DesiredVal, SuccessMemorderCABI,
         FailureMemorderCABI, Builder, DL, TLI);
     if (SuccessResult) {
       Value *SuccessBool =
@@ -834,7 +830,7 @@ protected:
     // FIXME: Some AMDGCN regression tests the addrspace, but
     // __atomic_compare_exchange by definition is addrsspace(0) and
     // emitAtomicCompareExchange will complain about it.
-    if (Ptr->getType()->getPointerAddressSpace() ||
+    if (AtomicPtr->getType()->getPointerAddressSpace() ||
         ExpectedPtr->getType()->getPointerAddressSpace() ||
         DesiredPtr->getType()->getPointerAddressSpace())
       return Builder.getInt1(false);
@@ -847,7 +843,7 @@ protected:
     // __atomic_compare_exchange is not supported. In either case there is no
     // fallback for atomics not supported by the target and we have to crash.
     Value *SuccessResult = emitAtomicCompareExchange(
-        ConstantInt::get(getSizeTTy(Builder, TLI), DataSizeConst), Ptr,
+        ConstantInt::get(getSizeTTy(Builder, TLI), DataSizeConst), AtomicPtr,
         ExpectedPtr, DesiredPtr, SuccessMemorderCABI, FailureMemorderCABI,
         Builder, DL, TLI);
     if (SuccessResult) {
@@ -874,7 +870,7 @@ protected:
 } // namespace
 
 Error llvm::emitAtomicLoadBuiltin(
-    Value *Ptr, Value *RetPtr,
+    Value *AtomicPtr, Value *RetPtr,
     //  std::variant<Value *, bool> IsWeak,
     bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
@@ -886,15 +882,14 @@ Error llvm::emitAtomicLoadBuiltin(
     StringRef FallbackScope, llvm::Twine Name, bool AllowInstruction,
     bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall) {
   AtomicLoadEmitter Emitter(
-      Ptr, false, IsVolatile, Memorder, {}, Scope, DataTy, DataSize,
+      AtomicPtr, false, IsVolatile, Memorder, {}, Scope, DataTy, DataSize,
       AvailableSize, Align, Builder, DL, TLI, TL, SyncScopes, FallbackScope,
       Name, AllowInstruction, AllowSwitch, AllowSizedLibcall, AllowLibcall);
   return Emitter.emitLoad(RetPtr);
 }
 
 Error llvm::emitAtomicStoreBuiltin(
-    Value *Ptr, Value *ValPtr,
-    // std::variant<Value *, bool> IsWeak,
+    Value *AtomicPtr, Value *ValPtr,
     bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
     std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
@@ -906,14 +901,14 @@ Error llvm::emitAtomicStoreBuiltin(
     bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall) {
 
   AtomicStoreEmitter Emitter(
-      Ptr, false, IsVolatile, Memorder, {}, Scope, DataTy, DataSize,
+      AtomicPtr, false, IsVolatile, Memorder, {}, Scope, DataTy, DataSize,
       AvailableSize, Align, Builder, DL, TLI, TL, SyncScopes, FallbackScope,
       Name, AllowInstruction, AllowSwitch, AllowSizedLibcall, AllowLibcall);
   return Emitter.emitStore(ValPtr);
 }
 
 Expected<Value *> llvm::emitAtomicCompareExchangeBuiltin(
-    Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
+    Value *AtomicPtr, Value *ExpectedPtr, Value *DesiredPtr,
     std::variant<Value *, bool> IsWeak, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
     std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
@@ -927,27 +922,10 @@ Expected<Value *> llvm::emitAtomicCompareExchangeBuiltin(
     StringRef FallbackScope, llvm::Twine Name, bool AllowInstruction,
     bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall) {
   AtomicCompareExchangeEmitter Emitter(
-      Ptr, IsWeak, IsVolatile, SuccessMemorder, FailureMemorder, Scope, DataTy,
+      AtomicPtr, IsWeak, IsVolatile, SuccessMemorder, FailureMemorder, Scope, DataTy,
       DataSize, AvailableSize, Align, Builder, DL, TLI, TL, SyncScopes,
       FallbackScope, Name, AllowInstruction, AllowSwitch, AllowSizedLibcall,
       AllowLibcall);
   return Emitter.emitCmpXchg(ExpectedPtr, DesiredPtr, PrevPtr);
 }
 
-Expected<Value *> llvm::emitAtomicCompareExchangeBuiltin(
-    Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
-    std::variant<Value *, bool> IsWeak, bool IsVolatile,
-    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
-    std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
-        FailureMemorder,
-    Value *PrevPtr, Type *DataTy, std::optional<uint64_t> DataSize,
-    std::optional<uint64_t> AvailableSize, MaybeAlign Align,
-    IRBuilderBase &Builder, const DataLayout &DL, const TargetLibraryInfo *TLI,
-    const TargetLowering *TL, llvm::Twine Name, bool AllowInstruction,
-    bool AllowSwitch, bool AllowSizedLibcall, bool AllowLibcall) {
-  return emitAtomicCompareExchangeBuiltin(
-      Ptr, ExpectedPtr, DesiredPtr, IsWeak, IsVolatile, SuccessMemorder,
-      FailureMemorder, SyncScope::System, PrevPtr, DataTy, DataSize,
-      AvailableSize, Align, Builder, DL, TLI, TL, {}, StringRef(), Name,
-      AllowInstruction, AllowSwitch, AllowSizedLibcall, AllowLibcall);
-}

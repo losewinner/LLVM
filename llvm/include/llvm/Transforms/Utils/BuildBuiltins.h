@@ -79,7 +79,7 @@ typedef uint8_t ID;
 /// __atomic_load_2, __atomic_load_4, __atomic_load_8, __atomic_load_16,
 /// __atomic_load.
 Error emitAtomicLoadBuiltin(
-    Value *Ptr, Value *RetPtr, bool IsVolatile,
+    Value *AtomicPtr, Value *RetPtr, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
     std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
     std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
@@ -95,7 +95,7 @@ Error emitAtomicLoadBuiltin(
 /// __atomic_store_2, __atomic_store_4, __atomic_store_8, __atomic_store_16,
 /// __atomic_static.
 Error emitAtomicStoreBuiltin(
-    Value *Ptr, Value *ValPtr, bool IsVolatile,
+    Value *AtomicPtr, Value *ValPtr, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> Memorder,
     std::variant<Value *, SyncScope::ID, StringRef> Scope, Type *DataTy,
     std::optional<uint64_t> DataSize, std::optional<uint64_t> AvailableSize,
@@ -118,7 +118,7 @@ Error emitAtomicStoreBuiltin(
 /// https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
 /// https://gcc.gnu.org/wiki/Atomic/GCCMM/LIbrary#GCC_intrinsics
 ///
-/// @param Ptr         The memory location accessed atomically.
+/// @param AtomicPtr   The memory location accessed atomically.
 /// @Param ExpectedPtr Pointer to the data expected at \p Ptr. The exchange will
 ///                    only happen if the value at \p Ptr is equal to this
 ///                    (unless IsWeak is set). Data at \p ExpectedPtr may or may
@@ -179,7 +179,7 @@ Error emitAtomicStoreBuiltin(
 /// @return A boolean value that indicates whether the exchange has happened
 ///         (true) or not (false).
 Expected<Value *> emitAtomicCompareExchangeBuiltin(
-    Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
+    Value *AtomicPtr, Value *ExpectedPtr, Value *DesiredPtr,
     std::variant<Value *, bool> IsWeak, bool IsVolatile,
     std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
     std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
@@ -191,19 +191,6 @@ Expected<Value *> emitAtomicCompareExchangeBuiltin(
     const TargetLowering *TL,
     ArrayRef<std::pair<uint32_t, StringRef>> SyncScopes,
     StringRef FallbackScope, llvm::Twine Name = Twine(),
-    bool AllowInstruction = true, bool AllowSwitch = true,
-    bool AllowSizedLibcall = true, bool AllowLibcall = true);
-
-Expected<Value *> emitAtomicCompareExchangeBuiltin(
-    Value *Ptr, Value *ExpectedPtr, Value *DesiredPtr,
-    std::variant<Value *, bool> IsWeak, bool IsVolatile,
-    std::variant<Value *, AtomicOrdering, AtomicOrderingCABI> SuccessMemorder,
-    std::variant<std::monostate, Value *, AtomicOrdering, AtomicOrderingCABI>
-        FailureMemorder,
-    Value *PrevPtr, Type *DataTy, std::optional<uint64_t> DataSize,
-    std::optional<uint64_t> AvailableSize, MaybeAlign Align,
-    IRBuilderBase &Builder, const DataLayout &DL, const TargetLibraryInfo *TLI,
-    const TargetLowering *TL, llvm::Twine Name = Twine(),
     bool AllowInstruction = true, bool AllowSwitch = true,
     bool AllowSizedLibcall = true, bool AllowLibcall = true);
 
