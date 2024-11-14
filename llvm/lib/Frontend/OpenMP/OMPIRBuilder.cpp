@@ -8349,16 +8349,16 @@ OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createAtomicCompare(
     bool IsFailOnly) {
 
   AtomicOrdering Failure = AtomicCmpXchgInst::getStrongestFailureOrdering(AO);
-  return createAtomicCompare(Loc, AllocaIP, X, V, R, E, D, AO, Op, IsXBinopExpr,
+  return createAtomicCompare(Loc, X, V, R, E, D, AO, Op, IsXBinopExpr,
                              IsPostfixUpdate, IsFailOnly, Failure);
 }
 
-OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createAtomicCompare( 
-    const LocationDescription &Loc,InsertPointTy AllocaIP, AtomicOpValue &X, AtomicOpValue &V,
+OpenMPIRBuilder::InsertPointTy OpenMPIRBuilder::createAtomicCompare(
+    const LocationDescription &Loc, AtomicOpValue &X, AtomicOpValue &V,
     AtomicOpValue &R, Value *E, Value *D, AtomicOrdering AO,
     omp::OMPAtomicCompareOp Op, bool IsXBinopExpr, bool IsPostfixUpdate,
     bool IsFailOnly, AtomicOrdering Failure) {
-  assert(!isConflictIP(Loc.IP, AllocaIP)&& "IPs must not conflict");
+
   if (!updateToLocation(Loc))
     return Loc.IP;
 
@@ -8373,102 +8373,26 @@ OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createAtomicCompare(
   bool IsInteger = E->getType()->isIntegerTy();
 
   if (Op == OMPAtomicCompareOp::EQ) {
-  // TODO: Get TLI and TL from frontend
-  Triple T(Builder.GetInsertBlock()->getModule()->getTargetTriple());
-  TargetLibraryInfoImpl TLII(T);
-  TargetLibraryInfo TLI(TLII);
-TargetLowering *TL = nullptr;
-  const DataLayout &DL = Builder.GetInsertBlock()->getDataLayout();
-  Twine Name(X.Var->getName());
-  Type *ElemTy = X.Var->getType();
-
-
-  // Reserve some stack space.
-  InsertPointTy InitIP = Builder.saveIP();
-  Builder.restoreIP(AllocaIP);
-  AllocaInst *OrigPtr = Builder.CreateAlloca(ElemTy, nullptr, Name + ".atomic.expected.addr");
-  AllocaInst *UpdPtr =   Builder.CreateAlloca(ElemTy, nullptr, Name + ".atomic.desired.addr");
-  Builder.restoreIP(InitIP);
-
-  Builder.CreateStore(E, OrigPtr );
-   Builder.CreateStore(D, UpdPtr );
-
-  // 2. AtomicCompareExchange to replace OrigVal with UpdVal.
-  Expected<Value *> ACEResult = emitAtomicCompareExchangeBuiltin(
-      /*Ptr=*/X.Var,
-      /*ExpectedPtr=*/OrigPtr,
-      /*DesiredPtr=*/UpdPtr,
-      /*IsWeak=*/false,
-      /*IsVolatile=*/X.IsVolatile,
-      /*SuccessMemorder=*/AO,
-      /*FailureMemorder=*/{},
-      /*ActualPtr=*/OrigPtr,
-      /*DataTy=*/ElemTy,
-      /*DataSize=*/{},
-      /*AvailableSize=*/{},
-      /*Align=*/{},
-      /*Builder=*/Builder,
-      /*DL=*/DL,
-      /*TLI=*/&TLI,
-      /*TL=*/nullptr,
-      /*Name=*/Name);
-  if (!ACEResult)
-    return ACEResult.takeError();
-  Value *SuccessOrFail = *ACEResult;
-
-    if (V.Var) {
-            Value *OldValue = Builder.CreateLoad(ElemTy, OrigPtr, Name + ".atomic.actual");
-             if (IsPostfixUpdate) {
-               Builder.CreateStore(OldValue, V.Var, V.IsVolatile);
-             } else {
-                   if (IsFailOnly) {
-          // CurBB----
-          //   |     |
-          //   v     |
-          // ContBB  |
-          //   |     |
-          //   v     |
-          // ExitBB <-
-          //
-          // where ContBB only contains the store of old value to 'v'.
-
-       BasicBlock *ExitBB = splitBBWithSuffix(Builder, false, ".atomic.exit");
-  BasicBlock *ContBB = splitBBWithSuffix(Builder, true,  ".atomic.cont");
-
-   Builder.CreateCondBr(SuccessOrFail, ExitBB, ContBB);
-
-   
-             Builder.SetInsertPoint(ContBB);
-          Builder.CreateStore(OldValue, V.Var);
-          Builder.CreateBr(ExitBB);
-
-
-             Builder.SetInsertPoint(ExitBB);
-        } else {
-          Value *CapturedValue = Builder.CreateSelect(SuccessOrFail, E, OldValue);
-          Builder.CreateStore(CapturedValue, V.Var, V.IsVolatile);
-        }
-             }
-      } else {
-    }
-
-
-    #if 0
     AtomicCmpXchgInst *Result = nullptr;
+    // TODO: Use emitAtomicCompareExchangeBuiltin(...)
     if (!IsInteger) {
-      IntegerType *IntCastTy = IntegerType::get(M.getContext(), X.ElemTy->getScalarSizeInBits());
+      IntegerType *IntCastTy =
+          IntegerType::get(M.getContext(), X.ElemTy->getScalarSizeInBits());
       Value *EBCast = Builder.CreateBitCast(E, IntCastTy);
       Value *DBCast = Builder.CreateBitCast(D, IntCastTy);
-      Result = Builder.CreateAtomicCmpXchg(X.Var, EBCast, DBCast, MaybeAlign(), AO, Failure);
+      Result = Builder.CreateAtomicCmpXchg(X.Var, EBCast, DBCast, MaybeAlign(),
+                                           AO, Failure);
     } else {
-      Result =  Builder.CreateAtomicCmpXchg(X.Var, E, D, MaybeAlign(), AO, Failure);
+      Result =
+          Builder.CreateAtomicCmpXchg(X.Var, E, D, MaybeAlign(), AO, Failure);
     }
 
     if (V.Var) {
       Value *OldValue = Builder.CreateExtractValue(Result, /*Idxs=*/0);
       if (!IsInteger)
         OldValue = Builder.CreateBitCast(OldValue, X.ElemTy);
-      assert(OldValue->getType() == V.ElemTy && "OldValue and V must be of same type");
+      assert(OldValue->getType() == V.ElemTy &&
+             "OldValue and V must be of same type");
       if (IsPostfixUpdate) {
         Builder.CreateStore(OldValue, V.Var, V.IsVolatile);
       } else {
@@ -8486,8 +8410,10 @@ TargetLowering *TL = nullptr;
           BasicBlock *CurBB = Builder.GetInsertBlock();
           Instruction *CurBBTI = CurBB->getTerminator();
           CurBBTI = CurBBTI ? CurBBTI : Builder.CreateUnreachable();
-          BasicBlock *ExitBB = CurBB->splitBasicBlock(CurBBTI, X.Var->getName() + ".atomic.exit");
-          BasicBlock *ContBB = CurBB->splitBasicBlock(CurBB->getTerminator(), X.Var->getName() + ".atomic.cont");
+          BasicBlock *ExitBB = CurBB->splitBasicBlock(
+              CurBBTI, X.Var->getName() + ".atomic.exit");
+          BasicBlock *ContBB = CurBB->splitBasicBlock(
+              CurBB->getTerminator(), X.Var->getName() + ".atomic.cont");
           ContBB->getTerminator()->eraseFromParent();
           CurBB->getTerminator()->eraseFromParent();
 
@@ -8497,28 +8423,30 @@ TargetLowering *TL = nullptr;
           Builder.CreateStore(OldValue, V.Var);
           Builder.CreateBr(ExitBB);
 
-          if (UnreachableInst *ExitTI = dyn_cast<UnreachableInst>(ExitBB->getTerminator())) {
+          if (UnreachableInst *ExitTI =
+                  dyn_cast<UnreachableInst>(ExitBB->getTerminator())) {
             CurBBTI->eraseFromParent();
             Builder.SetInsertPoint(ExitBB);
           } else {
             Builder.SetInsertPoint(ExitTI);
           }
         } else {
-          Value *CapturedValue = Builder.CreateSelect(SuccessOrFail, E, OldValue);
+          Value *CapturedValue =
+              Builder.CreateSelect(SuccessOrFail, E, OldValue);
           Builder.CreateStore(CapturedValue, V.Var, V.IsVolatile);
         }
       }
     }
-    #endif 
-
     // The comparison result has to be stored.
     if (R.Var) {
       assert(R.Var->getType()->isPointerTy() &&
              "r.var must be of pointer type");
+      assert(R.ElemTy->isIntegerTy() && "r must be of integral type");
 
+      Value *SuccessFailureVal = Builder.CreateExtractValue(Result, /*Idxs=*/1);
       Value *ResultCast = R.IsSigned
-                              ? Builder.CreateSExt(SuccessOrFail, R.ElemTy)
-                              : Builder.CreateZExt(SuccessOrFail, R.ElemTy);
+                              ? Builder.CreateSExt(SuccessFailureVal, R.ElemTy)
+                              : Builder.CreateZExt(SuccessFailureVal, R.ElemTy);
       Builder.CreateStore(ResultCast, R.Var, R.IsVolatile);
     }
   } else {
