@@ -102,3 +102,17 @@
 /* Verify no warning when math-errno is re-enabled for a different veclib (that does not imply -fno-math-errno). */
 // RUN: %clang -### --target=aarch64-linux-gnu -fveclib=ArmPL -fmath-errno -fveclib=LIBMVEC %s 2>&1 | FileCheck --check-prefix=CHECK-REPEAT-VECLIB %s
 // CHECK-REPEAT-VECLIB-NOT: math errno enabled
+
+/* Verify that vectorized routines library is being linked in. */
+// RUN: %clang -### --target=aarch64-pc-windows-msvc -fveclib=ArmPL %s 2>&1 | FileCheck --check-prefix=CHECK-LINKING-ARMPL-MSVC %s
+// RUN: %clang -### --target=aarch64-linux-gnu -fveclib=ArmPL %s 2>&1 | FileCheck --check-prefix=CHECK-LINKING-ARMPL %s
+// RUN: %clang -### --target=arm64-apple-darwin -fveclib=ArmPL %s 2>&1 | FileCheck --check-prefix=CHECK-LINKING-ARMPL %s
+// CHECK-LINKING-ARMPL: "-lamath"
+// CHECK-LINKING-ARMPL-SAME: "-lm"
+// CHECK-LINKING-ARMPL-MSVC: "--dependent-lib=amath"
+
+/* Verify that the RPATH is being set when needed. */
+// RUN: %clang -### --target=aarch64-linux-gnu -resource-dir=%S/../../../clang/test/Driver/Inputs/resource_dir_with_arch_subdir -frtlib-add-rpath -fveclib=ArmPL %s 2>&1 | FileCheck --check-prefix=CHECK-RPATH-ARMPL %s
+// CHECK-RPATH-ARMPL: "-lamath"
+// CHECK-RPATH-ARMPL-SAME: "-lm"
+// CHECK-RPATH-ARMPL-SAME: "-rpath"
