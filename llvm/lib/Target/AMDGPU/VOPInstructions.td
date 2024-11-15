@@ -348,7 +348,7 @@ class VOP3FP8OpSel_src_bytesel_gfx11_gfx12<bits<10> op, VOPProfile p> : VOP3e_gf
  }
 
 class VOP3DotOpSel_gfx11_gfx12<bits<10> op, VOPProfile p> :
-    VOP3e_t16_gfx11_gfx12<op, p>{
+    VOP3e_t16_gfx11_gfx12<op, p> {
   let Inst{11} = ?;
   let Inst{12} = ?;
   let Inst{13} = !if(p.HasSrc2Mods, src2_modifiers{2}, 0);
