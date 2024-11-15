@@ -24,7 +24,6 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Attrs.inc"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/Expr.h"
@@ -44,7 +43,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/CRC.h"
 #include "llvm/Support/xxhash.h"
@@ -2089,7 +2087,6 @@ void CodeGenFunction::EmitBranchOnBoolExpr(
     break;
   }
 
-  // [jderezende] TODO: Emit branch metadata marking it as flatten/branch, if exists.
   Builder.CreateCondBr(CondV, TrueBlock, FalseBlock, Weights, Unpredictable,
                        ControlFlowHint);
 }
