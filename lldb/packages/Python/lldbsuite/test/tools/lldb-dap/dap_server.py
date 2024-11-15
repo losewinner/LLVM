@@ -903,7 +903,7 @@ class DebugCommunication(object):
             "sourceModified": False,
         }
         if line_array is not None:
-            args_dict["lines"] = "%s" % line_array
+            args_dict["lines"] = line_array
             breakpoints = []
             for i, line in enumerate(line_array):
                 breakpoint_data = None
@@ -1154,34 +1154,38 @@ class DebugAdaptorServer(DebugCommunication):
     def __init__(
         self,
         executable=None,
+        launch=True,
         port=None,
+        unix_socket=None,
         init_commands=[],
         log_file=None,
         env=None,
     ):
         self.process = None
-        if executable is not None:
-            adaptor_env = os.environ.copy()
-            if env is not None:
-                adaptor_env.update(env)
+        if launch:
+            self.process = DebugAdaptorServer.launch(
+                executable,
+                port=port,
+                unix_socket=unix_socket,
+                log_file=log_file,
+                env=env,
+            )
 
-            if log_file:
-                adaptor_env["LLDBDAP_LOG"] = log_file
-            self.process = subprocess.Popen(
-                [executable],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=adaptor_env,
-            )
-            DebugCommunication.__init__(
-                self, self.process.stdout, self.process.stdin, init_commands, log_file
-            )
-        elif port is not None:
+        if port:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect(("127.0.0.1", port))
             DebugCommunication.__init__(
-                self, s.makefile("r"), s.makefile("w"), init_commands
+                self, s.makefile("rb"), s.makefile("wb"), init_commands, log_file
+            )
+        elif unix_socket:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect(unix_socket)
+            DebugCommunication.__init__(
+                self, s.makefile("rb"), s.makefile("wb"), init_commands, log_file
+            )
+        else:
+            DebugCommunication.__init__(
+                self, self.process.stdout, self.process.stdin, init_commands, log_file
             )
 
     def get_pid(self):
@@ -1195,6 +1199,39 @@ class DebugAdaptorServer(DebugCommunication):
             self.process.terminate()
             self.process.wait()
             self.process = None
+
+    @classmethod
+    def launch(
+        cls, executable: str, /, port=None, unix_socket=None, log_file=None, env=None
+    ) -> subprocess.Popen:
+        adaptor_env = os.environ.copy()
+        if env:
+            adaptor_env.update(env)
+
+        if log_file:
+            adaptor_env["LLDBDAP_LOG"] = log_file
+
+        args = [executable]
+        if port:
+            args.append("--port")
+            args.append(str(port))
+        elif unix_socket:
+            args.append("--unix-socket")
+            args.append(unix_socket)
+
+        proc = subprocess.Popen(
+            args,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=sys.stdout,
+            env=adaptor_env,
+        )
+
+        if port or unix_socket:
+            # Wait for the server to startup.
+            time.sleep(0.1)
+
+        return proc
 
 
 def attach_options_specified(options):

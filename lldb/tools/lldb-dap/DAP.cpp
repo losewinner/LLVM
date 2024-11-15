@@ -32,10 +32,11 @@ using namespace lldb_dap;
 
 namespace lldb_dap {
 
-DAP::DAP(llvm::StringRef path, ReplMode repl_mode)
+DAP::DAP(llvm::StringRef path, std::shared_ptr<std::ofstream> log,
+         ReplMode repl_mode, std::vector<std::string> pre_init_commands)
     : debug_adaptor_path(path), broadcaster("lldb-dap"),
-      exception_breakpoints(), focus_tid(LLDB_INVALID_THREAD_ID),
-      stop_at_entry(false), is_attach(false),
+      log(log), exception_breakpoints(), pre_init_commands(pre_init_commands),
+      focus_tid(LLDB_INVALID_THREAD_ID), stop_at_entry(false), is_attach(false),
       enable_auto_variable_summaries(false),
       enable_synthetic_child_debugging(false),
       display_extended_backtrace(false),
@@ -43,21 +44,7 @@ DAP::DAP(llvm::StringRef path, ReplMode repl_mode)
       configuration_done_sent(false), waiting_for_run_in_terminal(false),
       progress_event_reporter(
           [&](const ProgressEvent &event) { SendJSON(event.ToJSON()); }),
-      reverse_request_seq(0), repl_mode(repl_mode) {
-  const char *log_file_path = getenv("LLDBDAP_LOG");
-#if defined(_WIN32)
-  // Windows opens stdout and stdin in text mode which converts \n to 13,10
-  // while the value is just 10 on Darwin/Linux. Setting the file mode to binary
-  // fixes this.
-  int result = _setmode(fileno(stdout), _O_BINARY);
-  assert(result);
-  result = _setmode(fileno(stdin), _O_BINARY);
-  UNUSED_IF_ASSERT_DISABLED(result);
-  assert(result);
-#endif
-  if (log_file_path)
-    log.reset(new std::ofstream(log_file_path));
-}
+      reverse_request_seq(0), repl_mode(repl_mode) {}
 
 DAP::~DAP() = default;
 

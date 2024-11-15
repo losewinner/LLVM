@@ -9,12 +9,22 @@
 #ifndef LLDB_TOOLS_LLDB_DAP_DAP_H
 #define LLDB_TOOLS_LLDB_DAP_DAP_H
 
-#include <cstdio>
-#include <iosfwd>
-#include <map>
-#include <optional>
-#include <thread>
-
+#include "ExceptionBreakpoint.h"
+#include "FunctionBreakpoint.h"
+#include "IOStream.h"
+#include "InstructionBreakpoint.h"
+#include "ProgressEvent.h"
+#include "SourceBreakpoint.h"
+#include "lldb/API/SBAttachInfo.h"
+#include "lldb/API/SBCommandInterpreter.h"
+#include "lldb/API/SBCommandReturnObject.h"
+#include "lldb/API/SBDebugger.h"
+#include "lldb/API/SBEvent.h"
+#include "lldb/API/SBFile.h"
+#include "lldb/API/SBFormat.h"
+#include "lldb/API/SBLaunchInfo.h"
+#include "lldb/API/SBTarget.h"
+#include "lldb/API/SBThread.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringMap.h"
@@ -22,23 +32,10 @@
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/raw_ostream.h"
-
-#include "lldb/API/SBAttachInfo.h"
-#include "lldb/API/SBCommandInterpreter.h"
-#include "lldb/API/SBCommandReturnObject.h"
-#include "lldb/API/SBDebugger.h"
-#include "lldb/API/SBEvent.h"
-#include "lldb/API/SBFormat.h"
-#include "lldb/API/SBLaunchInfo.h"
-#include "lldb/API/SBTarget.h"
-#include "lldb/API/SBThread.h"
-
-#include "ExceptionBreakpoint.h"
-#include "FunctionBreakpoint.h"
-#include "IOStream.h"
-#include "InstructionBreakpoint.h"
-#include "ProgressEvent.h"
-#include "SourceBreakpoint.h"
+#include <iosfwd>
+#include <map>
+#include <optional>
+#include <thread>
 
 #define VARREF_LOCALS (int64_t)1
 #define VARREF_GLOBALS (int64_t)2
@@ -140,13 +137,16 @@ struct DAP {
   llvm::StringRef debug_adaptor_path;
   InputStream input;
   OutputStream output;
+  lldb::SBFile in;
+  lldb::SBFile out;
+  lldb::SBFile err;
   lldb::SBDebugger debugger;
   lldb::SBTarget target;
   Variables variables;
   lldb::SBBroadcaster broadcaster;
   std::thread event_thread;
   std::thread progress_event_thread;
-  std::unique_ptr<std::ofstream> log;
+  std::shared_ptr<std::ofstream> log;
   llvm::StringMap<SourceBreakpointMap> source_breakpoints;
   FunctionBreakpointMap function_breakpoints;
   InstructionBreakpointMap instruction_breakpoints;
@@ -198,10 +198,14 @@ struct DAP {
   // will contain that expression.
   std::string last_nonempty_var_expression;
 
-  DAP(llvm::StringRef path, ReplMode repl_mode);
+  DAP(llvm::StringRef path, std::shared_ptr<std::ofstream> log,
+      ReplMode repl_mode, std::vector<std::string> pre_init_commands);
   ~DAP();
+
+  DAP() = delete;
   DAP(const DAP &rhs) = delete;
   void operator=(const DAP &rhs) = delete;
+
   ExceptionBreakpoint *GetExceptionBreakpoint(const std::string &filter);
   ExceptionBreakpoint *GetExceptionBreakpoint(const lldb::break_id_t bp_id);
 

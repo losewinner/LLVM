@@ -14,6 +14,7 @@
 #include "RunInTerminal.h"
 #include "Watchpoint.h"
 #include "lldb/API/SBDeclaration.h"
+#include "lldb/API/SBFile.h"
 #include "lldb/API/SBInstruction.h"
 #include "lldb/API/SBListener.h"
 #include "lldb/API/SBMemoryRegionInfo.h"
@@ -66,6 +67,7 @@
 #else
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 #endif
 
@@ -116,6 +118,8 @@ enum LaunchMethod { Launch, Attach, AttachForSuspendedLaunch };
 /// Page size used for reporting addtional frames in the 'stackTrace' request.
 constexpr int StackPageSize = 20;
 
+void RegisterRequestCallbacks(DAP &dap);
+
 /// Prints a welcome message on the editor if the preprocessor variable
 /// LLDB_DAP_WELCOME_MESSAGE is defined.
 static void PrintWelcomeMessage(DAP &dap) {
@@ -137,42 +141,232 @@ lldb::SBValueList *GetTopLevelScope(DAP &dap, int64_t variablesReference) {
   }
 }
 
-SOCKET AcceptConnection(DAP &dap, int portno) {
-  // Accept a socket connection from any host on "portno".
-  SOCKET newsockfd = -1;
-  struct sockaddr_in serv_addr, cli_addr;
-  SOCKET sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sockfd < 0) {
+/// Redirect stdout and stderr fo the IDE's console output.
+///
+/// Errors in this operation will be printed to the log file and the IDE's
+/// console output as well.
+///
+/// \return
+///     A fd pointing to the original stdout.
+void SetupRedirection(DAP &dap, int stdoutfd = -1, int stderrfd = -1) {
+  auto output_callback_stderr = [&dap](llvm::StringRef data) {
+    dap.SendOutput(OutputType::Stderr, data);
+  };
+  auto output_callback_stdout = [&dap](llvm::StringRef data) {
+    dap.SendOutput(OutputType::Stdout, data);
+  };
+
+  llvm::Expected<int> new_stdout_fd =
+      RedirectFd(stdoutfd, output_callback_stdout);
+  if (auto err = new_stdout_fd.takeError()) {
+    std::string error_message = llvm::toString(std::move(err));
     if (dap.log)
-      *dap.log << "error: opening socket (" << strerror(errno) << ")"
-               << std::endl;
-  } else {
-    memset((char *)&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    // serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    serv_addr.sin_port = htons(portno);
-    if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-      if (dap.log)
-        *dap.log << "error: binding socket (" << strerror(errno) << ")"
-                 << std::endl;
-    } else {
-      listen(sockfd, 5);
-      socklen_t clilen = sizeof(cli_addr);
-      newsockfd =
-          llvm::sys::RetryAfterSignal(static_cast<SOCKET>(-1), accept, sockfd,
-                                      (struct sockaddr *)&cli_addr, &clilen);
-      if (newsockfd < 0)
-        if (dap.log)
-          *dap.log << "error: accept (" << strerror(errno) << ")" << std::endl;
-    }
+      *dap.log << error_message << std::endl;
+    output_callback_stderr(error_message);
+  }
+  dap.out = lldb::SBFile(new_stdout_fd.get(), "w", false);
+
+  llvm::Expected<int> new_stderr_fd =
+      RedirectFd(stderrfd, output_callback_stderr);
+  if (auto err = new_stderr_fd.takeError()) {
+    std::string error_message = llvm::toString(std::move(err));
+    if (dap.log)
+      *dap.log << error_message << std::endl;
+    output_callback_stderr(error_message);
+  }
+  dap.err = lldb::SBFile(new_stderr_fd.get(), "w", false);
+}
+
+void HandleClient(int clientfd, llvm::StringRef program_path,
+                  const std::vector<std::string> &pre_init_commands,
+                  std::shared_ptr<std::ofstream> log,
+                  ReplMode default_repl_mode) {
+  if (log)
+    *log << "client[" << clientfd << "] connected\n";
+  DAP dap = DAP(program_path, log, default_repl_mode, pre_init_commands);
+  dap.debug_adaptor_path = program_path;
+
+  SetupRedirection(dap);
+  RegisterRequestCallbacks(dap);
+
+  dap.input.descriptor = StreamDescriptor::from_socket(clientfd, false);
+  dap.output.descriptor = StreamDescriptor::from_socket(clientfd, false);
+
+  for (const std::string &arg : pre_init_commands) {
+    dap.pre_init_commands.push_back(arg);
+  }
+
+  if (auto Err = dap.Loop()) {
+    if (log)
+      *log << "Transport Error: " << llvm::toString(std::move(Err)) << "\n";
+  }
+
+  if (log)
+    *log << "client[" << clientfd << "] connection closed\n";
+#if defined(_WIN32)
+  closesocket(clientfd);
+#else
+  close(clientfd);
+#endif
+}
+
+std::error_code getLastSocketErrorCode() {
+#ifdef _WIN32
+  return std::error_code(::WSAGetLastError(), std::system_category());
+#else
+  return llvm::errnoAsErrorCode();
+#endif
+}
+
+llvm::Expected<int> getSocketFD(llvm::StringRef path) {
+  if (llvm::sys::fs::exists(path) && (::remove(path.str().c_str()) == -1)) {
+    return llvm::make_error<llvm::StringError>(getLastSocketErrorCode(),
+                                               "Remove existing socket failed");
+  }
+
+  SOCKET sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (sockfd == -1) {
+    return llvm::make_error<llvm::StringError>(getLastSocketErrorCode(),
+                                               "Create socket failed");
+  }
+
+  struct sockaddr_un addr;
+  bzero(&addr, sizeof(addr));
+  addr.sun_family = AF_UNIX;
+  strncpy(addr.sun_path, path.str().c_str(), sizeof(addr.sun_path) - 1);
+
+  if (::bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 #if defined(_WIN32)
     closesocket(sockfd);
 #else
     close(sockfd);
 #endif
+    return llvm::make_error<llvm::StringError>(getLastSocketErrorCode(),
+                                               "Socket bind() failed");
   }
-  return newsockfd;
+
+  if (listen(sockfd, llvm::hardware_concurrency().compute_thread_count()) < 0) {
+#if defined(_WIN32)
+    closesocket(sockfd);
+#else
+    close(sockfd);
+#endif
+    return llvm::make_error<llvm::StringError>(getLastSocketErrorCode(),
+                                               "Socket listen() failed");
+  }
+
+  return sockfd;
+}
+
+llvm::Expected<int> getSocketFD(int portno) {
+  SOCKET sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sockfd < 0) {
+    return llvm::make_error<llvm::StringError>(getLastSocketErrorCode(),
+                                               "Create socket failed");
+  }
+
+  struct sockaddr_in serv_addr;
+  bzero(&serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  // serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  serv_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  serv_addr.sin_port = htons(portno);
+  if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+#if defined(_WIN32)
+    closesocket(sockfd);
+#else
+    close(sockfd);
+#endif
+    return llvm::make_error<llvm::StringError>(getLastSocketErrorCode(),
+                                               "Socket bind() failed");
+  }
+
+  if (listen(sockfd, llvm::hardware_concurrency().compute_thread_count()) < 0) {
+#if defined(_WIN32)
+    closesocket(sockfd);
+#else
+    close(sockfd);
+#endif
+    return llvm::make_error<llvm::StringError>(getLastSocketErrorCode(),
+                                               "Socket listen() failed");
+  }
+
+  return sockfd;
+}
+
+int AcceptConnection(llvm::StringRef program_path,
+                     const std::vector<std::string> &pre_init_commands,
+                     std::shared_ptr<std::ofstream> log,
+                     ReplMode default_repl_mode,
+                     llvm::StringRef unix_socket_path) {
+  auto listening = getSocketFD(unix_socket_path);
+  if (auto E = listening.takeError()) {
+    llvm::errs() << "Listening on " << unix_socket_path
+                 << " failed: " << llvm::toString(std::move(E)) << "\n";
+    return EXIT_FAILURE;
+  }
+
+  while (true) {
+    struct sockaddr_un cli_addr;
+    bzero(&cli_addr, sizeof(struct sockaddr_un));
+    socklen_t clilen = sizeof(cli_addr);
+    SOCKET clientfd =
+        llvm::sys::RetryAfterSignal(static_cast<SOCKET>(-1), accept, *listening,
+                                    (struct sockaddr *)&cli_addr, &clilen);
+    if (clientfd < 0) {
+      llvm::errs() << "Client accept failed: "
+                   << getLastSocketErrorCode().message() << "\n";
+      return EXIT_FAILURE;
+    }
+
+    std::thread t(HandleClient, clientfd, program_path, pre_init_commands, log,
+                  default_repl_mode);
+    t.detach();
+  }
+
+#if defined(_WIN32)
+  closesocket(*listening);
+#else
+  close(*listening);
+#endif
+  return 0;
+}
+
+int AcceptConnection(llvm::StringRef program_path,
+                     const std::vector<std::string> &pre_init_commands,
+                     std::shared_ptr<std::ofstream> log,
+                     ReplMode default_repl_mode, int portno) {
+  auto listening = getSocketFD(portno);
+  if (auto E = listening.takeError()) {
+    llvm::errs() << "Listening on " << portno
+                 << " failed: " << llvm::toString(std::move(E)) << "\n";
+    return EXIT_FAILURE;
+  }
+
+  while (true) {
+    struct sockaddr_in cli_addr;
+    bzero(&cli_addr, sizeof(struct sockaddr_in));
+    socklen_t clilen = sizeof(cli_addr);
+    SOCKET clientfd =
+        llvm::sys::RetryAfterSignal(static_cast<SOCKET>(-1), accept, *listening,
+                                    (struct sockaddr *)&cli_addr, &clilen);
+    if (clientfd < 0) {
+      llvm::errs() << "Client accept failed: "
+                   << getLastSocketErrorCode().message() << "\n";
+      return EXIT_FAILURE;
+    }
+
+    std::thread t(HandleClient, clientfd, program_path, pre_init_commands, log,
+                  default_repl_mode);
+    t.detach();
+  }
+
+#if defined(_WIN32)
+  closesocket(*listening);
+#else
+  close(*listening);
+#endif
+  return 0;
 }
 
 std::vector<const char *> MakeArgv(const llvm::ArrayRef<std::string> &strs) {
@@ -1868,7 +2062,21 @@ void request_initialize(DAP &dap, const llvm::json::Object &request) {
   // which may affect the outcome of tests.
   bool source_init_file = GetBoolean(arguments, "sourceInitFile", true);
 
-  dap.debugger = lldb::SBDebugger::Create(source_init_file);
+  lldb::SBDebugger debugger = lldb::SBDebugger::Create(false);
+  debugger.SetInputFile(dap.in);
+  debugger.SetOutputFile(dap.out);
+  debugger.SetErrorFile(dap.err);
+
+  lldb::SBCommandInterpreter interp = debugger.GetCommandInterpreter();
+
+  if (source_init_file) {
+    lldb::SBCommandReturnObject result;
+    interp.SourceInitFileInCurrentWorkingDirectory(result);
+    interp.SourceInitFileInHomeDirectory(result, false);
+  }
+
+  dap.debugger = debugger;
+
   if (llvm::Error err = dap.RunPreInitCommands()) {
     response["success"] = false;
     EmplaceSafeString(response, "message", llvm::toString(std::move(err)));
@@ -4907,38 +5115,6 @@ static void redirection_test() {
   fflush(stderr);
 }
 
-/// Redirect stdout and stderr fo the IDE's console output.
-///
-/// Errors in this operation will be printed to the log file and the IDE's
-/// console output as well.
-///
-/// \return
-///     A fd pointing to the original stdout.
-static int SetupStdoutStderrRedirection(DAP &dap) {
-  int stdoutfd = fileno(stdout);
-  int new_stdout_fd = dup(stdoutfd);
-  auto output_callback_stderr = [&dap](llvm::StringRef data) {
-    dap.SendOutput(OutputType::Stderr, data);
-  };
-  auto output_callback_stdout = [&dap](llvm::StringRef data) {
-    dap.SendOutput(OutputType::Stdout, data);
-  };
-  if (llvm::Error err = RedirectFd(stdoutfd, output_callback_stdout)) {
-    std::string error_message = llvm::toString(std::move(err));
-    if (dap.log)
-      *dap.log << error_message << std::endl;
-    output_callback_stderr(error_message);
-  }
-  if (llvm::Error err = RedirectFd(fileno(stderr), output_callback_stderr)) {
-    std::string error_message = llvm::toString(std::move(err));
-    if (dap.log)
-      *dap.log << error_message << std::endl;
-    output_callback_stderr(error_message);
-  }
-
-  return new_stdout_fd;
-}
-
 int main(int argc, char *argv[]) {
   llvm::InitLLVM IL(argc, argv, /*InstallPipeSignalExitHandler=*/false);
 #if !defined(__APPLE__)
@@ -5020,6 +5196,20 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  std::string unix_socket_path;
+  if (auto *arg = input_args.getLastArg(OPT_unix_socket)) {
+    const auto *path = arg->getValue();
+    unix_socket_path.assign(path);
+  }
+
+  const char *log_file_path = getenv("LLDBDAP_LOG");
+  std::shared_ptr<std::ofstream> log;
+  if (log_file_path)
+    log = std::make_shared<std::ofstream>(log_file_path);
+
+  const auto pre_init_commands =
+      input_args.getAllArgValues(OPT_pre_init_command);
+
 #if !defined(_WIN32)
   if (input_args.hasArg(OPT_wait_for_debugger)) {
     printf("Paused waiting for debugger to attach (pid = %i)...\n", getpid());
@@ -5028,36 +5218,52 @@ int main(int argc, char *argv[]) {
 #endif
 
   // Initialize LLDB first before we do anything.
-  lldb::SBDebugger::Initialize();
+  lldb::SBError error = lldb::SBDebugger::InitializeWithErrorHandling();
+  if (error.Fail()) {
+    llvm::errs() << "Failed to initialize LLDB: " << error.GetCString() << "\n";
+    return EXIT_FAILURE;
+  }
 
   // Terminate the debugger before the C++ destructor chain kicks in.
   auto terminate_debugger =
       llvm::make_scope_exit([] { lldb::SBDebugger::Terminate(); });
 
-  DAP dap = DAP(program_path.str(), default_repl_mode);
+  if (portno != -1) {
+    llvm::errs() << llvm::format("Listening on port %i...\n", portno);
+    return AcceptConnection(program_path.str(), pre_init_commands, log,
+                            default_repl_mode, portno);
+  }
+
+  if (!unix_socket_path.empty()) {
+    return AcceptConnection(program_path.str(), pre_init_commands, log,
+                            default_repl_mode, unix_socket_path);
+  }
+
+  DAP dap = DAP(program_path.str(), log, default_repl_mode, pre_init_commands);
 
   RegisterRequestCallbacks(dap);
 
+#if defined(_WIN32)
+  // Windows opens stdout and stdin in text mode which converts \n to 13,10
+  // while the value is just 10 on Darwin/Linux. Setting the file mode to binary
+  // fixes this.
+  int result = _setmode(fileno(stdout), _O_BINARY);
+  assert(result);
+  result = _setmode(fileno(stdin), _O_BINARY);
+  UNUSED_IF_ASSERT_DISABLED(result);
+  assert(result);
+#endif
+
   // stdout/stderr redirection to the IDE's console
-  int new_stdout_fd = SetupStdoutStderrRedirection(dap);
+  int new_stdout_fd = dup(fileno(stdout));
+  SetupRedirection(dap, fileno(stdout), fileno(stderr));
 
-  if (portno != -1) {
-    printf("Listening on port %i...\n", portno);
-    SOCKET socket_fd = AcceptConnection(dap, portno);
-    if (socket_fd >= 0) {
-      dap.input.descriptor = StreamDescriptor::from_socket(socket_fd, true);
-      dap.output.descriptor = StreamDescriptor::from_socket(socket_fd, false);
-    } else {
-      return EXIT_FAILURE;
-    }
-  } else {
-    dap.input.descriptor = StreamDescriptor::from_file(fileno(stdin), false);
-    dap.output.descriptor = StreamDescriptor::from_file(new_stdout_fd, false);
+  dap.input.descriptor = StreamDescriptor::from_file(fileno(stdin), false);
+  dap.output.descriptor = StreamDescriptor::from_file(new_stdout_fd, false);
 
-    /// used only by TestVSCode_redirection_to_console.py
-    if (getenv("LLDB_DAP_TEST_STDOUT_STDERR_REDIRECTION") != nullptr)
-      redirection_test();
-  }
+  /// used only by TestVSCode_redirection_to_console.py
+  if (getenv("LLDB_DAP_TEST_STDOUT_STDERR_REDIRECTION") != nullptr)
+    redirection_test();
 
   for (const std::string &arg :
        input_args.getAllArgValues(OPT_pre_init_command)) {

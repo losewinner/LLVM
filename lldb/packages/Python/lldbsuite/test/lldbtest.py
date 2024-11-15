@@ -39,6 +39,7 @@ import shutil
 import signal
 from subprocess import *
 import sys
+import socket
 import time
 import traceback
 
@@ -248,6 +249,13 @@ def which(program):
             if is_exe(exe_file):
                 return exe_file
     return None
+
+
+def pickrandomport():
+    """Returns a random open port."""
+    with socket.socket() as sock:
+        sock.bind(("", 0))
+        return sock.getsockname()[1]
 
 
 class ValueCheck:
