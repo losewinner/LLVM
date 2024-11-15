@@ -10,11 +10,13 @@
 #define _LIBCPP___VECTOR_VECTOR_H
 
 #include <__algorithm/copy.h>
+#include <__algorithm/copy_n.h>
 #include <__algorithm/fill_n.h>
 #include <__algorithm/max.h>
 #include <__algorithm/min.h>
 #include <__algorithm/move.h>
 #include <__algorithm/move_backward.h>
+#include <__algorithm/ranges_copy_n.h>
 #include <__algorithm/rotate.h>
 #include <__assert>
 #include <__config>
@@ -23,6 +25,7 @@
 #include <__fwd/vector.h>
 #include <__iterator/advance.h>
 #include <__iterator/bounded_iter.h>
+#include <__iterator/concepts.h>
 #include <__iterator/distance.h>
 #include <__iterator/iterator_traits.h>
 #include <__iterator/move_iterator.h>
@@ -54,6 +57,7 @@
 #include <__type_traits/is_same.h>
 #include <__type_traits/is_trivially_relocatable.h>
 #include <__type_traits/type_identity.h>
+#include <__utility/declval.h>
 #include <__utility/exception_guard.h>
 #include <__utility/forward.h>
 #include <__utility/is_pointer_in_range.h>
@@ -593,6 +597,30 @@ private:
   template <class _ForwardIterator, class _Sentinel>
   _LIBCPP_CONSTEXPR_SINCE_CXX20 _LIBCPP_HIDE_FROM_ABI void
   __assign_with_size(_ForwardIterator __first, _Sentinel __last, difference_type __n);
+
+  template <class _Iterator,
+            __enable_if_t<!is_same<decltype(*std::declval<_Iterator&>())&&, value_type&&>::value, int> = 0>
+  _LIBCPP_CONSTEXPR_SINCE_CXX20 _LIBCPP_HIDE_FROM_ABI void
+  __insert_assign_n_unchecked(_Iterator __first, difference_type __n, pointer __position) {
+    for (pointer __end_position = __position + __n; __position != __end_position; (void)++__position, ++__first) {
+      __temp_value<value_type, _Allocator> __tmp(this->__alloc(), *__first);
+      *__position = std::move(__tmp.get());
+    }
+  }
+
+  template <class _Iterator,
+            __enable_if_t<is_same<decltype(*std::declval<_Iterator&>())&&, value_type&&>::value, int> = 0>
+  _LIBCPP_CONSTEXPR_SINCE_CXX20 _LIBCPP_HIDE_FROM_ABI void
+  __insert_assign_n_unchecked(_Iterator __first, difference_type __n, pointer __position) {
+#if _LIBCPP_STD_VER >= 23
+    if constexpr (!forward_iterator<_Iterator>) {
+      ranges::copy_n(std::move(__first), __n, __position);
+    } else
+#endif
+    {
+      std::copy_n(__first, __n, __position);
+    }
+  }
 
   template <class _InputIterator, class _Sentinel>
   _LIBCPP_CONSTEXPR_SINCE_CXX20 _LIBCPP_HIDE_FROM_ABI iterator
@@ -1297,29 +1325,34 @@ template <class _Iterator, class _Sentinel>
 _LIBCPP_CONSTEXPR_SINCE_CXX20 _LIBCPP_HIDE_FROM_ABI typename vector<_Tp, _Allocator>::iterator
 vector<_Tp, _Allocator>::__insert_with_size(
     const_iterator __position, _Iterator __first, _Sentinel __last, difference_type __n) {
-  auto __insertion_size = __n;
-  pointer __p           = this->__begin_ + (__position - begin());
+  pointer __p = this->__begin_ + (__position - begin());
   if (__n > 0) {
     if (__n <= this->__end_cap() - this->__end_) {
-      size_type __old_n    = __n;
       pointer __old_last   = this->__end_;
-      _Iterator __m        = std::next(__first, __n);
       difference_type __dx = this->__end_ - __p;
       if (__n > __dx) {
-        __m                    = __first;
-        difference_type __diff = this->__end_ - __p;
-        std::advance(__m, __diff);
-        __construct_at_end(__m, __last, __n - __diff);
-        __n = __dx;
-      }
-      if (__n > 0) {
-        __move_range(__p, __old_last, __p + __old_n);
-        std::copy(__first, __m, __p);
+#if _LIBCPP_STD_VER >= 23
+        if constexpr (!forward_iterator<_Iterator>) {
+          __construct_at_end(std::move(__first), std::move(__last), __n);
+          std::rotate(__p, __old_last, this->__end_);
+        } else
+#endif
+        {
+          _Iterator __m = std::next(__first, __dx);
+          __construct_at_end(__m, __last, __n - __dx);
+          if (__dx > 0) {
+            __move_range(__p, __old_last, __p + __n);
+            __insert_assign_n_unchecked(__first, __dx, __p);
+          }
+        }
+      } else {
+        __move_range(__p, __old_last, __p + __n);
+        __insert_assign_n_unchecked(std::move(__first), __n, __p);
       }
     } else {
       allocator_type& __a = this->__alloc();
       __split_buffer<value_type, allocator_type&> __v(__recommend(size() + __n), __p - this->__begin_, __a);
-      __v.__construct_at_end_with_size(__first, __insertion_size);
+      __v.__construct_at_end_with_size(__first, __n);
       __p = __swap_out_circular_buffer(__v, __p);
     }
   }
