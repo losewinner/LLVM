@@ -1803,13 +1803,16 @@ static bool eliminateConstraints(Function &F, DominatorTree &DT, LoopInfo &LI,
       if (ReproducerModule && DFSInStack.size() > ReproducerCondStack.size())
         ReproducerCondStack.emplace_back(Pred, A, B);
 
-      // If samesign is present on the ICmp, simply transfer the signed system
-      // to the unsigned system, and viceversa.
-      if (HasSameSign)
-        Info.addFact(CmpInst::getFlippedSignednessPredicate(Pred), A, B,
-                     CB.NumIn, CB.NumOut, DFSInStack);
-      else
-        Info.transferToOtherSystem(Pred, A, B, CB.NumIn, CB.NumOut, DFSInStack);
+      if (ICmpInst::isRelational(Pred)) {
+        // If samesign is present on the ICmp, simply transfer the signed system
+        // to the unsigned system, and viceversa.
+        if (HasSameSign)
+          Info.addFact(CmpInst::getFlippedSignednessPredicate(Pred), A, B,
+                       CB.NumIn, CB.NumOut, DFSInStack);
+        else
+          Info.transferToOtherSystem(Pred, A, B, CB.NumIn, CB.NumOut,
+                                     DFSInStack);
+      }
 
       if (ReproducerModule && DFSInStack.size() > ReproducerCondStack.size()) {
         // Add dummy entries to ReproducerCondStack to keep it in sync with
