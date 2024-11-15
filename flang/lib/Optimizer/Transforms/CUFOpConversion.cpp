@@ -6,8 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "flang/Optimizer/Transforms/CUFOpConversion.h"
-#include "flang/Common/Fortran.h"
+#include "flang/Optimizer/Transforms/CufOpConversion.h"
 #include "flang/Optimizer/Builder/Runtime/RTBuilder.h"
 #include "flang/Optimizer/CodeGen/TypeConverter.h"
 #include "flang/Optimizer/Dialect/CUF/CUFOps.h"
@@ -16,11 +15,13 @@
 #include "flang/Optimizer/HLFIR/HLFIROps.h"
 #include "flang/Optimizer/Support/DataLayout.h"
 #include "flang/Optimizer/Transforms/CUFCommon.h"
+#include "flang/Optimizer/Transforms/CUFOpConversion.h"
 #include "flang/Runtime/CUDA/allocatable.h"
 #include "flang/Runtime/CUDA/common.h"
 #include "flang/Runtime/CUDA/descriptor.h"
 #include "flang/Runtime/CUDA/memory.h"
 #include "flang/Runtime/allocatable.h"
+#include "flang/Support/Fortran.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/IR/Matchers.h"
