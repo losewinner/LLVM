@@ -1800,7 +1800,7 @@ multiclass VOP3_Realtriple_t16_gfx11<bits<10> op, string asmName, string opName 
   VOP3_Realtriple_with_name<GFX11Gen, op, opName, asmName, pseudo_mnemonic, isSingle>;
 
 multiclass VOP3_Realtriple_t16_and_fake16_gfx11<bits<10> op, string asmName, string opName = NAME,
-                                     string pseudo_mnemonic = "", bit isSingle = 0> {
+                                                string pseudo_mnemonic = "", bit isSingle = 0> {
   defm _t16: VOP3_Realtriple_t16_gfx11<op, opName#"_t16", asmName, pseudo_mnemonic, isSingle>;
   defm _fake16: VOP3_Realtriple_t16_gfx11<op, opName#"_fake16", asmName, pseudo_mnemonic, isSingle>;
 }
@@ -1810,7 +1810,7 @@ multiclass VOP3Only_Realtriple_t16_gfx11<bits<10> op, string asmName,
   : VOP3_Realtriple_t16_gfx11<op, asmName, opName, pseudo_mnemonic, 1>;
 
 multiclass VOP3Only_Realtriple_t16_and_fake16_gfx11<bits<10> op, string asmName,
-                                     string opName = NAME, string pseudo_mnemonic = ""> {
+                                                    string opName = NAME, string pseudo_mnemonic = ""> {
   defm _t16: VOP3_Realtriple_t16_gfx11<op, asmName, opName#"_t16", pseudo_mnemonic, 1>;
   defm _fake16: VOP3_Realtriple_t16_gfx11<op, asmName, opName#"_fake16", pseudo_mnemonic, 1>;
 }

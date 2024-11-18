@@ -442,16 +442,12 @@ multiclass Ternary_i16_Pats_gfx9<SDPatternOperator op1, SDPatternOperator op2,
   >;
 }
 
-let Predicates = [UseRealTrue16Insts] in {
-  defm: Ternary_i16_Pats_gfx9<mul, add, V_MAD_U16_gfx9_t16_e64>;
-  /*defm: Ternary_i16_Pats_gfx9<mul, add, V_MAD_I16_gfx9_t16_e64>;*/
-} // End Predicates = [UseRealTrue16Insts]
-let Predicates = [UseFakeTrue16Insts] in {
+let True16Predicate = UseFakeTrue16Insts in {
   defm: Ternary_i16_Pats_gfx9<mul, add, V_MAD_U16_gfx9_fake16_e64>;
-} // End Predicates = [UseFakeTrue16Insts]
-let Predicates = [Has16BitInsts, NotHasTrue16BitInsts, isGFX10Plus] in {
+} // End True16Predicates = UseFakeTrue16Insts
+let OtherPredicates = [isGFX10Plus, Has16BitInsts], True16Predicate = NotHasTrue16BitInsts in {
   defm: Ternary_i16_Pats_gfx9<mul, add, V_MAD_U16_gfx9_e64>;
-} // End Predicates = [Has16BitInsts, NotHasTrue16BitInsts, isGFX10Plus]
+} // End OtherPredicates = [isGFX10Plus, Has16BitInsts], True16Predicate = NotHasTrue16BitInsts
 
 class ThreeOpFragSDAG<SDPatternOperator op1, SDPatternOperator op2> : PatFrag<
   (ops node:$x, node:$y, node:$z),
