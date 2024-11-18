@@ -153,20 +153,31 @@ LLVMTypeConverter::LLVMTypeConverter(MLIRContext *ctx,
                                        type.isVarArg());
   });
 
+  // Add generic source and target materializations to handle cases where
+  // non-LLVM types persist after an LLVM conversion.
+  addSourceMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs, Location loc) {
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+  addTargetMaterialization([&](OpBuilder &builder, Type resultType,
+                               ValueRange inputs, Location loc) {
+    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
+        .getResult(0);
+  });
+
   // Helper function that checks if the given value range is a bare pointer.
   auto isBarePointer = [](ValueRange values) {
     return values.size() == 1 &&
            isa<LLVM::LLVMPointerType>(values.front().getType());
   };
 
-  // Argument materializations convert from the new block argument types
-  // (multiple SSA values that make up a memref descriptor) back to the
-  // original block argument type. The dialect conversion framework will then
-  // insert a target materialization from the original block argument type to
-  // a legal type.
-  addArgumentMaterialization([&](OpBuilder &builder,
-                                 UnrankedMemRefType resultType,
-                                 ValueRange inputs, Location loc) {
+  // Source materializations convert the MemrRef descriptor elements
+  // (multiple SSA values that make up a MemrRef descriptor) back to the
+  // original MemRef type.
+  addSourceMaterialization([&](OpBuilder &builder,
+                               UnrankedMemRefType resultType, ValueRange inputs,
+                               Location loc) {
     // Note: Bare pointers are not supported for unranked memrefs because a
     // memref descriptor cannot be built just from a bare pointer.
     if (TypeRange(inputs) != getUnrankedMemRefDescriptorFields())
@@ -179,8 +190,8 @@ LLVMTypeConverter::LLVMTypeConverter(MLIRContext *ctx,
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, desc)
         .getResult(0);
   });
-  addArgumentMaterialization([&](OpBuilder &builder, MemRefType resultType,
-                                 ValueRange inputs, Location loc) {
+  addSourceMaterialization([&](OpBuilder &builder, MemRefType resultType,
+                               ValueRange inputs, Location loc) {
     Value desc;
     if (isBarePointer(inputs)) {
       desc = MemRefDescriptor::fromStaticShape(builder, loc, *this, resultType,
@@ -200,23 +211,30 @@ LLVMTypeConverter::LLVMTypeConverter(MLIRContext *ctx,
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, desc)
         .getResult(0);
   });
-  // Add generic source and target materializations to handle cases where
-  // non-LLVM types persist after an LLVM conversion.
-  addSourceMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs, Location loc) {
-    if (inputs.size() != 1)
-      return Value();
+  addTargetMaterialization([&](OpBuilder &builder,
+                               LLVM::LLVMStructType resultType,
+                               ValueRange inputs, Location loc,
+                               Type originalType) -> Value {
+    if (auto memrefType = dyn_cast_or_null<MemRefType>(originalType)) {
+      if (isBarePointer(inputs)) {
+        return MemRefDescriptor::fromStaticShape(builder, loc, *this,
+                                                 memrefType, inputs[0]);
+      } else if (TypeRange(inputs) ==
+                 getMemRefDescriptorFields(memrefType,
+                                           /*unpackAggregates=*/true)) {
+        return MemRefDescriptor::pack(builder, loc, *this, memrefType, inputs);
+      }
+    }
 
-    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
-        .getResult(0);
-  });
-  addTargetMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs, Location loc) {
-    if (inputs.size() != 1)
-      return Value();
+    if (auto memrefType = dyn_cast_or_null<UnrankedMemRefType>(originalType)) {
+      // Note: Bare pointers are not supported for unranked memrefs because a
+      // memref descriptor cannot be built just from a bare pointer.
+      if (TypeRange(inputs) == getUnrankedMemRefDescriptorFields())
+        return UnrankedMemRefDescriptor::pack(builder, loc, *this, memrefType,
+                                              inputs);
+    }
 
-    return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
-        .getResult(0);
+    return Value();
   });
 
   // Integer memory spaces map to themselves.

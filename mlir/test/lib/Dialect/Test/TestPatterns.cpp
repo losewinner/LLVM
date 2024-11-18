@@ -1235,7 +1235,6 @@ struct TestTypeConverter : public TypeConverter {
   using TypeConverter::TypeConverter;
   TestTypeConverter() {
     addConversion(convertType);
-    addArgumentMaterialization(materializeCast);
     addSourceMaterialization(materializeCast);
   }
 
@@ -1267,8 +1266,8 @@ struct TestTypeConverter : public TypeConverter {
     return success();
   }
 
-  /// Hook for materializing a conversion. This is necessary because we generate
-  /// 1->N type mappings.
+  /// Hook for materializing a conversion. This is necessary because we
+  /// generate 1->N type mappings.
   static Value materializeCast(OpBuilder &builder, Type resultType,
                                ValueRange inputs, Location loc) {
     return builder.create<TestCastOp>(loc, resultType, inputs).getResult();
@@ -1340,7 +1339,8 @@ struct TestLegalizePatternDriver
     // correct error code from conversion driver.
     target.addDynamicallyLegalOp<ILLegalOpG>([](ILLegalOpG) { return false; });
 
-    // Expect the type_producer/type_consumer operations to only operate on f64.
+    // Expect the type_producer/type_consumer operations to only operate on
+    // f64.
     target.addDynamicallyLegalOp<TestTypeProducerOp>(
         [](TestTypeProducerOp op) { return op.getType().isF64(); });
     target.addDynamicallyLegalOp<TestTypeConsumerOp>([](TestTypeConsumerOp op) {
@@ -1357,7 +1357,8 @@ struct TestLegalizePatternDriver
     target.addDynamicallyLegalOp<TestRecursiveRewriteOp>(
         [](TestRecursiveRewriteOp op) { return op.getDepth() == 0; });
 
-    // Create a dynamically legal rule that can only be legalized by folding it.
+    // Create a dynamically legal rule that can only be legalized by folding
+    // it.
     target.addDynamicallyLegalOp<TestOpInPlaceSelfFold>(
         [](TestOpInPlaceSelfFold op) { return op.getFolded(); });
 
