@@ -2627,7 +2627,7 @@ public:
     return R && classof(R);
   }
 
-  /// Generate the reduction in the loop
+  /// Generate the reduction in the loop.
   void execute(VPTransformState &State) override;
 
   /// Return the cost of VPReductionRecipe.

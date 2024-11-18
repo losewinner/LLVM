@@ -8664,7 +8664,7 @@ VPReplicateRecipe *VPRecipeBuilder::handleReplication(Instruction *I,
 }
 
 void VPRecipeBuilder::collectScaledReductions(VFRange &Range) {
-  // Find all possible partial reductions
+  // Find all possible partial reductions.
   SmallVector<PartialReductionChain, 1> PartialReductionChains;
   for (const auto &[Phi, RdxDesc] : Legal->getReductionVars())
     if (std::optional<PartialReductionChain> Chain =
@@ -8675,7 +8675,7 @@ void VPRecipeBuilder::collectScaledReductions(VFRange &Range) {
   // something that isn't another partial reduction. This is because the
   // extends are intended to be lowered along with the reduction itself.
 
-  // Build up a set of partial reduction bin ops for efficient use checking
+  // Build up a set of partial reduction bin ops for efficient use checking.
   SmallSet<User *, 4> PartialReductionBinOps;
   for (auto It : PartialReductionChains) {
     if (It.BinOp)
@@ -8690,7 +8690,7 @@ void VPRecipeBuilder::collectScaledReductions(VFRange &Range) {
       };
 
   // Check if each use of a chain's two extends is a partial reduction
-  // and only add those those that don't have non-partial reduction users
+  // and only add those those that don't have non-partial reduction users.
   for (auto It : PartialReductionChains) {
     PartialReductionChain Chain = It;
     if (ExtendIsOnlyUsedByPartialReductions(Chain.ExtendA) &&
