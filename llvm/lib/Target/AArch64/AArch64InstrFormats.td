@@ -13065,7 +13065,6 @@ class BaseCmpBranchRegister<RegisterClass regtype, bit sf, bits<3> cc,
       Sched<[WriteBr]> {
   let isBranch = 1;
   let isTerminator = 1;
-  let isCompare = 1;
 
   bits<5> Rm;
   bits<5> Rt;
@@ -13092,7 +13091,6 @@ class BaseCmpBranchImmediate<RegisterClass regtype, bit sf, bits<3> cc,
       Sched<[WriteBr]> {
   let isBranch = 1;
   let isTerminator = 1;
-  let isCompare = 1;
 
   bits<5> Rt;
   bits<6> imm;
@@ -13139,15 +13137,13 @@ class CmpBranchRegisterPseudo<RegisterClass regtype>
     Sched<[WriteBr]> {
   let isBranch = 1;
   let isTerminator = 1;
-  let isCompare = 1;
 }
 
 class CmpBranchImmediatePseudo<RegisterClass regtype, ImmLeaf imtype>
   : Pseudo<(outs), (ins ccode:$Cond, regtype:$Rt, imtype:$Imm, am_brcmpcond:$Target), []>,
     Sched<[WriteBr]> {
-  let isBranch = true;
-  let isTerminator = true;
-  let isCompare = true;
+  let isBranch = 1;
+  let isTerminator = 1;
 }
 
 //----------------------------------------------------------------------------

@@ -2,8 +2,8 @@
 ; RUN: llc -mtriple arm64-apple-ios -mattr +cmpbr -verify-machineinstrs -o - < %s | FileCheck %s
 
 
-define void @cbgt.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cbgt.i32:
+define void @cbgt_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cbgt_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbgt w0, w1, LBB0_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -22,8 +22,8 @@ if.end:
   ret void
 }
 
-define void @cbge.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cbge.i32:
+define void @cbge_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cbge_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbge w0, w1, LBB1_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -43,8 +43,8 @@ if.end:
 }
 
 
-define void @cbhi.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cbhi.i32:
+define void @cbhi_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cbhi_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbhi w0, w1, LBB2_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -63,8 +63,8 @@ if.end:
   ret void
 }
 
-define void @cbhs.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cbhs.i32:
+define void @cbhs_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cbhs_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbhs w0, w1, LBB3_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -83,8 +83,8 @@ if.end:
   ret void
 }
 
-define void @cbeq.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cbeq.i32:
+define void @cbeq_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cbeq_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbeq w0, w1, LBB4_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -103,8 +103,8 @@ if.end:
   ret void
 }
 
-define void @cbne.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cbne.i32:
+define void @cbne_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cbne_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbne w0, w1, LBB5_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -123,8 +123,8 @@ if.end:
   ret void
 }
 
-define void @cble_ge_swap.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cble_ge_swap.i32:
+define void @cble_ge_swap_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cble_ge_swap_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbge w1, w0, LBB6_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -143,8 +143,8 @@ if.end:
   ret void
 }
 
-define void @cblo_hi_swap.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cblo_hi_swap.i32:
+define void @cblo_hi_swap_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cblo_hi_swap_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbhi w1, w0, LBB7_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -163,8 +163,8 @@ if.end:
   ret void
 }
 
-define void @cbls_hs_swap.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cbls_hs_swap.i32:
+define void @cbls_hs_swap_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cbls_hs_swap_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbhs w1, w0, LBB8_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -183,8 +183,8 @@ if.end:
   ret void
 }
 
-define void @cblt_gt_swap.i32(i32 %a, i32 %b)  {
-; CHECK-LABEL: cblt_gt_swap.i32:
+define void @cblt_gt_swap_i32(i32 %a, i32 %b)  {
+; CHECK-LABEL: cblt_gt_swap_i32:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbgt w1, w0, LBB9_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -203,8 +203,8 @@ if.end:
   ret void
 }
 
-define void @cbgt.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cbgt.i64:
+define void @cbgt_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cbgt_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbgt x0, x1, LBB10_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -223,8 +223,8 @@ if.end:
   ret void
 }
 
-define void @cbge.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cbge.i64:
+define void @cbge_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cbge_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbge x0, x1, LBB11_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -244,8 +244,8 @@ if.end:
 }
 
 
-define void @cbhi.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cbhi.i64:
+define void @cbhi_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cbhi_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbhi x0, x1, LBB12_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -264,8 +264,8 @@ if.end:
   ret void
 }
 
-define void @cbhs.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cbhs.i64:
+define void @cbhs_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cbhs_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbhs x0, x1, LBB13_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -284,8 +284,8 @@ if.end:
   ret void
 }
 
-define void @cbeq.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cbeq.i64:
+define void @cbeq_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cbeq_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbeq x0, x1, LBB14_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -304,8 +304,8 @@ if.end:
   ret void
 }
 
-define void @cbne.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cbne.i64:
+define void @cbne_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cbne_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbne x0, x1, LBB15_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -324,8 +324,8 @@ if.end:
   ret void
 }
 
-define void @cble_ge_swap.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cble_ge_swap.i64:
+define void @cble_ge_swap_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cble_ge_swap_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbge x1, x0, LBB16_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -344,8 +344,8 @@ if.end:
   ret void
 }
 
-define void @cblo_hi_swap.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cblo_hi_swap.i64:
+define void @cblo_hi_swap_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cblo_hi_swap_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbhi x1, x0, LBB17_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -364,8 +364,8 @@ if.end:
   ret void
 }
 
-define void @cbls_hs_swap.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cbls_hs_swap.i64:
+define void @cbls_hs_swap_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cbls_hs_swap_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbhs x1, x0, LBB18_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
@@ -384,8 +384,8 @@ if.end:
   ret void
 }
 
-define void @cblt_gt_swap.i64(i64 %a, i64 %b)  {
-; CHECK-LABEL: cblt_gt_swap.i64:
+define void @cblt_gt_swap_i64(i64 %a, i64 %b)  {
+; CHECK-LABEL: cblt_gt_swap_i64:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cbgt x1, x0, LBB19_2
 ; CHECK-NEXT:  ; %bb.1: ; %if.end

@@ -231,6 +231,7 @@ static void parseCondBranch(MachineInstr *LastInst, MachineBasicBlock *&Target,
     Cond.push_back(LastInst->getOperand(0));
     Cond.push_back(LastInst->getOperand(1));
     Cond.push_back(LastInst->getOperand(2));
+    break;
   }
 }
 
