@@ -29,6 +29,27 @@
 #  pragma GCC system_header
 #endif
 
+// This file defines the following libc++-internal API (back-ported to C++03):
+//
+// template <class... Args>
+// decltype(auto) __invoke(Args&&... args) noexcept(noexcept(std::invoke(std::forward<Args>(args...)))) {
+//   return std::invoke(std::forward<Args>(args)...);
+// }
+//
+// template <class Ret, class... Args>
+// Ret __invoke_r(Args&&... args) {
+//   return std::invoke_r(std::forward<Args>(args)...);
+// }
+//
+// template <class Ret, class Func, class... Args>
+// inline const bool __is_invocable_r_v = is_invocable_r_v<Ret, Func, Args...>;
+//
+// template <class Func, class... Args>
+// inline const bool __is_nothrow_invocable_v = is_nothrow_invocable_v<Func, Args...>;
+//
+// template <class Func, class... Args>
+// using __invoke_result_t = invoke_result_t<Func, Args...>;
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 template <class _DecayedFp>
@@ -224,6 +245,23 @@ struct __invoke_void_return_wrapper<_Ret, true> {
     std::__invoke(std::forward<_Args>(__args)...);
   }
 };
+
+template <class _Func, class... _Args>
+inline const bool __is_invocable_v = __invokable<_Func, _Args...>::value;
+
+template <class _Ret, class _Func, class... _Args>
+inline const bool __is_invocable_r_v = __invokable_r<_Ret, _Func, _Args...>::value;
+
+template <class _Func, class... _Args>
+inline const bool __is_nothrow_invocable_v = __nothrow_invokable<_Func, _Args...>::value;
+
+template <class _Func, class... _Args>
+using __invoke_result_t = typename __invoke_of<_Func, _Args...>::type;
+
+template <class _Ret, class... _Args>
+_Ret __invoke_r(_Args&&... __args) {
+  return __invoke_void_return_wrapper<_Ret>::__call(std::forward<_Args>(__args)...);
+}
 
 #if _LIBCPP_STD_VER >= 17
 
