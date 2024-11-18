@@ -10402,7 +10402,7 @@ SDValue AArch64TargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
         ProduceNonFlagSettingCondBr) {
       AArch64CC::CondCode ACC = changeIntCCToAArch64CC(CC);
       unsigned Opc = AArch64ISD::CBRR;
-      if (ConstantSDNode *Imm = dyn_cast<ConstantSDNode>(RHS)) {
+      if (auto *Imm = dyn_cast<ConstantSDNode>(RHS)) {
         APInt NewImm = Imm->getAPIntValue();
         if (ACC == AArch64CC::GE || ACC == AArch64CC::HS)
           NewImm = Imm->getAPIntValue() - 1;
