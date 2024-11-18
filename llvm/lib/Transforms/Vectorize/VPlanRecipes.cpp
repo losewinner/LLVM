@@ -971,7 +971,8 @@ void VPWidenIntrinsicRecipe::execute(VPTransformState &State) {
 
   if (IsVPIntrinsic) {
     if (isa<FPMathOperator>(V))
-    setFlags(cast<Instruction>(V));
+      // Currently vp-intrinsics only accept FMF flags.
+      setFlags(cast<Instruction>(V));
   } else {
     setFlags(cast<Instruction>(V));
   }
