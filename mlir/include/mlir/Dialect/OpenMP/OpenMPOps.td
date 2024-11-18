@@ -621,7 +621,7 @@ def TaskOp : OpenMP_Op<"task", traits = [
     // TODO: Complete clause list (affinity, detach).
     OpenMP_AllocateClause, OpenMP_DependClause, OpenMP_FinalClause,
     OpenMP_IfClause, OpenMP_InReductionClause, OpenMP_MergeableClause,
-    OpenMP_PriorityClause, OpenMP_PrivateClause, OpenMP_UntiedClause
+    OpenMP_PriorityClause, OpenMP_PrivateClause, OpenMP_UntiedClause, OpenMP_DetachClause
   ], singleRegion = true> {
   let summary = "task construct";
   let description = [{

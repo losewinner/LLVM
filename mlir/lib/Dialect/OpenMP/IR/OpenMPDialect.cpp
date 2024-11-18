@@ -2215,7 +2215,7 @@ void TaskOp::build(OpBuilder &builder, OperationState &state,
                 makeArrayAttr(ctx, clauses.inReductionSyms), clauses.mergeable,
                 clauses.priority, /*private_vars=*/clauses.privateVars,
                 /*private_syms=*/makeArrayAttr(ctx, clauses.privateSyms),
-                clauses.untied);
+                clauses.untied, clauses.eventHandle);
 }
 
 LogicalResult TaskOp::verify() {
