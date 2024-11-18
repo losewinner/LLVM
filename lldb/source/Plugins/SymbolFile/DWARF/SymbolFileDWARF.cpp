@@ -7,7 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "SymbolFileDWARF.h"
-
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/DebugInfo/DWARF/DWARFAddressRange.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugLoc.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/FileUtilities.h"
@@ -888,13 +889,13 @@ CompUnitSP SymbolFileDWARF::ParseCompileUnitAtIndex(uint32_t cu_idx) {
 Function *SymbolFileDWARF::ParseFunction(CompileUnit &comp_unit,
                                          const DWARFDIE &die) {
   ASSERT_MODULE_LOCK(this);
+  Log *log = GetLog(LLDBLog::Symbols);
   if (!die.IsValid())
     return nullptr;
 
   auto type_system_or_err = GetTypeSystemForLanguage(GetLanguage(*die.GetCU()));
   if (auto err = type_system_or_err.takeError()) {
-    LLDB_LOG_ERROR(GetLog(LLDBLog::Symbols), std::move(err),
-                   "Unable to parse function: {0}");
+    LLDB_LOG_ERROR(log, std::move(err), "Unable to parse function: {0}");
     return nullptr;
   }
   auto ts = *type_system_or_err;
@@ -906,13 +907,18 @@ Function *SymbolFileDWARF::ParseFunction(CompileUnit &comp_unit,
 
   AddressRanges ranges;
   ModuleSP module_sp(die.GetModule());
-  for (const auto &range : die.GetDIE()->GetAttributeAddressRanges(
-           die.GetCU(), /*check_hi_lo_pc=*/true)) {
-    if (range.base < m_first_code_address)
-      continue;
-    if (Address base_addr(range.base, module_sp->GetSectionList());
-        base_addr.IsValid() && FixupAddress(base_addr))
-      ranges.emplace_back(std::move(base_addr), range.size);
+  if (llvm::Expected<llvm::DWARFAddressRangesVector> die_ranges =
+          die.GetDIE()->GetAttributeAddressRanges(die.GetCU(),
+                                                  /*check_hi_lo_pc=*/true)) {
+    for (auto &range : *die_ranges) {
+      if (range.valid() && range.LowPC < m_first_code_address)
+        continue;
+      if (Address base_addr(range.LowPC, module_sp->GetSectionList());
+          base_addr.IsValid() && FixupAddress(base_addr))
+        ranges.emplace_back(std::move(base_addr), range.HighPC - range.LowPC);
+    }
+  } else {
+    LLDB_LOG_ERROR(log, die_ranges.takeError(), "DIE({1:x}): {0}", die.GetID());
   }
   if (ranges.empty())
     return nullptr;
@@ -1332,7 +1338,7 @@ size_t SymbolFileDWARF::ParseBlocksRecursive(
         parent_block->AddChild(block_sp);
         block = block_sp.get();
       }
-      DWARFRangeList ranges;
+      llvm::DWARFAddressRangesVector ranges;
       const char *name = nullptr;
       const char *mangled_name = nullptr;
 
@@ -1345,38 +1351,37 @@ size_t SymbolFileDWARF::ParseBlocksRecursive(
       if (die.GetDIENamesAndRanges(name, mangled_name, ranges, decl_file,
                                    decl_line, decl_column, call_file, call_line,
                                    call_column, nullptr)) {
-        if (tag == DW_TAG_subprogram) {
+        if (tag == DW_TAG_subprogram)
           assert(subprogram_low_pc == LLDB_INVALID_ADDRESS);
-          subprogram_low_pc = ranges.GetMinRangeBase(0);
-        } else if (tag == DW_TAG_inlined_subroutine) {
-          // We get called here for inlined subroutines in two ways. The first
-          // time is when we are making the Function object for this inlined
-          // concrete instance.  Since we're creating a top level block at
-          // here, the subprogram_low_pc will be LLDB_INVALID_ADDRESS.  So we
-          // need to adjust the containing address. The second time is when we
-          // are parsing the blocks inside the function that contains the
-          // inlined concrete instance.  Since these will be blocks inside the
-          // containing "real" function the offset will be for that function.
-          if (subprogram_low_pc == LLDB_INVALID_ADDRESS) {
-            subprogram_low_pc = ranges.GetMinRangeBase(0);
-          }
+
+        // We get called here for inlined subroutines in two ways. The first
+        // time is when we are making the Function object for this inlined
+        // concrete instance.  Since we're creating a top level block at here,
+        // the subprogram_low_pc will be LLDB_INVALID_ADDRESS.  So we need to
+        // adjust the containing address. The second time is when we are parsing
+        // the blocks inside the function that contains the inlined concrete
+        // instance.  Since these will be blocks inside the containing "real"
+        // function the offset will be for that function.
+        if (tag == DW_TAG_subprogram ||
+            (tag == DW_TAG_inlined_subroutine &&
+             subprogram_low_pc == LLDB_INVALID_ADDRESS)) {
+          // TODO: Use the first address range instead.
+          subprogram_low_pc = llvm::min_element(ranges)->LowPC;
         }
 
-        const size_t num_ranges = ranges.GetSize();
-        for (size_t i = 0; i < num_ranges; ++i) {
-          const DWARFRangeList::Entry &range = ranges.GetEntryRef(i);
-          const addr_t range_base = range.GetRangeBase();
-          if (range_base >= subprogram_low_pc)
-            block->AddRange(Block::Range(range_base - subprogram_low_pc,
-                                         range.GetByteSize()));
+        for (const llvm::DWARFAddressRange &range : ranges) {
+          if (!range.valid())
+            continue;
+          if (range.LowPC >= subprogram_low_pc)
+            block->AddRange(Block::Range(range.LowPC - subprogram_low_pc,
+                                         range.HighPC - range.LowPC));
           else {
             GetObjectFile()->GetModule()->ReportError(
                 "{0:x8}: adding range [{1:x16}-{2:x16}) which has a base "
                 "that is less than the function's low PC {3:x16}. Please file "
                 "a bug and attach the file at the "
                 "start of this error message",
-                block->GetID(), range_base, range.GetRangeEnd(),
-                subprogram_low_pc);
+                block->GetID(), range.LowPC, range.HighPC, subprogram_low_pc);
           }
         }
         block->FinalizeRanges();
@@ -3320,10 +3325,16 @@ size_t SymbolFileDWARF::ParseVariablesForContext(const SymbolContext &sc) {
       DWARFDIE function_die = GetDIE(sc.function->GetID());
 
       dw_addr_t func_lo_pc = LLDB_INVALID_ADDRESS;
-      DWARFRangeList ranges = function_die.GetDIE()->GetAttributeAddressRanges(
-          function_die.GetCU(), /*check_hi_lo_pc=*/true);
-      if (!ranges.IsEmpty())
-        func_lo_pc = ranges.GetMinRangeBase(0);
+      if (llvm::Expected<llvm::DWARFAddressRangesVector> ranges =
+              function_die.GetDIE()->GetAttributeAddressRanges(
+                  function_die.GetCU(), /*check_hi_lo_pc=*/true)) {
+        // TODO: Use the first range element instead.
+        if (!ranges->empty())
+          func_lo_pc = llvm::min_element(*ranges)->LowPC;
+      } else {
+        LLDB_LOG_ERROR(GetLog(DWARFLog::DebugInfo), ranges.takeError(),
+                       "DIE({1:x}): {0}", function_die.GetID());
+      }
       if (func_lo_pc != LLDB_INVALID_ADDRESS) {
         const size_t num_variables =
             ParseVariablesInFunctionContext(sc, function_die, func_lo_pc);
