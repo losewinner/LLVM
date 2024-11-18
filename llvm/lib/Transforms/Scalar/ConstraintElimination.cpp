@@ -1804,8 +1804,9 @@ static bool eliminateConstraints(Function &F, DominatorTree &DT, LoopInfo &LI,
         ReproducerCondStack.emplace_back(Pred, A, B);
 
       if (ICmpInst::isRelational(Pred)) {
-        // If samesign is present on the ICmp, simply transfer the signed system
-        // to the unsigned system, and viceversa.
+        // If samesign is present on the ICmp, simply flip the sign of the
+        // predicate, transferring the information from the signed system to the
+        // unsigned system, and viceversa.
         if (HasSameSign)
           Info.addFact(CmpInst::getFlippedSignednessPredicate(Pred), A, B,
                        CB.NumIn, CB.NumOut, DFSInStack);
