@@ -252,6 +252,12 @@ struct reference_wrapper {
 
 template<typename T>
 reference_wrapper<T> ref(T& t) noexcept;
+
+template <typename T>
+struct [[gsl::Pointer]] iterator {
+  T& operator*() const;
+};
+
 }
 
 struct Unannotated {
@@ -850,6 +856,30 @@ Pointer test3(Bar bar) {
   Pointer p = Pointer(Bar()); // expected-warning {{temporary}}
   p = Pointer(Bar()); // expected-warning {{object backing}}
   return bar; // expected-warning {{address of stack}}
+}
+
+template<typename T>
+struct MySpan {
+  MySpan(const std::vector<T>& v);
+  using iterator = std::iterator<T>;
+  iterator begin() const [[clang::lifetimebound]];
+};
+template <typename T>
+typename MySpan<T>::iterator ReturnFirstIt(const MySpan<T>& v [[clang::lifetimebound]]);
+
+void test4() {
+  std::vector<int> v{1};
+  // MySpan<T> doesn't own any underlying T objects, the pointee object of
+  // the MySpan iterator is still alive when the whole span is destroyed, thus
+  // no diagnostic.
+  const int& t1 = *MySpan<int>(v).begin();
+  const int& t2 = *ReturnFirstIt(MySpan<int>(v));
+  // Ideally, we would diagnose the following case, but due to implementation
+  // constraints, we do not.
+  const int& t4 = *MySpan<int>(std::vector<int>{}).begin();
+  
+  auto it1 = MySpan<int>(v).begin(); // expected-warning {{temporary whose address is use}}
+  auto it2 = ReturnFirstIt(MySpan<int>(v)); // expected-warning {{temporary whose address is used}}
 }
 
 } // namespace LifetimeboundInterleave
