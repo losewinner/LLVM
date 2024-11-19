@@ -20,6 +20,17 @@ public:
   int operator<=>(const SpaceShipDefaultCompare &) const = default;
 };
 
+class UnusedConstPrivateField {
+ public:
+  UnusedConstPrivateField() : unused_(0) {}
+ private:
+  const int unused_; // expected-warning{{private field 'unused_' is not used}}
+};
+
+class FriendEqDefaultCompare {
+  friend auto operator==(FriendEqDefaultCompare, FriendEqDefaultCompare) -> bool = default;
+};
+
 #endif
 
 class NotFullyDefined {
