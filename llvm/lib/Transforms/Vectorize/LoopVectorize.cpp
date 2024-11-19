@@ -5581,7 +5581,7 @@ InstructionCost LoopVectorizationCostModel::expectedCost(ElementCount VF) {
   // away.
   SmallPtrSet<Instruction *, 2> ValuesToIgnoreForVF;
   auto TC = PSE.getSE()->getSmallConstantTripCount(TheLoop);
-  if (VF.isFixed() && TC == VF.getFixedValue())
+  if (VF.isFixed() && TC == VF.getFixedValue() && !foldTailByMasking())
     addFullyUnrolledInstructionsToIgnore(TheLoop, Legal->getInductionVars(),
                                          ValuesToIgnoreForVF);
 
@@ -7281,7 +7281,7 @@ LoopVectorizationPlanner::precomputeCosts(VPlan &Plan, ElementCount VF,
     // TODO: Remove this code after stepping away from the legacy cost model and
     // adding code to simplify VPlans before calculating their costs.
     auto TC = PSE.getSE()->getSmallConstantTripCount(OrigLoop);
-    if (VF.isFixed() && TC == VF.getFixedValue())
+    if (VF.isFixed() && TC == VF.getFixedValue() && !CM.foldTailByMasking())
       addFullyUnrolledInstructionsToIgnore(OrigLoop, Legal->getInductionVars(),
                                            CostCtx.SkipCostComputation);
 
