@@ -3581,7 +3581,7 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, CmpInst::Predicate Pred) {
   return OS;
 }
 
-ICmpInst::Predicate ICmpInst::getSignedPredicate(Predicate pred) {
+ICmpInst::Predicate CmpInst::getSignedPredicate(Predicate pred) {
   switch (pred) {
     default: llvm_unreachable("Unknown icmp predicate!");
     case ICMP_EQ: case ICMP_NE:
@@ -3594,7 +3594,7 @@ ICmpInst::Predicate ICmpInst::getSignedPredicate(Predicate pred) {
   }
 }
 
-ICmpInst::Predicate ICmpInst::getUnsignedPredicate(Predicate pred) {
+ICmpInst::Predicate CmpInst::getUnsignedPredicate(Predicate pred) {
   switch (pred) {
     default: llvm_unreachable("Unknown icmp predicate!");
     case ICMP_EQ: case ICMP_NE:
@@ -3841,10 +3841,9 @@ std::optional<bool> ICmpInst::compare(const KnownBits &LHS,
   }
 }
 
-CmpInst::Predicate ICmpInst::getFlippedSignednessPredicate(Predicate pred) {
-  assert(CmpInst::isRelational(pred) &&
-         "Call only with non-equality predicates!");
-
+CmpInst::Predicate CmpInst::getFlippedSignednessPredicate(Predicate pred) {
+  if (CmpInst::isEquality(pred))
+    return pred;
   if (isSigned(pred))
     return getUnsignedPredicate(pred);
   if (isUnsigned(pred))

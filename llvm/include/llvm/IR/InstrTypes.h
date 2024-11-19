@@ -728,6 +728,24 @@ protected:
           InsertPosition InsertBefore = nullptr,
           Instruction *FlagsSource = nullptr);
 
+  /// Return the signed version of the predicate: variant that operates on
+  /// Predicate; used by the corresponding function in ICmpInst, to operate with
+  /// CmpPredicate.
+  static Predicate getSignedPredicate(Predicate Pred);
+
+  /// Return the unsigned version of the predicate: variant that operates on
+  /// Predicate; used by the corresponding function in ICmpInst, to operate with
+  /// CmpPredicate.
+  static Predicate getUnsignedPredicate(Predicate Pred);
+
+  /// Return the unsigned version of the signed predicate pred or the signed
+  /// version of the signed predicate pred: variant that operates on Predicate;
+  /// used by the corresponding function in ICmpInst, to operate with
+  /// CmpPredicate.
+  static Predicate getFlippedSignednessPredicate(Predicate Pred);
+
+  friend class CmpPredicate;
+
 public:
   // allocate space for exactly two operands
   void *operator new(size_t S) { return User::operator new(S, AllocMarker); }

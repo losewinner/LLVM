@@ -59,7 +59,7 @@ Value *InstCombinerImpl::insertRangeTest(Value *V, const APInt &Lo,
 
   // V >= Min && V <  Hi --> V <  Hi
   // V <  Min || V >= Hi --> V >= Hi
-  ICmpInst::Predicate Pred = Inside ? ICmpInst::ICMP_ULT : ICmpInst::ICMP_UGE;
+  CmpPredicate Pred = Inside ? ICmpInst::ICMP_ULT : ICmpInst::ICMP_UGE;
   if (isSigned ? Lo.isMinSignedValue() : Lo.isMinValue()) {
     Pred = isSigned ? ICmpInst::getSignedPredicate(Pred) : Pred;
     return Builder.CreateICmp(Pred, V, ConstantInt::get(Ty, Hi));
