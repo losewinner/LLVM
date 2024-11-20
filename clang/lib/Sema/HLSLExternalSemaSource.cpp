@@ -189,12 +189,28 @@ struct BuiltinTypeDeclBuilder {
   BuiltinTypeDeclBuilder &addArraySubscriptOperators(Sema &S) {
     if (Record->isCompleteDefinition())
       return *this;
-    addArraySubscriptOperator(S, true);
-    addArraySubscriptOperator(S, false);
+    ASTContext &AST = Record->getASTContext();
+    DeclarationName Subscript =
+        AST.DeclarationNames.getCXXOperatorName(OO_Subscript);
+    addHandleAccessFunction(S, Subscript, /*IsConst=*/true, /*IsRef=*/true);
+    addHandleAccessFunction(S, Subscript, /*IsConst=*/false, /*IsRef=*/true);
     return *this;
   }
 
-  BuiltinTypeDeclBuilder &addArraySubscriptOperator(Sema &S, bool IsConst) {
+  BuiltinTypeDeclBuilder &addLoadMethods(Sema &S) {
+    if (Record->isCompleteDefinition())
+      return *this;
+
+    ASTContext &AST = Record->getASTContext();
+    IdentifierInfo &II = AST.Idents.get("Load", tok::TokenKind::identifier);
+    DeclarationName Load(&II);
+    addHandleAccessFunction(S, Load, /*IsConst=*/false, /*IsRef=*/false);
+
+    return *this;
+  }
+
+  BuiltinTypeDeclBuilder &addHandleAccessFunction(Sema &S, DeclarationName Name,
+                                                  bool IsConst, bool IsRef) {
     if (Record->isCompleteDefinition())
       return *this;
 
@@ -216,18 +232,16 @@ struct BuiltinTypeDeclBuilder {
       ExtInfo.TypeQuals.addConst();
       ReturnTy.addConst();
     }
-    ReturnTy = AST.getLValueReferenceType(ReturnTy);
+    if (IsRef)
+      ReturnTy = AST.getLValueReferenceType(ReturnTy);
 
     QualType MethodTy =
         AST.getFunctionType(ReturnTy, {AST.UnsignedIntTy}, ExtInfo);
     auto *TSInfo = AST.getTrivialTypeSourceInfo(MethodTy, SourceLocation());
     auto *MethodDecl = CXXMethodDecl::Create(
         AST, Record, SourceLocation(),
-        DeclarationNameInfo(
-            AST.DeclarationNames.getCXXOperatorName(OO_Subscript),
-            SourceLocation()),
-        MethodTy, TSInfo, SC_None, false, false, ConstexprSpecKind::Unspecified,
-        SourceLocation());
+        DeclarationNameInfo(Name, SourceLocation()), MethodTy, TSInfo, SC_None,
+        false, false, ConstexprSpecKind::Unspecified, SourceLocation());
 
     IdentifierInfo &II = AST.Idents.get("Idx", tok::TokenKind::identifier);
     auto *IdxParam = ParmVarDecl::Create(
@@ -489,6 +503,7 @@ void HLSLExternalSemaSource::defineHLSLTypesWithForwardDeclarations() {
                     ResourceKind::TypedBuffer, /*IsROV=*/false,
                     /*RawBuffer=*/false)
         .addArraySubscriptOperators(*SemaPtr)
+        .addLoadMethods(*SemaPtr)
         .completeDefinition();
   });
 
@@ -501,6 +516,7 @@ void HLSLExternalSemaSource::defineHLSLTypesWithForwardDeclarations() {
                     ResourceKind::TypedBuffer, /*IsROV=*/true,
                     /*RawBuffer=*/false)
         .addArraySubscriptOperators(*SemaPtr)
+        .addLoadMethods(*SemaPtr)
         .completeDefinition();
   });
 
