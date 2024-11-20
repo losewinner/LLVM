@@ -910,7 +910,7 @@ Function *SymbolFileDWARF::ParseFunction(CompileUnit &comp_unit,
   if (llvm::Expected<llvm::DWARFAddressRangesVector> die_ranges =
           die.GetDIE()->GetAttributeAddressRanges(die.GetCU(),
                                                   /*check_hi_lo_pc=*/true)) {
-    for (auto &range : *die_ranges) {
+    for (const auto &range : *die_ranges) {
       if (range.valid() && range.LowPC < m_first_code_address)
         continue;
       if (Address base_addr(range.LowPC, module_sp->GetSectionList());

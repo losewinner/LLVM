@@ -257,8 +257,9 @@ bool DWARFDebugInfoEntry::GetDIENamesAndRanges(
   }
 
   if (ranges.empty() && lo_pc != LLDB_INVALID_ADDRESS) {
-    ranges.emplace_back(
-        lo_pc, (hi_pc != LLDB_INVALID_ADDRESS && hi_pc > lo_pc) ? hi_pc : 0);
+    lldb::addr_t range_hi_pc =
+        (hi_pc != LLDB_INVALID_ADDRESS && hi_pc > lo_pc) ? hi_pc : lo_pc;
+    ranges.emplace_back(lo_pc, range_hi_pc);
   }
 
   if (set_frame_base_loclist_addr && !ranges.empty()) {
