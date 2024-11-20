@@ -1839,6 +1839,11 @@ void VPlanTransforms::handleUncountableEarlyExit(
     VPBlockUtils::connectBlocks(NewMiddle, VPExitBlock);
     VPBlockUtils::connectBlocks(NewMiddle, MiddleVPBB);
 
+    // Establish a mapping between this new VPBasicBlock and the uncountable
+    // exiting block so that we can add incoming values to phis in the exit
+    // block correctly.
+    Plan.addEarlyExitingBlockToMap(NewMiddle, Exiting);
+
     VPBuilder MiddleBuilder(NewMiddle);
     MiddleBuilder.createNaryOp(VPInstruction::BranchOnCond, {EarlyExitTaken});
   }

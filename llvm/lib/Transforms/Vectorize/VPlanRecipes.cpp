@@ -833,13 +833,25 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent,
 void VPIRInstruction::execute(VPTransformState &State) {
   assert((isa<PHINode>(&I) || getNumOperands() == 0) &&
          "Only PHINodes can have extra operands");
+  BasicBlock *ExitBB = cast<VPIRBasicBlock>(getParent())->getIRBasicBlock();
+  SmallVector<BasicBlock *, 4> OrigPreds(predecessors(ExitBB));
   for (const auto &[Idx, Op] : enumerate(operands())) {
     VPValue *ExitValue = Op;
     auto Lane = vputils::isUniformAfterVectorization(ExitValue)
                     ? VPLane::getFirstLane()
                     : VPLane::getLastLaneForVF(State.VF);
-    VPBlockBase *Pred = getParent()->getPredecessors()[Idx];
-    auto *PredVPBB = Pred->getExitingBasicBlock();
+
+    VPBasicBlock *PredVPBB;
+    // If there is just a single operand then we don't have to worry about
+    // early exits and mapping the blocks.
+    if (getNumOperands() == 1)
+      PredVPBB = cast<VPBasicBlock>(getParent()->getSinglePredecessor());
+    else {
+      // The operands are ordered according to predecessors in the original
+      // scalar loop.
+      BasicBlock *OrigPredBB = OrigPreds[Idx];
+      PredVPBB = cast<VPBasicBlock>(State.Plan->getExitingBlock(OrigPredBB));
+    }
     BasicBlock *PredBB = State.CFG.VPBB2IRBB[PredVPBB];
     // Set insertion point in PredBB in case an extract needs to be generated.
     // TODO: Model extracts explicitly.
