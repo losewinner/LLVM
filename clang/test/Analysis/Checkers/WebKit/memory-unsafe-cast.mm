@@ -50,3 +50,15 @@ private:
         return static_cast<id<MTLRenderCommandEncoder>>(CommandEncoder::get());
     }
 };
+
+@interface Class1
+@end
+
+@interface Class2
+@end
+
+void testUnrelated(Class1 *c1) {
+  Class2 *c2 = (Class2*)c1;
+  // expected-warning@-1{{Unsafe cast from type 'Class1' to an unrelated type 'Class2'}}
+  Class1 *c1_same = reinterpret_cast<Class1*>(c1); // no warning
+}

@@ -25,6 +25,10 @@ void test_pointers(Base *base) {
   Derived *derived_d = downcast_ptr<Derived, Base>(base);  // no warning
 }
 
+void test_non_pointers(Derived derived) {
+  Base base_static = static_cast<Base>(derived);  // no warning
+}
+
 void test_refs(Base &base) {
   Derived &derived_static = static_cast<Derived&>(base);
   // expected-warning@-1{{Unsafe cast from base type 'Base' to derived type 'Derived'}}
@@ -173,4 +177,59 @@ struct stack_st { };
 
 void test_stack(stack_st *base) {
   STACK_OF(void) *derived = (STACK_OF(void)*)base;
+  // expected-warning@-1{{Unsafe cast from type 'stack_st' to an unrelated type 'stack_st_void'}}
+}
+
+class Parent { };
+class Child1 : public Parent { };
+class Child2 : public Parent { };
+
+void test_common_parent(Child1 *c1, Child2 *c2) {
+  Child2 *c2_cstyle = (Child2 *)c1;
+  // expected-warning@-1{{Unsafe cast from type 'Child1' to an unrelated type 'Child2'}}
+  Child2 *c2_reinterpret = reinterpret_cast<Child2 *>(c1);
+  // expected-warning@-1{{Unsafe cast from type 'Child1' to an unrelated type 'Child2'}}
+}
+
+class Type1 { };
+class Type2 { };
+
+void test_unrelated_ref(Type1 &t1, Type2 &t2) {
+  Type2 &t2_cstyle = (Type2 &)t1;
+  // expected-warning@-1{{Unsafe cast from type 'Type1' to an unrelated type 'Type2'}}
+  Type2 &t2_reinterpret = reinterpret_cast<Type2 &>(t1);
+  // expected-warning@-1{{Unsafe cast from type 'Type1' to an unrelated type 'Type2'}}
+  Type2 &t2_same = reinterpret_cast<Type2 &>(t2); // no warning
+}
+
+
+class VirtualClass1 {
+  virtual void virtual_base_function();
+};
+
+class VirtualClass2 {
+  void virtual_base_function();
+};
+
+void test_unrelated_virtual(VirtualClass1 &v1) {
+  VirtualClass2 &v2 = dynamic_cast<VirtualClass2 &>(v1);
+  // expected-warning@-1{{Unsafe cast from type 'VirtualClass1' to an unrelated type 'VirtualClass2'}}
+}
+
+struct StructA { };
+struct StructB { };
+
+typedef struct StructA StA;
+typedef struct StructB StB;
+
+void test_struct_unrelated_refs(StA &a, StB &b) {
+  StB &b_reinterpret = reinterpret_cast<StB&>(a);
+  // expected-warning@-1{{Unsafe cast from type 'StructA' to an unrelated type 'StructB'}}
+  StB &b_c = (StB&)a;
+  // expected-warning@-1{{Unsafe cast from type 'StructA' to an unrelated type 'StructB'}}
+  StA &a_local = (StA&)b;
+  // expected-warning@-1{{Unsafe cast from type 'StructB' to an unrelated type 'StructA'}}
+  StA &a_reinterpret = reinterpret_cast<StA&>(b);
+  // expected-warning@-1{{Unsafe cast from type 'StructB' to an unrelated type 'StructA'}}
+  StA &a_same = (StA&)a; // no warning
 }

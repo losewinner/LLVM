@@ -23,6 +23,8 @@ using namespace ast_matchers;
 namespace {
 static constexpr const char *const BaseNode = "BaseNode";
 static constexpr const char *const DerivedNode = "DerivedNode";
+static constexpr const char *const FromCastNode = "FromCast";
+static constexpr const char *const ToCastNode = "ToCast";
 static constexpr const char *const WarnRecordDecl = "WarnRecordDecl";
 
 class MemoryUnsafeCastChecker : public Checker<check::ASTCodeBody> {
@@ -31,7 +33,17 @@ public:
   void checkASTCodeBody(const Decl *D, AnalysisManager& Mgr,
                         BugReporter &BR) const;
 };
-}  // end namespace
+} // end namespace
+
+static void emitReport(AnalysisDeclContext *ADC, BugReporter &BR,
+                       const MemoryUnsafeCastChecker *Checker,
+                       std::string &Diagnostics, const CastExpr *CE) {
+  BR.EmitBasicReport(
+      ADC->getDecl(), Checker,
+      /*Name=*/"Unsafe type cast", categories::SecurityError, Diagnostics,
+      PathDiagnosticLocation::createBegin(CE, BR.getSourceManager(), ADC),
+      CE->getSourceRange());
+}
 
 static void emitDiagnostics(const BoundNodes &Nodes, BugReporter &BR,
                             AnalysisDeclContext *ADC,
@@ -45,14 +57,24 @@ static void emitDiagnostics(const BoundNodes &Nodes, BugReporter &BR,
   llvm::raw_string_ostream OS(Diagnostics);
   OS << "Unsafe cast from base type '" << Base->getNameAsString()
      << "' to derived type '" << Derived->getNameAsString() << "'";
-
-  BR.EmitBasicReport(
-      ADC->getDecl(), Checker,
-      /*Name=*/"OSObject C-Style Cast", categories::SecurityError,
-      Diagnostics,
-      PathDiagnosticLocation::createBegin(CE, BR.getSourceManager(), ADC),
-      CE->getSourceRange());
+  emitReport(ADC, BR, Checker, Diagnostics, CE);
 }
+
+static void emitDiagnosticsUnrelated(const BoundNodes &Nodes, BugReporter &BR,
+                                     AnalysisDeclContext *ADC,
+                                     const MemoryUnsafeCastChecker *Checker) {
+  const auto *CE = Nodes.getNodeAs<CastExpr>(WarnRecordDecl);
+  const NamedDecl *FromCast = Nodes.getNodeAs<NamedDecl>(FromCastNode);
+  const NamedDecl *ToCast = Nodes.getNodeAs<NamedDecl>(ToCastNode);
+  assert(CE && FromCast && ToCast);
+
+  std::string Diagnostics;
+  llvm::raw_string_ostream OS(Diagnostics);
+  OS << "Unsafe cast from type '" << FromCast->getNameAsString()
+     << "' to an unrelated type '" << ToCast->getNameAsString() << "'";
+  emitReport(ADC, BR, Checker, Diagnostics, CE);
+}
+
 
 namespace clang {
 namespace ast_matchers {
@@ -78,6 +100,7 @@ void MemoryUnsafeCastChecker::checkASTCodeBody(const Decl *D,
 
   AnalysisDeclContext *ADC = AM.getAnalysisDeclContext(D);
 
+  // Match downcasts from base type to derived type and warn
   auto MatchExprPtr = allOf(
       hasSourceExpression(hasTypePointingTo(cxxRecordDecl().bind(BaseNode))),
       hasTypePointingTo(cxxRecordDecl(isDerivedFrom(equalsBoundNode(BaseNode)))
@@ -88,32 +111,26 @@ void MemoryUnsafeCastChecker::checkASTCodeBody(const Decl *D,
       ignoringImpCasts(hasType(objcObjectPointerType(pointee(hasDeclaration(
           objcInterfaceDecl(isDerivedFrom(equalsBoundNode(BaseNode)))
               .bind(DerivedNode)))))));
-  auto MatchExprRef =
-      allOf(hasSourceExpression(hasType(cxxRecordDecl().bind(BaseNode))),
-            hasType(cxxRecordDecl(isDerivedFrom(equalsBoundNode(BaseNode)))
-                        .bind(DerivedNode)));
   auto MatchExprRefTypeDef =
       allOf(hasSourceExpression(hasType(hasUnqualifiedDesugaredType(recordType(
-                 hasDeclaration(decl(cxxRecordDecl().bind(BaseNode))))))),
+                hasDeclaration(decl(cxxRecordDecl().bind(BaseNode))))))),
             hasType(hasUnqualifiedDesugaredType(recordType(hasDeclaration(
                 decl(cxxRecordDecl(isDerivedFrom(equalsBoundNode(BaseNode)))
                          .bind(DerivedNode)))))));
 
-  auto CastC = cStyleCastExpr(anyOf(MatchExprPtr, MatchExprRef,
-                                    MatchExprRefTypeDef, MatchExprPtrObjC))
-                   .bind(WarnRecordDecl);
-  auto CastStatic =
-      cxxStaticCastExpr(anyOf(MatchExprPtr, MatchExprRef, MatchExprRefTypeDef,
-                              MatchExprPtrObjC))
+  auto CastC =
+      cStyleCastExpr(anyOf(MatchExprPtr, MatchExprRefTypeDef, MatchExprPtrObjC))
           .bind(WarnRecordDecl);
+  auto CastStatic = cxxStaticCastExpr(anyOf(MatchExprPtr, MatchExprRefTypeDef,
+                                            MatchExprPtrObjC))
+                        .bind(WarnRecordDecl);
   auto CastReinterpret =
-      cxxReinterpretCastExpr(anyOf(MatchExprPtr, MatchExprRef,
-                                   MatchExprRefTypeDef, MatchExprPtrObjC))
+      cxxReinterpretCastExpr(
+          anyOf(MatchExprPtr, MatchExprRefTypeDef, MatchExprPtrObjC))
           .bind(WarnRecordDecl);
-  auto CastDynamic =
-      cxxDynamicCastExpr(anyOf(MatchExprPtr, MatchExprRef, MatchExprRefTypeDef,
-                               MatchExprPtrObjC))
-          .bind(WarnRecordDecl);
+  auto CastDynamic = cxxDynamicCastExpr(anyOf(MatchExprPtr, MatchExprRefTypeDef,
+                                              MatchExprPtrObjC))
+                         .bind(WarnRecordDecl);
 
   auto Cast = stmt(anyOf(CastC, CastStatic, CastReinterpret, CastDynamic));
 
@@ -121,6 +138,61 @@ void MemoryUnsafeCastChecker::checkASTCodeBody(const Decl *D,
       match(stmt(forEachDescendant(Cast)), *D->getBody(), AM.getASTContext());
   for (BoundNodes Match : Matches)
     emitDiagnostics(Match, BR, ADC, this);
+
+  // Match casts between unrelated types and warn
+  auto MatchExprPtrUnrelatedTypes = allOf(
+      hasSourceExpression(
+          hasTypePointingTo(cxxRecordDecl().bind(FromCastNode))),
+      hasTypePointingTo(cxxRecordDecl().bind(ToCastNode)),
+      unless(anyOf(hasTypePointingTo(cxxRecordDecl(
+                       isSameOrDerivedFrom(equalsBoundNode(FromCastNode)))),
+                   hasSourceExpression(hasTypePointingTo(cxxRecordDecl(
+                       isSameOrDerivedFrom(equalsBoundNode(ToCastNode))))))));
+  auto MatchExprPtrObjCUnrelatedTypes = allOf(
+      hasSourceExpression(ignoringImpCasts(hasType(objcObjectPointerType(
+          pointee(hasDeclaration(objcInterfaceDecl().bind(FromCastNode))))))),
+      ignoringImpCasts(hasType(objcObjectPointerType(
+          pointee(hasDeclaration(objcInterfaceDecl().bind(ToCastNode)))))),
+      unless(anyOf(
+          ignoringImpCasts(hasType(
+              objcObjectPointerType(pointee(hasDeclaration(objcInterfaceDecl(
+                  isSameOrDerivedFrom(equalsBoundNode(FromCastNode)))))))),
+          hasSourceExpression(ignoringImpCasts(hasType(
+              objcObjectPointerType(pointee(hasDeclaration(objcInterfaceDecl(
+                  isSameOrDerivedFrom(equalsBoundNode(ToCastNode))))))))))));
+  auto MatchExprRefTypeDefUnrelated = allOf(
+      hasSourceExpression(hasType(hasUnqualifiedDesugaredType(recordType(
+          hasDeclaration(decl(cxxRecordDecl().bind(FromCastNode))))))),
+      hasType(hasUnqualifiedDesugaredType(
+          recordType(hasDeclaration(decl(cxxRecordDecl().bind(ToCastNode)))))),
+      unless(anyOf(
+          hasType(hasUnqualifiedDesugaredType(
+              recordType(hasDeclaration(decl(cxxRecordDecl(
+                  isSameOrDerivedFrom(equalsBoundNode(FromCastNode)))))))),
+          hasSourceExpression(hasType(hasUnqualifiedDesugaredType(
+              recordType(hasDeclaration(decl(cxxRecordDecl(
+                  isSameOrDerivedFrom(equalsBoundNode(ToCastNode))))))))))));
+
+  auto CastCUnrelated = cStyleCastExpr(anyOf(MatchExprPtrUnrelatedTypes,
+                                             MatchExprPtrObjCUnrelatedTypes,
+                                             MatchExprRefTypeDefUnrelated))
+                            .bind(WarnRecordDecl);
+  auto CastReinterpretUnrelated =
+      cxxReinterpretCastExpr(anyOf(MatchExprPtrUnrelatedTypes,
+                                   MatchExprPtrObjCUnrelatedTypes,
+                                   MatchExprRefTypeDefUnrelated))
+          .bind(WarnRecordDecl);
+  auto CastDynamicUnrelated =
+      cxxDynamicCastExpr(anyOf(MatchExprPtrUnrelatedTypes,
+                               MatchExprPtrObjCUnrelatedTypes,
+                               MatchExprRefTypeDefUnrelated))
+          .bind(WarnRecordDecl);
+  auto CastUnrelated = stmt(
+      anyOf(CastCUnrelated, CastReinterpretUnrelated, CastDynamicUnrelated));
+  auto MatchesUnrelatedTypes = match(stmt(forEachDescendant(CastUnrelated)),
+                                     *D->getBody(), AM.getASTContext());
+  for (BoundNodes Match : MatchesUnrelatedTypes)
+    emitDiagnosticsUnrelated(Match, BR, ADC, this);
 }
 
 void ento::registerMemoryUnsafeCastChecker(CheckerManager &Mgr) {
