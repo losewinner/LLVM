@@ -9,13 +9,13 @@
 #ifndef MLIR_CONVERSION_MATHTOEMITC_MATHTOEMITC_H
 #define MLIR_CONVERSION_MATHTOEMITC_MATHTOEMITC_H
 #include "mlir/Dialect/EmitC/IR/EmitC.h"
+#include "mlir/Dialect/EmitC/Transforms/Passes.h"
 
 namespace mlir {
 class RewritePatternSet;
 
-void populateConvertMathToEmitCPatterns(
-    RewritePatternSet &patterns,
-    emitc::MathToEmitCLanguageTarget languageTarget);
+void populateConvertMathToEmitCPatterns(RewritePatternSet &patterns,
+                                        emitc::LanguageTarget languageTarget);
 } // namespace mlir
 
 #endif // MLIR_CONVERSION_MATHTOEMITC_MATHTOEMITC_H
