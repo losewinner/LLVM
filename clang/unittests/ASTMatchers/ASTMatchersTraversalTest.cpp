@@ -284,10 +284,9 @@ TEST(HasDeclaration, HasDeclarationOfTypeAlias) {
 }
 
 TEST(HasDeclaration, HasDeclarationOfObjCInterface) {
-  EXPECT_TRUE(matchesObjC(
-      "@interface BaseClass @end void f() {BaseClass* b;}",
-      varDecl(hasType(objcObjectPointerType(pointee(hasDeclaration(
-          objcInterfaceDecl())))))));
+  EXPECT_TRUE(matchesObjC("@interface BaseClass @end void f() {BaseClass* b;}",
+                          varDecl(hasType(objcObjectPointerType(
+                              pointee(hasDeclaration(objcInterfaceDecl())))))));
 }
 
 TEST(HasUnqualifiedDesugaredType, DesugarsUsing) {

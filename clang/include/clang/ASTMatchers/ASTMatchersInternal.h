@@ -1116,8 +1116,7 @@ private:
     return matchesDecl(Node.getDecl(), Finder, Builder);
   }
 
-  bool matchesSpecialized(const ObjCInterfaceDecl &Node,
-                          ASTMatchFinder *Finder,
+  bool matchesSpecialized(const ObjCInterfaceDecl &Node, ASTMatchFinder *Finder,
                           BoundNodesTreeBuilder *Builder) const {
     return matchesDecl(Node.getCanonicalDecl(), Finder, Builder);
   }
