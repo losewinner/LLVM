@@ -2198,9 +2198,6 @@ struct CounterCoverageMappingBuilder
     extendRegion(E->getRHS());
     propagateCounts(getRegionCounter(E), E->getRHS());
 
-    if (llvm::EnableSingleByteCoverage)
-      return;
-
     // Track RHS True/False Decision.
     const auto DecisionRHS = MCDCBuilder.back();
 
@@ -2258,9 +2255,6 @@ struct CounterCoverageMappingBuilder
     // Counter tracks the right hand side of a logical or operator.
     extendRegion(E->getRHS());
     propagateCounts(getRegionCounter(E), E->getRHS());
-
-    if (llvm::EnableSingleByteCoverage)
-      return;
 
     // Track RHS True/False Decision.
     const auto DecisionRHS = MCDCBuilder.back();
