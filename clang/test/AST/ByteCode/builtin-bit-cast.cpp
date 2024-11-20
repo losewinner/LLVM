@@ -135,6 +135,8 @@ namespace simple {
   /// diagnoses it.
   static_assert(__builtin_bit_cast(intptr_t, nullptr) == 0); // ref-error {{not an integral constant expression}} \
                                                              // ref-note {{indeterminate value can only initialize an object}}
+
+  constexpr int test_from_nullptr_pass = (__builtin_bit_cast(unsigned char[8], nullptr), 0);
 }
 
 namespace Fail {

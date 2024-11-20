@@ -299,6 +299,9 @@ static bool readPointerToBuffer(const Context &Ctx, const Pointer &FromPtr,
                    llvm::sys::IsLittleEndianHost);
   bool BigEndianTarget = ASTCtx.getTargetInfo().isBigEndian();
 
+  uint64_t PointerSizeInBits =
+      ASTCtx.getTargetInfo().getPointerWidth(LangAS::Default);
+
   return enumeratePointerFields(
       FromPtr, Ctx,
       [&](const Pointer &P, PrimType T, size_t BitOffset,
@@ -310,8 +313,15 @@ static bool readPointerToBuffer(const Context &Ctx, const Pointer &FromPtr,
 
         assert(P.isInitialized());
         // nullptr_t is a PT_Ptr for us, but it's still not std::is_pointer_v.
-        if (T == PT_Ptr)
-          assert(false && "Implement casting to pointer types");
+        if (T == PT_Ptr) {
+          assert(P.getType()->isNullPtrType());
+          std::byte Zeroes[] = {std::byte{0}, std::byte{0}, std::byte{0},
+                                std::byte{0}, std::byte{0}, std::byte{0},
+                                std::byte{0}, std::byte{0}};
+          assert(PointerSizeInBits <= (8 * 8));
+          Buffer.pushData(Zeroes, PointerSizeInBits, BigEndianTarget);
+          return true;
+        }
 
         CharUnits ObjectReprChars = ASTCtx.getTypeSizeInChars(P.getType());
         unsigned BitWidth = ASTCtx.toBits(ObjectReprChars);
