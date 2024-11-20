@@ -1951,7 +1951,7 @@ public:
     SmallVector<OperandDataVec, 4> OpsVec;
     /// When VL[0] is IntrinsicInst, ArgSize is CallBase::arg_size. When VL[0]
     /// is not IntrinsicInst, ArgSize is User::getNumOperands.
-    unsigned ArgSize;
+    unsigned ArgSize = 0;
 
     const TargetLibraryInfo &TLI;
     const DataLayout &DL;
@@ -2546,8 +2546,8 @@ public:
         ArrayRef<OperandData> Op0 = OpsVec.front();
         for (const OperandData &Data : Op0)
           UniqueValues.insert(Data.V);
-        for (ArrayRef<OperandData> Op : make_range(
-                 OpsVec.begin() + 1, OpsVec.begin() + getNumOperands())) {
+        for (ArrayRef<OperandData> Op :
+             ArrayRef(OpsVec).slice(1, getNumOperands() - 1)) {
           if (any_of(Op, [&UniqueValues](const OperandData &Data) {
                 return !UniqueValues.contains(Data.V);
               }))
