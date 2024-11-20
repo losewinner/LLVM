@@ -42,6 +42,7 @@
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -84,6 +85,23 @@ using namespace llvm;
 
 namespace {
 
+/// Collect (a known) subset of global debug info metadata potentially used by
+/// the function \p F.
+///
+/// This metadata set can be used to avoid cloning debug info not owned by \p F
+/// and is shared among all potential clones \p F.
+void collectGlobalDebugInfo(Function &F, MetadataSetTy &GlobalDebugInfo) {
+  TimeTraceScope FunctionScope("CollectGlobalDebugInfo");
+
+  DebugInfoFinder DIFinder;
+  DISubprogram *SPClonedWithinModule = CollectDebugInfoForCloning(
+      F, CloneFunctionChangeType::LocalChangesOnly, DIFinder);
+
+  FindDebugInfoToIdentityMap(GlobalDebugInfo,
+                             CloneFunctionChangeType::LocalChangesOnly,
+                             DIFinder, SPClonedWithinModule);
+}
+
 /// A little helper class for building
 class CoroCloner {
 public:
@@ -120,21 +138,26 @@ private:
 
   TargetTransformInfo &TTI;
 
+  const MetadataSetTy &GlobalDebugInfo;
+
   /// Create a cloner for a switch lowering.
   CoroCloner(Function &OrigF, const Twine &Suffix, coro::Shape &Shape,
-             Kind FKind, TargetTransformInfo &TTI)
+             Kind FKind, TargetTransformInfo &TTI,
+             const MetadataSetTy &GlobalDebugInfo)
       : OrigF(OrigF), NewF(nullptr), Suffix(Suffix), Shape(Shape), FKind(FKind),
-        Builder(OrigF.getContext()), TTI(TTI) {
+        Builder(OrigF.getContext()), TTI(TTI),
+        GlobalDebugInfo(GlobalDebugInfo) {
     assert(Shape.ABI == coro::ABI::Switch);
   }
 
   /// Create a cloner for a continuation lowering.
   CoroCloner(Function &OrigF, const Twine &Suffix, coro::Shape &Shape,
              Function *NewF, AnyCoroSuspendInst *ActiveSuspend,
-             TargetTransformInfo &TTI)
+             TargetTransformInfo &TTI, const MetadataSetTy &GlobalDebugInfo)
       : OrigF(OrigF), NewF(NewF), Suffix(Suffix), Shape(Shape),
         FKind(Shape.ABI == coro::ABI::Async ? Kind::Async : Kind::Continuation),
-        Builder(OrigF.getContext()), ActiveSuspend(ActiveSuspend), TTI(TTI) {
+        Builder(OrigF.getContext()), ActiveSuspend(ActiveSuspend), TTI(TTI),
+        GlobalDebugInfo(GlobalDebugInfo) {
     assert(Shape.ABI == coro::ABI::Retcon ||
            Shape.ABI == coro::ABI::RetconOnce || Shape.ABI == coro::ABI::Async);
     assert(NewF && "need existing function for continuation");
@@ -145,10 +168,11 @@ public:
   /// Create a clone for a switch lowering.
   static Function *createClone(Function &OrigF, const Twine &Suffix,
                                coro::Shape &Shape, Kind FKind,
-                               TargetTransformInfo &TTI) {
+                               TargetTransformInfo &TTI,
+                               const MetadataSetTy &GlobalDebugInfo) {
     TimeTraceScope FunctionScope("CoroCloner");
 
-    CoroCloner Cloner(OrigF, Suffix, Shape, FKind, TTI);
+    CoroCloner Cloner(OrigF, Suffix, Shape, FKind, TTI, GlobalDebugInfo);
     Cloner.create();
     return Cloner.getFunction();
   }
@@ -157,10 +181,12 @@ public:
   static Function *createClone(Function &OrigF, const Twine &Suffix,
                                coro::Shape &Shape, Function *NewF,
                                AnyCoroSuspendInst *ActiveSuspend,
-                               TargetTransformInfo &TTI) {
+                               TargetTransformInfo &TTI,
+                               const MetadataSetTy &GlobalDebugInfo) {
     TimeTraceScope FunctionScope("CoroCloner");
 
-    CoroCloner Cloner(OrigF, Suffix, Shape, NewF, ActiveSuspend, TTI);
+    CoroCloner Cloner(OrigF, Suffix, Shape, NewF, ActiveSuspend, TTI,
+                      GlobalDebugInfo);
     Cloner.create();
     return Cloner.getFunction();
   }
@@ -1016,8 +1042,11 @@ void CoroCloner::create() {
   auto savedLinkage = NewF->getLinkage();
   NewF->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
-  CloneFunctionInto(NewF, &OrigF, VMap,
-                    CloneFunctionChangeType::LocalChangesOnly, Returns);
+  CloneFunctionAttributesInto(NewF, &OrigF, VMap, false);
+  CloneFunctionMetadataInto(NewF, &OrigF, VMap, RF_None, nullptr, nullptr,
+                            &GlobalDebugInfo);
+  CloneFunctionBodyInto(NewF, &OrigF, VMap, RF_None, Returns, "", nullptr,
+                        nullptr, nullptr, &GlobalDebugInfo);
 
   auto &Context = NewF->getContext();
 
@@ -1491,16 +1520,22 @@ struct SwitchCoroutineSplitter {
                     TargetTransformInfo &TTI) {
     assert(Shape.ABI == coro::ABI::Switch);
 
+    MetadataSetTy GlobalDebugInfo;
+    collectGlobalDebugInfo(F, GlobalDebugInfo);
+
     // Create a resume clone by cloning the body of the original function,
     // setting new entry block and replacing coro.suspend an appropriate value
     // to force resume or cleanup pass for every suspend point.
     createResumeEntryBlock(F, Shape);
-    auto *ResumeClone = CoroCloner::createClone(
-        F, ".resume", Shape, CoroCloner::Kind::SwitchResume, TTI);
-    auto *DestroyClone = CoroCloner::createClone(
-        F, ".destroy", Shape, CoroCloner::Kind::SwitchUnwind, TTI);
+    auto *ResumeClone = CoroCloner::createClone(F, ".resume", Shape,
+                                                CoroCloner::Kind::SwitchResume,
+                                                TTI, GlobalDebugInfo);
+    auto *DestroyClone = CoroCloner::createClone(F, ".destroy", Shape,
+                                                 CoroCloner::Kind::SwitchUnwind,
+                                                 TTI, GlobalDebugInfo);
     auto *CleanupClone = CoroCloner::createClone(
-        F, ".cleanup", Shape, CoroCloner::Kind::SwitchCleanup, TTI);
+        F, ".cleanup", Shape, CoroCloner::Kind::SwitchCleanup, TTI,
+        GlobalDebugInfo);
 
     postSplitCleanup(*ResumeClone);
     postSplitCleanup(*DestroyClone);
@@ -1885,12 +1920,16 @@ void coro::AsyncABI::splitCoroutine(Function &F, coro::Shape &Shape,
   }
 
   assert(Clones.size() == Shape.CoroSuspends.size());
+
+  MetadataSetTy GlobalDebugInfo;
+  collectGlobalDebugInfo(F, GlobalDebugInfo);
+
   for (auto [Idx, CS] : llvm::enumerate(Shape.CoroSuspends)) {
     auto *Suspend = CS;
     auto *Clone = Clones[Idx];
 
     CoroCloner::createClone(F, "resume." + Twine(Idx), Shape, Clone, Suspend,
-                            TTI);
+                            TTI, GlobalDebugInfo);
   }
 }
 
@@ -2016,12 +2055,16 @@ void coro::AnyRetconABI::splitCoroutine(Function &F, coro::Shape &Shape,
   }
 
   assert(Clones.size() == Shape.CoroSuspends.size());
+
+  MetadataSetTy GlobalDebugInfo;
+  collectGlobalDebugInfo(F, GlobalDebugInfo);
+
   for (auto [Idx, CS] : llvm::enumerate(Shape.CoroSuspends)) {
     auto Suspend = CS;
     auto Clone = Clones[Idx];
 
     CoroCloner::createClone(F, "resume." + Twine(Idx), Shape, Clone, Suspend,
-                            TTI);
+                            TTI, GlobalDebugInfo);
   }
 }
 
