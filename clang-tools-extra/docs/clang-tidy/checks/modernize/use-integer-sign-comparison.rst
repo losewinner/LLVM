@@ -6,7 +6,6 @@ modernize-use-integer-sign-comparison
 Replace comparisons between signed and unsigned integers with their safe
 C++20 ``std::cmp_*`` alternative, if available.
 
-
 Examples of fixes created by the check:
 
 .. code-block:: c++
