@@ -13,6 +13,14 @@ namespace hlsl {
 
 namespace __detail {
 
+template <typename T, typename U> struct is_same {
+  static const bool value = false;
+};
+
+template <typename T> struct is_same<T, T> {
+  static const bool value = true;
+};
+
 template <bool B, typename T> struct enable_if {};
 
 template <typename T> struct enable_if<true, T> {

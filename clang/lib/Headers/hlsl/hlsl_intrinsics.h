@@ -872,6 +872,45 @@ _HLSL_BUILTIN_ALIAS(__builtin_hlsl_elementwise_degrees)
 float4 degrees(float4);
 
 //===----------------------------------------------------------------------===//
+// distance builtins
+//===----------------------------------------------------------------------===//
+
+/// \fn K distance(T X, T Y)
+/// \brief Returns a distance scalar between two vectors of \a X and \a Y.
+/// \param X The X input value.
+/// \param Y The Y input value.
+
+template <typename T>
+constexpr __detail::enable_if_t<
+    __detail::is_same<float, T>::value || __detail::is_same<half, T>::value, T>
+distance_impl(T X, T Y) {
+  return __builtin_elementwise_abs(X - Y);
+}
+
+template <typename T, int N>
+constexpr __detail::enable_if_t<
+    __detail::is_same<float, T>::value || __detail::is_same<half, T>::value, T>
+distance_vec_impl(vector<T, N> X, vector<T, N> Y) {
+  return __builtin_hlsl_length(X - Y);
+}
+
+_HLSL_16BIT_AVAILABILITY(shadermodel, 6.2)
+const inline half distance(half X, half Y) { return distance_impl(X, Y); }
+
+template <int N>
+_HLSL_16BIT_AVAILABILITY(shadermodel, 6.2)
+const inline half distance(vector<half, N> X, vector<half, N> Y) {
+  return distance_vec_impl(X, Y);
+}
+
+const inline float distance(float X, float Y) { return distance_impl(X, Y); }
+
+template <int N>
+const inline float distance(vector<float, N> X, vector<float, N> Y) {
+  return distance_vec_impl(X, Y);
+}
+
+//===----------------------------------------------------------------------===//
 // dot product builtins
 //===----------------------------------------------------------------------===//
 
