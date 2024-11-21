@@ -3270,10 +3270,12 @@ void VPAliasLaneMaskRecipe::execute(VPTransformState &State) {
 
   auto *Type = SinkValue->getType();
   Value *AliasMask = Builder.CreateIntrinsic(
-      Intrinsic::get_alias_lane_mask,
-      {VectorType::get(Builder.getInt1Ty(), State.VF), Type},
-      {SourceValue, SinkValue, Builder.getInt32(getAccessedElementSize()), Builder.getInt1(WriteAfterRead)}, nullptr,
-      "alias.lane.mask");
+      Intrinsic::experimental_get_alias_lane_mask,
+      {VectorType::get(Builder.getInt1Ty(), State.VF), Type,
+       Builder.getInt64Ty()},
+      {SourceValue, SinkValue, Builder.getInt64(getAccessedElementSize()),
+       Builder.getInt1(WriteAfterRead)},
+      nullptr, "alias.lane.mask");
   State.set(this, AliasMask, /*IsScalar=*/false);
 }
 

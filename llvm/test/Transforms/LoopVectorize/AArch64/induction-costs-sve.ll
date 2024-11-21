@@ -158,7 +158,7 @@ define void @iv_casts(ptr %dst, ptr %src, i32 %x, i64 %N) #0 {
 ; PRED-NEXT:    [[N_VEC:%.*]] = sub i64 [[N_RND_UP]], [[N_MOD_VF]]
 ; PRED-NEXT:    [[TMP9:%.*]] = call i64 @llvm.vscale.i64()
 ; PRED-NEXT:    [[TMP10:%.*]] = mul i64 [[TMP9]], 8
-; PRED-NEXT:    [[ACTIVE_LANE_MASK_ALIAS:%.*]] = call <vscale x 8 x i1> @llvm.get.alias.lane.mask.nxv8i1.i64(i64 [[SRC2]], i64 [[DST1]], i32 1, i1 true)
+; PRED-NEXT:    [[ACTIVE_LANE_MASK_ALIAS:%.*]] = call <vscale x 8 x i1> @llvm.experimental.get.alias.lane.mask.nxv8i1.i64.i64(i64 [[SRC2]], i64 [[DST1]], i64 1, i1 true)
 ; PRED-NEXT:    [[TMP11:%.*]] = call i64 @llvm.vscale.i64()
 ; PRED-NEXT:    [[TMP12:%.*]] = mul i64 [[TMP11]], 8
 ; PRED-NEXT:    [[TMP13:%.*]] = sub i64 [[TMP0]], [[TMP12]]
