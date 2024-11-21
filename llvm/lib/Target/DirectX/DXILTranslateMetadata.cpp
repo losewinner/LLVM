@@ -301,6 +301,36 @@ static MDTuple *emitTopLevelLibraryNode(Module &M, MDNode *RMD,
   return constructEntryMetadata(nullptr, nullptr, RMD, Properties, Ctx);
 }
 
+// TODO: We might need to refactor this to be more generic,
+// in case we need more metadata to be replaced.
+static void replaceMetadata(Module &M) {
+  for (auto &F : M) {
+    for (auto &BB : F) {
+      auto *BBTerminatorInst = BB.getTerminator();
+
+      auto *HlslControlFlowMD =
+          BBTerminatorInst->getMetadata("hlsl.controlflow.hint");
+
+      if (!HlslControlFlowMD || HlslControlFlowMD->getNumOperands() < 2)
+        continue;
+
+      MDBuilder MDHelper(M.getContext());
+      auto *Op1 =
+          mdconst::extract<ConstantInt>(HlslControlFlowMD->getOperand(1));
+
+      SmallVector<llvm::Metadata *, 2> Vals(
+          ArrayRef<Metadata *>{MDHelper.createString("dx.controlflow.hints"),
+                               MDHelper.createConstant(Op1)});
+
+      auto *MDNode = llvm::MDNode::get(M.getContext(), Vals);
+
+      BBTerminatorInst->setMetadata("dx.controlflow.hints", MDNode);
+      BBTerminatorInst->setMetadata("hlsl.controlflow.hint", nullptr);
+    }
+    F.clearMetadata();
+  }
+}
+
 static void translateMetadata(Module &M, const DXILResourceMap &DRM,
                               const Resources &MDResources,
                               const ComputedShaderFlags &ShaderFlags,
@@ -356,32 +386,6 @@ static void translateMetadata(Module &M, const DXILResourceMap &DRM,
       M.getOrInsertNamedMetadata("dx.entryPoints");
   for (auto *Entry : EntryFnMDNodes)
     EntryPointsNamedMD->addOperand(Entry);
-
-  for (auto &F : M) {
-    for (auto &BB : F) {
-      auto *BBTerminatorInst = BB.getTerminator();
-
-      auto *HlslControlFlowMD =
-          BBTerminatorInst->getMetadata("hlsl.controlflow.hint");
-
-      if (!HlslControlFlowMD || HlslControlFlowMD->getNumOperands() < 2)
-        continue;
-
-      MDBuilder MDHelper(M.getContext());
-      auto *Op1 =
-          mdconst::extract<ConstantInt>(HlslControlFlowMD->getOperand(1));
-
-      SmallVector<llvm::Metadata *, 2> Vals(
-          ArrayRef<Metadata *>{MDHelper.createString("dx.controlflow.hints"),
-                               MDHelper.createConstant(Op1)});
-
-      auto *MDNode = llvm::MDNode::get(M.getContext(), Vals);
-
-      BBTerminatorInst->setMetadata("dx.controlflow.hints", MDNode);
-      BBTerminatorInst->setMetadata("hlsl.controlflow.hint", nullptr);
-    }
-    F.clearMetadata();
-  }
 }
 
 PreservedAnalyses DXILTranslateMetadata::run(Module &M,
@@ -393,6 +397,7 @@ PreservedAnalyses DXILTranslateMetadata::run(Module &M,
   const dxil::ModuleMetadataInfo MMDI = MAM.getResult<DXILMetadataAnalysis>(M);
 
   translateMetadata(M, DRM, MDResources, ShaderFlags, MMDI);
+  replaceMetadata(M);
 
   return PreservedAnalyses::all();
 }
@@ -426,6 +431,7 @@ public:
         getAnalysis<DXILMetadataAnalysisWrapperPass>().getModuleMetadata();
 
     translateMetadata(M, DRM, MDResources, ShaderFlags, MMDI);
+    replaceMetadata(M);
     return true;
   }
 };
