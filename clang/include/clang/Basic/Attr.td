@@ -4302,7 +4302,7 @@ def HLSLLoopHint: StmtAttr {
   let Documentation = [HLSLLoopHintDocs, HLSLUnrollHintDocs];
 }
 
-def HLSLBranchHint: StmtAttr {
+def HLSLControlFlowHint: StmtAttr {
   /// [branch]
   /// [flatten]
   let Spellings = [Microsoft<"branch">, Microsoft<"flatten">];
