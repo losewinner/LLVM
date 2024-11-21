@@ -41,6 +41,18 @@ constexpr enable_if_t<sizeof(U) == sizeof(T), U> bit_cast(T F) {
   return __builtin_bit_cast(U, F);
 }
 
+template <typename T>
+constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
+distance_impl(T X, T Y) {
+  return __builtin_elementwise_abs(X - Y);
+}
+
+template <typename T, int N>
+constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
+distance_vec_impl(vector<T, N> X, vector<T, N> Y) {
+  return __builtin_hlsl_length(X - Y);
+}
+
 } // namespace __detail
 } // namespace hlsl
 #endif //_HLSL_HLSL_DETAILS_H_
