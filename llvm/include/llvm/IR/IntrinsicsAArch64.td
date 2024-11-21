@@ -3864,3 +3864,20 @@ def int_aarch64_sve_famin_u : AdvSIMD_Pred2VectorArg_Intrinsic;
 // Neon absolute maximum and minimum
 def int_aarch64_neon_famax :  AdvSIMD_2VectorArg_Intrinsic;
 def int_aarch64_neon_famin :  AdvSIMD_2VectorArg_Intrinsic;
+
+//
+// FP8 intrinsics
+//
+let TargetPrefix = "aarch64" in {
+
+// Conversions
+class SVE2_FP8_Cvt
+  : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
+                          [llvm_nxv16i8_ty],
+                          [IntrReadMem, IntrInaccessibleMemOnly]>;
+
+def int_aarch64_sve_fp8_cvt1   : SVE2_FP8_Cvt;
+def int_aarch64_sve_fp8_cvt2   : SVE2_FP8_Cvt;
+def int_aarch64_sve_fp8_cvtlt1 : SVE2_FP8_Cvt;
+def int_aarch64_sve_fp8_cvtlt2 : SVE2_FP8_Cvt;
+}
