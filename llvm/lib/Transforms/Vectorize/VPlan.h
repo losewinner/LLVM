@@ -1232,6 +1232,7 @@ public:
     // operand). Only generates scalar values (either for the first lane only or
     // for all lanes, depending on its uses).
     PtrAdd,
+    AnyOf,
   };
 
 private:
@@ -3763,6 +3764,10 @@ class VPlan {
   /// been modeled in VPlan directly.
   DenseMap<const SCEV *, VPValue *> SCEVToExpansion;
 
+  /// Mapping from the middle.split VPBasicBlock to the original early exiting
+  /// block.
+  DenseMap<BasicBlock *, VPBlockBase *> EarlyExitingBlocks;
+
 public:
   /// Construct a VPlan with original preheader \p Preheader, trip count \p TC,
   /// \p Entry to the plan and with \p ScalarHeader wrapping the original header
@@ -3833,10 +3838,30 @@ public:
   /// whether to execute the scalar tail loop or the exit block from the loop
   /// latch.
   const VPBasicBlock *getMiddleBlock() const {
-    return cast<VPBasicBlock>(getVectorLoopRegion()->getSingleSuccessor());
+    return cast<VPBasicBlock>(getScalarPreheader()->getSinglePredecessor());
   }
   VPBasicBlock *getMiddleBlock() {
-    return cast<VPBasicBlock>(getVectorLoopRegion()->getSingleSuccessor());
+    return cast<VPBasicBlock>(getScalarPreheader()->getSinglePredecessor());
+  }
+
+  /// Return the exit blocks of the VPlan, that is leaf nodes except the scalar
+  /// header.
+  auto getExitBlocks();
+
+  /// Add a mapping of the exiting BasicBlock to the exiting VPBlockBase, which
+  /// is essentially the middle.split block used for uncountable early exits.
+  void addEarlyExitingBlockToMap(VPBlockBase *VPBB, BasicBlock *BB) {
+    EarlyExitingBlocks[BB] = VPBB;
+  }
+
+  /// Return the exiting VPBlockBase, i.e. the middle.split block, that
+  /// corresponds to the original loop's exiting block.
+  VPBlockBase *getExitingBlock(BasicBlock *BB) {
+    auto I = EarlyExitingBlocks.find(BB);
+    // If there is no entry for this block it must be the middle block.
+    if (I == EarlyExitingBlocks.end())
+      return getMiddleBlock();
+    return I->second;
   }
 
   /// The trip count of the original loop.
