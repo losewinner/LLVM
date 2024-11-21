@@ -104,7 +104,9 @@ void MemoryUnsafeCastChecker::checkASTCodeBody(const Decl *D,
   auto MatchExprPtr = allOf(
       hasSourceExpression(hasTypePointingTo(cxxRecordDecl().bind(BaseNode))),
       hasTypePointingTo(cxxRecordDecl(isDerivedFrom(equalsBoundNode(BaseNode)))
-                            .bind(DerivedNode)));
+                            .bind(DerivedNode)),
+      unless(anyOf(hasSourceExpression(cxxThisExpr()),
+                   hasTypePointingTo(templateTypeParmDecl()))));
   auto MatchExprPtrObjC = allOf(
       hasSourceExpression(ignoringImpCasts(hasType(objcObjectPointerType(
           pointee(hasDeclaration(objcInterfaceDecl().bind(BaseNode))))))),
@@ -118,21 +120,10 @@ void MemoryUnsafeCastChecker::checkASTCodeBody(const Decl *D,
                 decl(cxxRecordDecl(isDerivedFrom(equalsBoundNode(BaseNode)))
                          .bind(DerivedNode)))))));
 
-  auto CastC =
-      cStyleCastExpr(anyOf(MatchExprPtr, MatchExprRefTypeDef, MatchExprPtrObjC))
-          .bind(WarnRecordDecl);
-  auto CastStatic = cxxStaticCastExpr(anyOf(MatchExprPtr, MatchExprRefTypeDef,
-                                            MatchExprPtrObjC))
-                        .bind(WarnRecordDecl);
-  auto CastReinterpret =
-      cxxReinterpretCastExpr(
-          anyOf(MatchExprPtr, MatchExprRefTypeDef, MatchExprPtrObjC))
-          .bind(WarnRecordDecl);
-  auto CastDynamic = cxxDynamicCastExpr(anyOf(MatchExprPtr, MatchExprRefTypeDef,
-                                              MatchExprPtrObjC))
-                         .bind(WarnRecordDecl);
-
-  auto Cast = stmt(anyOf(CastC, CastStatic, CastReinterpret, CastDynamic));
+  auto ExplicitCast = explicitCastExpr(anyOf(MatchExprPtr, MatchExprRefTypeDef,
+                                             MatchExprPtrObjC))
+                          .bind(WarnRecordDecl);
+  auto Cast = stmt(ExplicitCast);
 
   auto Matches =
       match(stmt(forEachDescendant(Cast)), *D->getBody(), AM.getASTContext());
@@ -173,22 +164,12 @@ void MemoryUnsafeCastChecker::checkASTCodeBody(const Decl *D,
               recordType(hasDeclaration(decl(cxxRecordDecl(
                   isSameOrDerivedFrom(equalsBoundNode(ToCastNode))))))))))));
 
-  auto CastCUnrelated = cStyleCastExpr(anyOf(MatchExprPtrUnrelatedTypes,
-                                             MatchExprPtrObjCUnrelatedTypes,
-                                             MatchExprRefTypeDefUnrelated))
-                            .bind(WarnRecordDecl);
-  auto CastReinterpretUnrelated =
-      cxxReinterpretCastExpr(anyOf(MatchExprPtrUnrelatedTypes,
-                                   MatchExprPtrObjCUnrelatedTypes,
-                                   MatchExprRefTypeDefUnrelated))
+  auto ExplicitCastUnrelated =
+      explicitCastExpr(anyOf(MatchExprPtrUnrelatedTypes,
+                             MatchExprPtrObjCUnrelatedTypes,
+                             MatchExprRefTypeDefUnrelated))
           .bind(WarnRecordDecl);
-  auto CastDynamicUnrelated =
-      cxxDynamicCastExpr(anyOf(MatchExprPtrUnrelatedTypes,
-                               MatchExprPtrObjCUnrelatedTypes,
-                               MatchExprRefTypeDefUnrelated))
-          .bind(WarnRecordDecl);
-  auto CastUnrelated = stmt(
-      anyOf(CastCUnrelated, CastReinterpretUnrelated, CastDynamicUnrelated));
+  auto CastUnrelated = stmt(ExplicitCastUnrelated);
   auto MatchesUnrelatedTypes = match(stmt(forEachDescendant(CastUnrelated)),
                                      *D->getBody(), AM.getASTContext());
   for (BoundNodes Match : MatchesUnrelatedTypes)

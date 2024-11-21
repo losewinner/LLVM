@@ -233,3 +233,17 @@ void test_struct_unrelated_refs(StA &a, StB &b) {
   // expected-warning@-1{{Unsafe cast from type 'StructB' to an unrelated type 'StructA'}}
   StA &a_same = (StA&)a; // no warning
 }
+
+template<typename T>
+class DeferrableRefCounted {
+public:
+  void deref() const {
+    auto this_to_T =  static_cast<const T*>(this); // no warning
+  }
+};
+
+class SomeArrayClass : public DeferrableRefCounted<SomeArrayClass> { };
+
+void test_this_to_template(SomeArrayClass *ptr) {
+  ptr->deref();
+};
