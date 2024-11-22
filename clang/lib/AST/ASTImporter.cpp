@@ -8154,8 +8154,8 @@ ExpectedStmt ASTNodeImporter::VisitCXXDefaultArgExpr(CXXDefaultArgExpr *E) {
     RewrittenInit = ExprOrErr.get();
   }
   return CXXDefaultArgExpr::Create(Importer.getToContext(), *ToUsedLocOrErr,
-                                   *ToParamOrErr, RewrittenInit,
-                                   *UsedContextOrErr);
+                                   *ToParamOrErr, *UsedContextOrErr,
+                                   RewrittenInit, E->hasRebuiltInit());
 }
 
 ExpectedStmt
@@ -8863,7 +8863,8 @@ ExpectedStmt ASTNodeImporter::VisitCXXDefaultInitExpr(CXXDefaultInitExpr *E) {
   }
 
   return CXXDefaultInitExpr::Create(Importer.getToContext(), *ToBeginLocOrErr,
-                                    ToField, *UsedContextOrErr, RewrittenInit);
+                                    ToField, *UsedContextOrErr, RewrittenInit,
+                                    E->hasRebuiltInit());
 }
 
 ExpectedStmt ASTNodeImporter::VisitCXXNamedCastExpr(CXXNamedCastExpr *E) {
