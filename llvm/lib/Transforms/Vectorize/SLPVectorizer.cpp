@@ -8587,48 +8587,43 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth,
                                    ReuseShuffleIndices);
       LLVM_DEBUG(dbgs() << "SLP: added a ShuffleVector op.\n");
 
-      bool RequireReorder = false;
       // Reorder operands if reordering would enable vectorization.
       auto *CI = dyn_cast<CmpInst>(VL0);
-      if (isa<BinaryOperator>(VL0) || CI) {
-        if (!CI || all_of(VL, [](Value *V) {
-              return cast<CmpInst>(V)->isCommutative();
-            })) {
-          RequireReorder = true;
-        } else {
-          auto *MainCI = cast<CmpInst>(S.MainOp);
-          auto *AltCI = cast<CmpInst>(S.AltOp);
-          CmpInst::Predicate MainP = MainCI->getPredicate();
-          CmpInst::Predicate AltP = AltCI->getPredicate();
-          assert(MainP != AltP &&
-                 "Expected different main/alternate predicates.");
-          ValueList Left, Right;
-          // Collect operands - commute if it uses the swapped predicate or
-          // alternate operation.
-          for (Value *V : VL) {
-            auto *Cmp = cast<CmpInst>(V);
-            Value *LHS = Cmp->getOperand(0);
-            Value *RHS = Cmp->getOperand(1);
+      if (CI && any_of(VL, [](Value *V) {
+            return !cast<CmpInst>(V)->isCommutative();
+          })) {
+        auto *MainCI = cast<CmpInst>(S.MainOp);
+        auto *AltCI = cast<CmpInst>(S.AltOp);
+        CmpInst::Predicate MainP = MainCI->getPredicate();
+        CmpInst::Predicate AltP = AltCI->getPredicate();
+        assert(MainP != AltP &&
+               "Expected different main/alternate predicates.");
+        ValueList Left, Right;
+        // Collect operands - commute if it uses the swapped predicate or
+        // alternate operation.
+        for (Value *V : VL) {
+          auto *Cmp = cast<CmpInst>(V);
+          Value *LHS = Cmp->getOperand(0);
+          Value *RHS = Cmp->getOperand(1);
 
-            if (isAlternateInstruction(Cmp, MainCI, AltCI, *TLI)) {
-              if (AltP == CmpInst::getSwappedPredicate(Cmp->getPredicate()))
-                std::swap(LHS, RHS);
-            } else {
-              if (MainP == CmpInst::getSwappedPredicate(Cmp->getPredicate()))
-                std::swap(LHS, RHS);
-            }
-            Left.push_back(LHS);
-            Right.push_back(RHS);
+          if (isAlternateInstruction(Cmp, MainCI, AltCI, *TLI)) {
+            if (AltP == CmpInst::getSwappedPredicate(Cmp->getPredicate()))
+              std::swap(LHS, RHS);
+          } else {
+            if (MainP == CmpInst::getSwappedPredicate(Cmp->getPredicate()))
+              std::swap(LHS, RHS);
           }
-          TE->setOperand(0, Left);
-          TE->setOperand(1, Right);
-          buildTree_rec(Left, Depth + 1, {TE, 0});
-          buildTree_rec(Right, Depth + 1, {TE, 1});
-          return;
+          Left.push_back(LHS);
+          Right.push_back(RHS);
         }
+        TE->setOperand(0, Left);
+        TE->setOperand(1, Right);
+        buildTree_rec(Left, Depth + 1, {TE, 0});
+        buildTree_rec(Right, Depth + 1, {TE, 1});
+        return;
       }
 
-      TE->setOperand(VL, *this, RequireReorder);
+      TE->setOperand(VL, *this, isa<BinaryOperator>(VL0) || CI);
       for (unsigned I : seq<unsigned>(VL0->getNumOperands()))
         buildTree_rec(TE->getOperand(I), Depth + 1, {TE, I});
       return;
