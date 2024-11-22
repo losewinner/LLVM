@@ -28,6 +28,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include <cstdint>
 
 #define DEBUG_TYPE "dxil-intrinsic-expansion"
 
@@ -74,14 +75,15 @@ static bool isIntrinsicExpansion(Function &F) {
 }
 
 static Value *expandVecReduceFAdd(CallInst *Orig) {
-  Value *Sum = Orig->getOperand(0);
+  // Note: vector_reduce_fadd first argument is a starting value
+  // Our use doesn't need it, so ignoring argument zero.
   Value *X = Orig->getOperand(1);
   IRBuilder<> Builder(Orig);
   Type *Ty = X->getType();
   auto *XVec = dyn_cast<FixedVectorType>(Ty);
   unsigned XVecSize = XVec->getNumElements();
-
-  for (unsigned I = 0; I < XVecSize; I++) {
+  Value *Sum = Builder.CreateExtractElement(X, static_cast<uint64_t>(0));
+  for (unsigned I = 1; I < XVecSize; I++) {
     Value *Elt = Builder.CreateExtractElement(X, I);
     Sum = Builder.CreateFAdd(Sum, Elt);
   }
@@ -96,8 +98,8 @@ static Value *expandVecReduceAdd(CallInst *Orig) {
   auto *XVec = dyn_cast<FixedVectorType>(Ty);
   unsigned XVecSize = XVec->getNumElements();
 
-  Value *Sum = ConstantInt::get(EltTy, 0);
-  for (unsigned I = 0; I < XVecSize; I++) {
+  Value *Sum = Builder.CreateExtractElement(X, static_cast<uint64_t>(0));
+  for (unsigned I = 1; I < XVecSize; I++) {
     Value *Elt = Builder.CreateExtractElement(X, I);
     Sum = Builder.CreateAdd(Sum, Elt);
   }
