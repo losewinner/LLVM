@@ -885,6 +885,10 @@ AST Matchers
 - Ensure ``hasName`` matches template specializations across inline namespaces,
   making `matchesNodeFullSlow` and `matchesNodeFullFast` consistent.
 
+- Ensure ``hasType`` and ``hasDeclaration`` match Objective-C interface declarations.
+
+- Ensure ``pointee`` matches Objective-C pointer types.
+
 clang-format
 ------------
 
