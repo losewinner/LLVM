@@ -578,6 +578,8 @@ Improvements to Clang's diagnostics
 
 - Clang now omits shadowing warnings for parameter names in explicit object member functions (#GH95707).
 
+- Clang now diagnoses the use of attribute names reserved by the C++ standard. (#GH92196).
+
 Improvements to Clang's time-trace
 ----------------------------------
 
