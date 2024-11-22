@@ -5,20 +5,28 @@
 ; CHECK-DAG: OpMemoryModel Logical GLSL450
 ; CHECK-DAG: [[u32_t:%.+]] = OpTypeInt 32 0
 ; CHECK-DAG: [[u32x2_t:%.+]] = OpTypeVector [[u32_t]] 2
+; CHECK-DAG: [[u32x3_t:%.+]] = OpTypeVector [[u32_t]] 3
 ; CHECK-DAG: [[u32x4_t:%.+]] = OpTypeVector [[u32_t]] 4
 ; CHECK-DAG: [[const_0:%.*]] = OpConstant [[u32_t]] 0
 ; CHECK-DAG: [[const_0x2:%.*]] = OpConstantComposite [[u32x2_t]] [[const_0]] [[const_0]]
+; CHECK-DAG: [[const_0x3:%.*]] = OpConstantComposite [[u32x3_t]] [[const_0]] [[const_0]] [[const_0]]
 ; CHECK-DAG: [[const_1:%.*]] = OpConstant [[u32_t]] 1
 ; CHECK-DAG: [[const_32:%.*]] = OpConstant [[u32_t]] 32
 ; CHECK-DAG: [[const_32x2:%.*]] = OpConstantComposite [[u32x2_t]] [[const_32]] [[const_32]]
+; CHECK-DAG: [[const_32x3:%.*]] = OpConstantComposite [[u32x3_t]] [[const_32]] [[const_32]] [[const_32]]
 ; CHECK-DAG: [[const_neg1:%.*]] = OpConstant [[u32_t]] 4294967295
 ; CHECK-DAG: [[const_neg1x2:%.*]] = OpConstantComposite [[u32x2_t]] [[const_neg1]] [[const_neg1]]
+; CHECK-DAG: [[const_neg1x3:%.*]] = OpConstantComposite [[u32x3_t]] [[const_neg1]] [[const_neg1]] [[const_neg1]]
 ; CHECK-DAG: [[u16_t:%.+]] = OpTypeInt 16 0
 ; CHECK-DAG: [[u16x2_t:%.+]] = OpTypeVector [[u16_t]] 2
+; CHECK-DAG: [[u16x3_t:%.+]] = OpTypeVector [[u16_t]] 3
+; CHECK-DAG: [[u16x4_t:%.+]] = OpTypeVector [[u16_t]] 4
 ; CHECK-DAG: [[u64_t:%.+]] = OpTypeInt 64 0
 ; CHECK-DAG: [[u64x2_t:%.+]] = OpTypeVector [[u64_t]] 2
+; CHECK-DAG: [[u64x3_t:%.+]] = OpTypeVector [[u64_t]] 3
 ; CHECK-DAG: [[bool_t:%.+]] = OpTypeBool
 ; CHECK-DAG: [[boolx2_t:%.+]] = OpTypeVector [[bool_t]] 2
+; CHECK-DAG: [[boolx3_t:%.+]] = OpTypeVector [[bool_t]] 3
 
 ; CHECK-LABEL: Begin function firstbitlow_i32
 define noundef i32 @firstbitlow_i32(i32 noundef %a) {
@@ -30,14 +38,34 @@ entry:
   ret i32 %elt.firstbitlow
 }
 
-; CHECK-LABEL: Begin function firstbitlow_2xi32
-define noundef <2 x i32> @firstbitlow_2xi32(<2 x i32> noundef %a) {
+; CHECK-LABEL: Begin function firstbitlow_v2xi32
+define noundef <2 x i32> @firstbitlow_v2xi32(<2 x i32> noundef %a) {
 entry:
 ; CHECK: [[a:%.+]] = OpFunctionParameter [[u32x2_t]]
 ; CHECK: [[ret:%.+]] = OpExtInst [[u32x2_t]] [[glsl_450_ext]] FindILsb [[a]]
 ; CHECK: OpReturnValue [[ret]]
   %elt.firstbitlow = call <2 x i32> @llvm.spv.firstbitlow.v2i32(<2 x i32> %a)
   ret <2 x i32> %elt.firstbitlow
+}
+
+; CHECK-LABEL: Begin function firstbitlow_v3xi32
+define noundef <3 x i32> @firstbitlow_v3xi32(<3 x i32> noundef %a) {
+entry:
+; CHECK: [[a:%.+]] = OpFunctionParameter [[u32x3_t]]
+; CHECK: [[ret:%.+]] = OpExtInst [[u32x3_t]] [[glsl_450_ext]] FindILsb [[a]]
+; CHECK: OpReturnValue [[ret]]
+  %elt.firstbitlow = call <3 x i32> @llvm.spv.firstbitlow.v3i32(<3 x i32> %a)
+  ret <3 x i32> %elt.firstbitlow
+}
+
+; CHECK-LABEL: Begin function firstbitlow_v4xi32
+define noundef <4 x i32> @firstbitlow_v4xi32(<4 x i32> noundef %a) {
+entry:
+; CHECK: [[a:%.+]] = OpFunctionParameter [[u32x4_t]]
+; CHECK: [[ret:%.+]] = OpExtInst [[u32x4_t]] [[glsl_450_ext]] FindILsb [[a]]
+; CHECK: OpReturnValue [[ret]]
+  %elt.firstbitlow = call <4 x i32> @llvm.spv.firstbitlow.v4i32(<4 x i32> %a)
+  ret <4 x i32> %elt.firstbitlow
 }
 
 ; CHECK-LABEL: Begin function firstbitlow_i16
@@ -60,6 +88,28 @@ entry:
 ; CHECK: OpReturnValue [[ret]]
   %elt.firstbitlow = call <2 x i32> @llvm.spv.firstbitlow.v2i16(<2 x i16> %a)
   ret <2 x i32> %elt.firstbitlow
+}
+
+; CHECK-LABEL: Begin function firstbitlow_v3xi16
+define noundef <3 x i32> @firstbitlow_v3xi16(<3 x i16> noundef %a) {
+entry:
+; CHECK: [[a16:%.+]] = OpFunctionParameter [[u16x3_t]]
+; CHECK: [[a32:%.+]] = OpUConvert [[u32x3_t]] [[a16]]
+; CHECK: [[ret:%.+]] = OpExtInst [[u32x3_t]] [[glsl_450_ext]] FindILsb [[a32]]
+; CHECK: OpReturnValue [[ret]]
+  %elt.firstbitlow = call <3 x i32> @llvm.spv.firstbitlow.v3i16(<3 x i16> %a)
+  ret <3 x i32> %elt.firstbitlow
+}
+
+; CHECK-LABEL: Begin function firstbitlow_v4xi16
+define noundef <4 x i32> @firstbitlow_v4xi16(<4 x i16> noundef %a) {
+entry:
+; CHECK: [[a16:%.+]] = OpFunctionParameter [[u16x4_t]]
+; CHECK: [[a32:%.+]] = OpUConvert [[u32x4_t]] [[a16]]
+; CHECK: [[ret:%.+]] = OpExtInst [[u32x4_t]] [[glsl_450_ext]] FindILsb [[a32]]
+; CHECK: OpReturnValue [[ret]]
+  %elt.firstbitlow = call <4 x i32> @llvm.spv.firstbitlow.v4i16(<4 x i16> %a)
+  ret <4 x i32> %elt.firstbitlow
 }
 
 ; CHECK-LABEL: Begin function firstbitlow_i64
@@ -94,6 +144,20 @@ entry:
 ; CHECK: OpReturnValue [[ret]]
   %elt.firstbitlow = call <2 x i32> @llvm.spv.firstbitlow.v2i64(<2 x i64> %a)
   ret <2 x i32> %elt.firstbitlow
+}
+
+; CHECK-LABEL: Begin function firstbitlow_v3i64
+define noundef <3 x i32> @firstbitlow_v3i64(<3 x i64> noundef %a) {
+entry:
+  %elt.firstbitlow = call <3 x i32> @llvm.spv.firstbitlow.v3i64(<3 x i64> %a)
+  ret <3 x i32> %elt.firstbitlow
+}
+
+; CHECK-LABEL: Begin function firstbitlow_v4i64
+define noundef <4 x i32> @firstbitlow_v4i64(<4 x i64> noundef %a) {
+entry:
+  %elt.firstbitlow = call <4 x i32> @llvm.spv.firstbitlow.v4i64(<4 x i64> %a)
+  ret <4 x i32> %elt.firstbitlow
 }
 
 ;declare i16 @llvm.spv.firstbitlow.i16(i16)
