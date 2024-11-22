@@ -13,6 +13,7 @@
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
+#include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
 
@@ -35,19 +36,10 @@ public:
 };
 } // end namespace
 
-static void emitReport(AnalysisDeclContext *ADC, BugReporter &BR,
-                       const MemoryUnsafeCastChecker *Checker,
-                       std::string &Diagnostics, const CastExpr *CE) {
-  BR.EmitBasicReport(
-      ADC->getDecl(), Checker,
-      /*Name=*/"Unsafe type cast", categories::SecurityError, Diagnostics,
-      PathDiagnosticLocation::createBegin(CE, BR.getSourceManager(), ADC),
-      CE->getSourceRange());
-}
-
 static void emitDiagnostics(const BoundNodes &Nodes, BugReporter &BR,
                             AnalysisDeclContext *ADC,
-                            const MemoryUnsafeCastChecker *Checker) {
+                            const MemoryUnsafeCastChecker *Checker,
+                            const BugType &BT) {
   const auto *CE = Nodes.getNodeAs<CastExpr>(WarnRecordDecl);
   const NamedDecl *Base = Nodes.getNodeAs<NamedDecl>(BaseNode);
   const NamedDecl *Derived = Nodes.getNodeAs<NamedDecl>(DerivedNode);
@@ -57,12 +49,17 @@ static void emitDiagnostics(const BoundNodes &Nodes, BugReporter &BR,
   llvm::raw_string_ostream OS(Diagnostics);
   OS << "Unsafe cast from base type '" << Base->getNameAsString()
      << "' to derived type '" << Derived->getNameAsString() << "'";
-  emitReport(ADC, BR, Checker, Diagnostics, CE);
+  PathDiagnosticLocation BSLoc(CE->getSourceRange().getBegin(),
+                               BR.getSourceManager());
+  auto Report = std::make_unique<BasicBugReport>(BT, OS.str(), BSLoc);
+  Report->addRange(CE->getSourceRange());
+  BR.emitReport(std::move(Report));
 }
 
 static void emitDiagnosticsUnrelated(const BoundNodes &Nodes, BugReporter &BR,
                                      AnalysisDeclContext *ADC,
-                                     const MemoryUnsafeCastChecker *Checker) {
+                                     const MemoryUnsafeCastChecker *Checker,
+                                     const BugType &BT) {
   const auto *CE = Nodes.getNodeAs<CastExpr>(WarnRecordDecl);
   const NamedDecl *FromCast = Nodes.getNodeAs<NamedDecl>(FromCastNode);
   const NamedDecl *ToCast = Nodes.getNodeAs<NamedDecl>(ToCastNode);
@@ -72,9 +69,12 @@ static void emitDiagnosticsUnrelated(const BoundNodes &Nodes, BugReporter &BR,
   llvm::raw_string_ostream OS(Diagnostics);
   OS << "Unsafe cast from type '" << FromCast->getNameAsString()
      << "' to an unrelated type '" << ToCast->getNameAsString() << "'";
-  emitReport(ADC, BR, Checker, Diagnostics, CE);
+  PathDiagnosticLocation BSLoc(CE->getSourceRange().getBegin(),
+                               BR.getSourceManager());
+  auto Report = std::make_unique<BasicBugReport>(BT, OS.str(), BSLoc);
+  Report->addRange(CE->getSourceRange());
+  BR.emitReport(std::move(Report));
 }
-
 
 namespace clang {
 namespace ast_matchers {
@@ -128,7 +128,7 @@ void MemoryUnsafeCastChecker::checkASTCodeBody(const Decl *D,
   auto Matches =
       match(stmt(forEachDescendant(Cast)), *D->getBody(), AM.getASTContext());
   for (BoundNodes Match : Matches)
-    emitDiagnostics(Match, BR, ADC, this);
+    emitDiagnostics(Match, BR, ADC, this, BT);
 
   // Match casts between unrelated types and warn
   auto MatchExprPtrUnrelatedTypes = allOf(
@@ -173,7 +173,7 @@ void MemoryUnsafeCastChecker::checkASTCodeBody(const Decl *D,
   auto MatchesUnrelatedTypes = match(stmt(forEachDescendant(CastUnrelated)),
                                      *D->getBody(), AM.getASTContext());
   for (BoundNodes Match : MatchesUnrelatedTypes)
-    emitDiagnosticsUnrelated(Match, BR, ADC, this);
+    emitDiagnosticsUnrelated(Match, BR, ADC, this, BT);
 }
 
 void ento::registerMemoryUnsafeCastChecker(CheckerManager &Mgr) {
