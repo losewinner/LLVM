@@ -43,14 +43,32 @@ constexpr enable_if_t<sizeof(U) == sizeof(T), U> bit_cast(T F) {
 
 template <typename T>
 constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
+length_impl(T X) {
+  return __builtin_elementwise_abs(X);
+}
+
+template <typename T, int N>
+constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
+length_vec_impl(vector<T, N> X) {
+  vector<T, N> XSquared = X * X;
+  T XSquaredSum = __builtin_hlsl_reduce_add(XSquared);
+  /*T  XSquaredSum = 0;
+  for(int I = 0; I < N; I++) {
+    XSquaredSum += XSquared[I];
+  }*/
+  return __builtin_elementwise_sqrt(XSquaredSum);
+}
+
+template <typename T>
+constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
 distance_impl(T X, T Y) {
-  return __builtin_elementwise_abs(X - Y);
+  return length_impl(X - Y);
 }
 
 template <typename T, int N>
 constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
 distance_vec_impl(vector<T, N> X, vector<T, N> Y) {
-  return __builtin_hlsl_length(X - Y);
+  return length_vec_impl(X - Y);
 }
 
 } // namespace __detail

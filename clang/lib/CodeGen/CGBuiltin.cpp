@@ -19174,20 +19174,6 @@ Value *CodeGenFunction::EmitHLSLBuiltinExpr(unsigned BuiltinID,
         /*ReturnType=*/X->getType(), CGM.getHLSLRuntime().getLerpIntrinsic(),
         ArrayRef<Value *>{X, Y, S}, nullptr, "hlsl.lerp");
   }
-  case Builtin::BI__builtin_hlsl_length: {
-    Value *X = EmitScalarExpr(E->getArg(0));
-
-    assert(E->getArg(0)->getType()->hasFloatingRepresentation() &&
-           "length operand must have a float representation");
-    // if the operand is a scalar, we can use the fabs llvm intrinsic directly
-    if (!E->getArg(0)->getType()->isVectorType())
-      return EmitFAbs(*this, X);
-
-    return Builder.CreateIntrinsic(
-        /*ReturnType=*/X->getType()->getScalarType(),
-        CGM.getHLSLRuntime().getLengthIntrinsic(), ArrayRef<Value *>{X},
-        nullptr, "hlsl.length");
-  }
   case Builtin::BI__builtin_hlsl_normalize: {
     Value *X = EmitScalarExpr(E->getArg(0));
 
@@ -19288,6 +19274,21 @@ case Builtin::BI__builtin_hlsl_elementwise_isinf: {
         /*ReturnType=*/Op0->getType(),
         CGM.getHLSLRuntime().getSaturateIntrinsic(), ArrayRef<Value *>{Op0},
         nullptr, "hlsl.saturate");
+  }
+  case Builtin::BI__builtin_hlsl_reduce_add: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    auto EltTy = X->getType()->getScalarType();
+    if (E->getArg(0)->getType()->hasFloatingRepresentation()) {
+      Value *Seed = ConstantFP::get(EltTy, 0);
+      return Builder.CreateIntrinsic(
+          /*ReturnType=*/EltTy, llvm::Intrinsic::vector_reduce_fadd,
+          ArrayRef<Value *>{Seed, X}, nullptr, "rdx.fadd");
+    } else {
+      assert(E->getArg(0)->getType()->hasIntegerRepresentation());
+      return Builder.CreateIntrinsic(
+          /*ReturnType=*/EltTy, llvm::Intrinsic::vector_reduce_add,
+          ArrayRef<Value *>{X}, nullptr, "rdx.add");
+    }
   }
   case Builtin::BI__builtin_hlsl_select: {
     Value *OpCond = EmitScalarExpr(E->getArg(0));

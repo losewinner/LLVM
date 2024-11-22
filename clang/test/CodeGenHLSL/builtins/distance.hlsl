@@ -16,8 +16,10 @@ half test_distance_half(half X, half Y) { return distance(X, Y); }
 // CHECK-SAME: <2 x half> noundef [[X:%.*]], <2 x half> noundef [[Y:%.*]]) local_unnamed_addr #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[SUB_I:%.*]] = fsub <2 x half> [[X]], [[Y]]
-// CHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef half @llvm.dx.length.v2f16(<2 x half> [[SUB_I]])
-// CHECK-NEXT:    ret half [[HLSL_LENGTH_I]]
+// CHECK-NEXT:    [[MUL_I:%.*]] = fmul <2 x half> [[SUB_I]], [[SUB_I]]
+// CHECK-NEXT:    [[RDX_FADD_I:%.*]] = tail call half @llvm.vector.reduce.fadd.v2f16(half 0xH0000, <2 x half> [[MUL_I]])
+// CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef half @llvm.sqrt.f16(half [[RDX_FADD_I]])
+// CHECK-NEXT:    ret half [[TMP0]]
 //
 half test_distance_half2(half2 X, half2 Y) { return distance(X, Y); }
 
@@ -25,8 +27,10 @@ half test_distance_half2(half2 X, half2 Y) { return distance(X, Y); }
 // CHECK-SAME: <3 x half> noundef [[X:%.*]], <3 x half> noundef [[Y:%.*]]) local_unnamed_addr #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[SUB_I:%.*]] = fsub <3 x half> [[X]], [[Y]]
-// CHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef half @llvm.dx.length.v3f16(<3 x half> [[SUB_I]])
-// CHECK-NEXT:    ret half [[HLSL_LENGTH_I]]
+// CHECK-NEXT:    [[MUL_I:%.*]] = fmul <3 x half> [[SUB_I]], [[SUB_I]]
+// CHECK-NEXT:    [[RDX_FADD_I:%.*]] = tail call half @llvm.vector.reduce.fadd.v3f16(half 0xH0000, <3 x half> [[MUL_I]])
+// CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef half @llvm.sqrt.f16(half [[RDX_FADD_I]])
+// CHECK-NEXT:    ret half [[TMP0]]
 //
 half test_distance_half3(half3 X, half3 Y) { return distance(X, Y); }
 
@@ -34,8 +38,10 @@ half test_distance_half3(half3 X, half3 Y) { return distance(X, Y); }
 // CHECK-SAME: <4 x half> noundef [[X:%.*]], <4 x half> noundef [[Y:%.*]]) local_unnamed_addr #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[SUB_I:%.*]] = fsub <4 x half> [[X]], [[Y]]
-// CHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef half @llvm.dx.length.v4f16(<4 x half> [[SUB_I]])
-// CHECK-NEXT:    ret half [[HLSL_LENGTH_I]]
+// CHECK-NEXT:    [[MUL_I:%.*]] = fmul <4 x half> [[SUB_I]], [[SUB_I]]
+// CHECK-NEXT:    [[RDX_FADD_I:%.*]] = tail call half @llvm.vector.reduce.fadd.v4f16(half 0xH0000, <4 x half> [[MUL_I]])
+// CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef half @llvm.sqrt.f16(half [[RDX_FADD_I]])
+// CHECK-NEXT:    ret half [[TMP0]]
 //
 half test_distance_half4(half4 X, half4 Y) { return distance(X, Y); }
 
@@ -52,8 +58,10 @@ float test_distance_float(float X, float Y) { return distance(X, Y); }
 // CHECK-SAME: <2 x float> noundef [[X:%.*]], <2 x float> noundef [[Y:%.*]]) local_unnamed_addr #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[SUB_I:%.*]] = fsub <2 x float> [[X]], [[Y]]
-// CHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef float @llvm.dx.length.v2f32(<2 x float> [[SUB_I]])
-// CHECK-NEXT:    ret float [[HLSL_LENGTH_I]]
+// CHECK-NEXT:    [[MUL_I:%.*]] = fmul <2 x float> [[SUB_I]], [[SUB_I]]
+// CHECK-NEXT:    [[RDX_FADD_I:%.*]] = tail call float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <2 x float> [[MUL_I]])
+// CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef float @llvm.sqrt.f32(float [[RDX_FADD_I]])
+// CHECK-NEXT:    ret float [[TMP0]]
 //
 float test_distance_float2(float2 X, float2 Y) { return distance(X, Y); }
 
@@ -61,8 +69,10 @@ float test_distance_float2(float2 X, float2 Y) { return distance(X, Y); }
 // CHECK-SAME: <3 x float> noundef [[X:%.*]], <3 x float> noundef [[Y:%.*]]) local_unnamed_addr #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[SUB_I:%.*]] = fsub <3 x float> [[X]], [[Y]]
-// CHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef float @llvm.dx.length.v3f32(<3 x float> [[SUB_I]])
-// CHECK-NEXT:    ret float [[HLSL_LENGTH_I]]
+// CHECK-NEXT:    [[MUL_I:%.*]] = fmul <3 x float> [[SUB_I]], [[SUB_I]]
+// CHECK-NEXT:    [[RDX_FADD_I:%.*]] = tail call float @llvm.vector.reduce.fadd.v3f32(float 0.000000e+00, <3 x float> [[MUL_I]])
+// CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef float @llvm.sqrt.f32(float [[RDX_FADD_I]])
+// CHECK-NEXT:    ret float [[TMP0]]
 //
 float test_distance_float3(float3 X, float3 Y) { return distance(X, Y); }
 
@@ -70,7 +80,9 @@ float test_distance_float3(float3 X, float3 Y) { return distance(X, Y); }
 // CHECK-SAME: <4 x float> noundef [[X:%.*]], <4 x float> noundef [[Y:%.*]]) local_unnamed_addr #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[SUB_I:%.*]] = fsub <4 x float> [[X]], [[Y]]
-// CHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef float @llvm.dx.length.v4f32(<4 x float> [[SUB_I]])
-// CHECK-NEXT:    ret float [[HLSL_LENGTH_I]]
+// CHECK-NEXT:    [[MUL_I:%.*]] = fmul <4 x float> [[SUB_I]], [[SUB_I]]
+// CHECK-NEXT:    [[RDX_FADD_I:%.*]] = tail call float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> [[MUL_I]])
+// CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef float @llvm.sqrt.f32(float [[RDX_FADD_I]])
+// CHECK-NEXT:    ret float [[TMP0]]
 //
 float test_distance_float4(float4 X, float4 Y) { return distance(X, Y); }

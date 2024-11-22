@@ -3,114 +3,140 @@
 
 ; Make sure dxil operation function calls for length are generated for half/float.
 
-declare half @llvm.fabs.f16(half)
-declare half @llvm.dx.length.v2f16(<2 x half>)
-declare half @llvm.dx.length.v3f16(<3 x half>)
-declare half @llvm.dx.length.v4f16(<4 x half>)
-
-declare float @llvm.fabs.f32(float)
-declare float @llvm.dx.length.v2f32(<2 x float>)
-declare float @llvm.dx.length.v3f32(<3 x float>)
-declare float @llvm.dx.length.v4f32(<4 x float>)
-
 define noundef half @test_length_half2(<2 x half> noundef %p0) {
+; CHECK-LABEL: define noundef half @test_length_half2(
+; CHECK-SAME: <2 x half> noundef [[P0:%.*]]) {
+; CHECK:  [[ENTRY:.*:]]
+; CHECK:    [[MUL_I:%.*]] = fmul <2 x half> [[P0]], [[P0]]
+; CHECK:    [[TMP0:%.*]] = extractelement <2 x half> [[MUL_I]], i64 0
+; CHECK:    [[TMP1:%.*]] = fadd half 0xH0000, [[TMP0]]
+; CHECK:    [[TMP2:%.*]] = extractelement <2 x half> [[MUL_I]], i64 1
+; CHECK:    [[TMP3:%.*]] = fadd half [[TMP1]], [[TMP2]]
+; EXPCHECK: [[HLSL_LENGTH:%.*]] = call half @llvm.sqrt.f16(half [[TMP3]])
+; DOPCHECK: [[HLSL_LENGTH:%.*]] = call half @dx.op.unary.f16(i32 24, half [[TMP3]])
+; CHECK:    ret half [[HLSL_LENGTH]]
+;
 entry:
-  ; CHECK: extractelement <2 x half> %{{.*}}, i64 0
-  ; CHECK: fmul half %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <2 x half> %{{.*}}, i64 1
-  ; CHECK: fmul half %{{.*}}, %{{.*}}
-  ; CHECK: fadd half %{{.*}}, %{{.*}}
-  ; EXPCHECK: call half @llvm.sqrt.f16(half %{{.*}})
-  ; DOPCHECK: call half @dx.op.unary.f16(i32 24, half %{{.*}})
 
-  %hlsl.length = call half @llvm.dx.length.v2f16(<2 x half> %p0)
+  %mul.i = fmul <2 x half> %p0, %p0
+  %rdx.fadd.i = call half @llvm.vector.reduce.fadd.v2f16(half 0xH0000, <2 x half> %mul.i)
+  %hlsl.length = call half @llvm.sqrt.f16(half %rdx.fadd.i)
   ret half %hlsl.length
 }
 
 define noundef half @test_length_half3(<3 x half> noundef %p0) {
+; CHECK-LABEL: define noundef half @test_length_half3(
+; CHECK-SAME: <3 x half> noundef [[P0:%.*]]) {
+; CHECK:  [[ENTRY:.*:]]
+; CHECK:    [[MUL_I:%.*]] = fmul <3 x half> [[P0]], [[P0]]
+; CHECK:    [[TMP0:%.*]] = extractelement <3 x half> [[MUL_I]], i64 0
+; CHECK:    [[TMP1:%.*]] = fadd half 0xH0000, [[TMP0]]
+; CHECK:    [[TMP2:%.*]] = extractelement <3 x half> [[MUL_I]], i64 1
+; CHECK:    [[TMP3:%.*]] = fadd half [[TMP1]], [[TMP2]]
+; CHECK:    [[TMP4:%.*]] = extractelement <3 x half> [[MUL_I]], i64 2
+; CHECK:    [[TMP5:%.*]] = fadd half [[TMP3]], [[TMP4]]
+; EXPCHECK: [[HLSL_LENGTH:%.*]] = call half @llvm.sqrt.f16(half [[TMP5]])
+; DOPCHECK: [[HLSL_LENGTH:%.*]] = call half @dx.op.unary.f16(i32 24, half [[TMP5]])
+; CHECK:    ret half [[HLSL_LENGTH]]
+;
 entry:
-  ; CHECK: extractelement <3 x half> %{{.*}}, i64 0
-  ; CHECK: fmul half %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <3 x half> %{{.*}}, i64 1
-  ; CHECK: fmul half %{{.*}}, %{{.*}}
-  ; CHECK: fadd half %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <3 x half> %{{.*}}, i64 2
-  ; CHECK: fmul half %{{.*}}, %{{.*}}
-  ; CHECK: fadd half %{{.*}}, %{{.*}}
-  ; EXPCHECK: call half @llvm.sqrt.f16(half %{{.*}})
-  ; DOPCHECK: call half @dx.op.unary.f16(i32 24, half %{{.*}})
 
-  %hlsl.length = call half @llvm.dx.length.v3f16(<3 x half> %p0)
+  %mul.i = fmul <3 x half> %p0, %p0
+  %rdx.fadd.i = call half @llvm.vector.reduce.fadd.v2f16(half 0xH0000, <3 x half> %mul.i)
+  %hlsl.length = call half @llvm.sqrt.f16(half %rdx.fadd.i)
   ret half %hlsl.length
 }
 
 define noundef half @test_length_half4(<4 x half> noundef %p0) {
+; CHECK-LABEL: define noundef half @test_length_half4(
+; CHECK-SAME: <4 x half> noundef [[P0:%.*]]) {
+; CHECK:  [[ENTRY:.*:]]
+; CHECK:    [[MUL_I:%.*]] = fmul <4 x half> [[P0]], [[P0]]
+; CHECK:    [[TMP0:%.*]] = extractelement <4 x half> [[MUL_I]], i64 0
+; CHECK:    [[TMP1:%.*]] = fadd half 0xH0000, [[TMP0]]
+; CHECK:    [[TMP2:%.*]] = extractelement <4 x half> [[MUL_I]], i64 1
+; CHECK:    [[TMP3:%.*]] = fadd half [[TMP1]], [[TMP2]]
+; CHECK:    [[TMP4:%.*]] = extractelement <4 x half> [[MUL_I]], i64 2
+; CHECK:    [[TMP5:%.*]] = fadd half [[TMP3]], [[TMP4]]
+; CHECK:    [[TMP6:%.*]] = extractelement <4 x half> [[MUL_I]], i64 3
+; CHECK:    [[TMP7:%.*]] = fadd half [[TMP5]], [[TMP6]]
+; EXPCHECK: [[HLSL_LENGTH:%.*]] = call half @llvm.sqrt.f16(half [[TMP7]])
+; DOPCHECK: [[HLSL_LENGTH:%.*]] = call half @dx.op.unary.f16(i32 24, half [[TMP7]])
+; CHECK:    ret half [[HLSL_LENGTH]]
+;
 entry:
-  ; CHECK: extractelement <4 x half> %{{.*}}, i64 0
-  ; CHECK: fmul half %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <4 x half> %{{.*}}, i64 1
-  ; CHECK: fmul half %{{.*}}, %{{.*}}
-  ; CHECK: fadd half %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <4 x half> %{{.*}}, i64 2
-  ; CHECK: fmul half %{{.*}}, %{{.*}}
-  ; CHECK: fadd half %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <4 x half> %{{.*}}, i64 3
-  ; CHECK: fmul half %{{.*}}, %{{.*}}
-  ; CHECK: fadd half %{{.*}}, %{{.*}}
-  ; EXPCHECK: call half @llvm.sqrt.f16(half %{{.*}})
-  ; DOPCHECK:  call half @dx.op.unary.f16(i32 24, half %{{.*}})
 
-  %hlsl.length = call half @llvm.dx.length.v4f16(<4 x half> %p0)
+  %mul.i = fmul <4 x half> %p0, %p0
+  %rdx.fadd.i = call half @llvm.vector.reduce.fadd.v2f16(half 0xH0000, <4 x half> %mul.i)
+  %hlsl.length = call half @llvm.sqrt.f16(half %rdx.fadd.i)
   ret half %hlsl.length
 }
 
 define noundef float @test_length_float2(<2 x float> noundef %p0) {
+; CHECK-LABEL: define noundef float @test_length_float2(
+; CHECK-SAME: <2 x float> noundef [[P0:%.*]]) {
+; CHECK:  [[ENTRY:.*:]]
+; CHECK:    [[MUL_I:%.*]] = fmul <2 x float> [[P0]], [[P0]]
+; CHECK:    [[TMP0:%.*]] = extractelement <2 x float> [[MUL_I]], i64 0
+; CHECK:    [[TMP1:%.*]] = fadd float 0.000000e+00, [[TMP0]]
+; CHECK:    [[TMP2:%.*]] = extractelement <2 x float> [[MUL_I]], i64 1
+; CHECK:    [[TMP3:%.*]] = fadd float [[TMP1]], [[TMP2]]
+; EXPCHECK: [[HLSL_LENGTH:%.*]] = call float @llvm.sqrt.f32(float [[TMP3]])
+; DOPCHECK: [[HLSL_LENGTH:%.*]] = call float @dx.op.unary.f32(i32 24, float [[TMP3]])
+; CHECK:    ret float [[HLSL_LENGTH]]
+;
 entry:
-  ; CHECK: extractelement <2 x float> %{{.*}}, i64 0
-  ; CHECK: fmul float %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <2 x float> %{{.*}}, i64 1
-  ; CHECK: fmul float %{{.*}}, %{{.*}}
-  ; CHECK: fadd float %{{.*}}, %{{.*}}
-  ; EXPCHECK: call float @llvm.sqrt.f32(float %{{.*}})
-  ; DOPCHECK: call float @dx.op.unary.f32(i32 24, float %{{.*}})
 
-  %hlsl.length = call float @llvm.dx.length.v2f32(<2 x float> %p0)
+  %mul.i = fmul <2 x float> %p0, %p0
+  %rdx.fadd.i = call float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <2 x float> %mul.i)
+  %hlsl.length = call float @llvm.sqrt.f32(float %rdx.fadd.i)
   ret float %hlsl.length
 }
 
 define noundef float @test_length_float3(<3 x float> noundef %p0) {
+; CHECK-LABEL: define noundef float @test_length_float3(
+; CHECK-SAME: <3 x float> noundef [[P0:%.*]]) {
+; CHECK:  [[ENTRY:.*:]]
+; CHECK:    [[MUL_I:%.*]] = fmul <3 x float> [[P0]], [[P0]]
+; CHECK:    [[TMP0:%.*]] = extractelement <3 x float> [[MUL_I]], i64 0
+; CHECK:    [[TMP1:%.*]] = fadd float 0.000000e+00, [[TMP0]]
+; CHECK:    [[TMP2:%.*]] = extractelement <3 x float> [[MUL_I]], i64 1
+; CHECK:    [[TMP3:%.*]] = fadd float [[TMP1]], [[TMP2]]
+; CHECK:    [[TMP4:%.*]] = extractelement <3 x float> [[MUL_I]], i64 2
+; CHECK:    [[TMP5:%.*]] = fadd float [[TMP3]], [[TMP4]]
+; EXPCHECK: [[HLSL_LENGTH:%.*]] = call float @llvm.sqrt.f32(float [[TMP5]])
+; DOPCHECK: [[HLSL_LENGTH:%.*]] = call float @dx.op.unary.f32(i32 24, float [[TMP5]])
+; CHECK:    ret float [[HLSL_LENGTH]]
+;
 entry:
-  ; CHECK: extractelement <3 x float> %{{.*}}, i64 0
-  ; CHECK: fmul float %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <3 x float> %{{.*}}, i64 1
-  ; CHECK: fmul float %{{.*}}, %{{.*}}
-  ; CHECK: fadd float %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <3 x float> %{{.*}}, i64 2
-  ; CHECK: fmul float %{{.*}}, %{{.*}}
-  ; CHECK: fadd float %{{.*}}, %{{.*}}
-  ; EXPCHECK: call float @llvm.sqrt.f32(float %{{.*}})
-  ; DOPCHECK: call float @dx.op.unary.f32(i32 24, float %{{.*}})
 
-  %hlsl.length = call float @llvm.dx.length.v3f32(<3 x float> %p0)
+  %mul.i = fmul <3 x float> %p0, %p0
+  %rdx.fadd.i = call float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <3 x float> %mul.i)
+  %hlsl.length = call float @llvm.sqrt.f32(float %rdx.fadd.i)
   ret float %hlsl.length
 }
 
 define noundef float @test_length_float4(<4 x float> noundef %p0) {
+; CHECK-LABEL: define noundef float @test_length_float4(
+; CHECK-SAME: <4 x float> noundef [[P0:%.*]]) {
+; CHECK:  [[ENTRY:.*:]]
+; CHECK:    [[MUL_I:%.*]] = fmul <4 x float> [[P0]], [[P0]]
+; CHECK:    [[TMP0:%.*]] = extractelement <4 x float> [[MUL_I]], i64 0
+; CHECK:    [[TMP1:%.*]] = fadd float 0.000000e+00, [[TMP0]]
+; CHECK:    [[TMP2:%.*]] = extractelement <4 x float> [[MUL_I]], i64 1
+; CHECK:    [[TMP3:%.*]] = fadd float [[TMP1]], [[TMP2]]
+; CHECK:    [[TMP4:%.*]] = extractelement <4 x float> [[MUL_I]], i64 2
+; CHECK:    [[TMP5:%.*]] = fadd float [[TMP3]], [[TMP4]]
+; CHECK:    [[TMP6:%.*]] = extractelement <4 x float> [[MUL_I]], i64 3
+; CHECK:    [[TMP7:%.*]] = fadd float [[TMP5]], [[TMP6]]
+; EXPCHECK: [[HLSL_LENGTH:%.*]] = call float @llvm.sqrt.f32(float [[TMP7]])
+; DOPCHECK: [[HLSL_LENGTH:%.*]] = call float @dx.op.unary.f32(i32 24, float [[TMP7]])
+; CHECK:    ret float [[HLSL_LENGTH]]
+;
 entry:
-  ; CHECK: extractelement <4 x float> %{{.*}}, i64 0
-  ; CHECK: fmul float %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <4 x float> %{{.*}}, i64 1
-  ; CHECK: fmul float %{{.*}}, %{{.*}}
-  ; CHECK: fadd float %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <4 x float> %{{.*}}, i64 2
-  ; CHECK: fmul float %{{.*}}, %{{.*}}
-  ; CHECK: fadd float %{{.*}}, %{{.*}}
-  ; CHECK: extractelement <4 x float> %{{.*}}, i64 3
-  ; CHECK: fmul float %{{.*}}, %{{.*}}
-  ; CHECK: fadd float %{{.*}}, %{{.*}}
-  ; EXPCHECK: call float @llvm.sqrt.f32(float %{{.*}})
-  ; DOPCHECK:  call float @dx.op.unary.f32(i32 24, float %{{.*}})
 
-  %hlsl.length = call float @llvm.dx.length.v4f32(<4 x float> %p0)
+  %mul.i = fmul <4 x float> %p0, %p0
+  %rdx.fadd.i = call float @llvm.vector.reduce.fadd.v2f32(float 0.000000e+00, <4 x float> %mul.i)
+  %hlsl.length = call float @llvm.sqrt.f32(float %rdx.fadd.i)
   ret float %hlsl.length
 }

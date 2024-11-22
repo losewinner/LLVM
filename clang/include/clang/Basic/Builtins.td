@@ -4756,6 +4756,12 @@ def HLSLAsDouble : LangBuiltin<"HLSL_LANG"> {
   let Prototype = "void(...)";
 }
 
+def HLSLReduceAdd : LangBuiltin<"HLSL_LANG"> {
+  let Spellings = ["__builtin_hlsl_reduce_add"];
+  let Attributes = [NoThrow, Const, Constexpr];
+  let Prototype = "void(...)";
+}
+
 def HLSLWaveActiveAnyTrue : LangBuiltin<"HLSL_LANG"> {
   let Spellings = ["__builtin_hlsl_wave_active_any_true"];
   let Attributes = [NoThrow, Const];
@@ -4836,12 +4842,6 @@ def HLSLFrac : LangBuiltin<"HLSL_LANG"> {
 
 def HLSLIsinf : LangBuiltin<"HLSL_LANG"> {
   let Spellings = ["__builtin_hlsl_elementwise_isinf"];
-  let Attributes = [NoThrow, Const];
-  let Prototype = "void(...)";
-}
-
-def HLSLLength : LangBuiltin<"HLSL_LANG"> {
-  let Spellings = ["__builtin_hlsl_length"];
   let Attributes = [NoThrow, Const];
   let Prototype = "void(...)";
 }
