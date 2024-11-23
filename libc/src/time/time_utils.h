@@ -17,8 +17,6 @@
 #include "src/errno/libc_errno.h"
 #include "src/time/mktime.h"
 
-#include <stdint.h>
-
 namespace LIBC_NAMESPACE_DECL {
 namespace time_utils {
 
