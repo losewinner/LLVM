@@ -8,7 +8,6 @@
 
 #include <chrono>
 #include <cstdarg>
-#include <fstream>
 #include <mutex>
 
 #include "DAP.h"
@@ -35,8 +34,8 @@ using namespace lldb_dap;
 
 namespace lldb_dap {
 
-DAP::DAP(llvm::StringRef path, std::shared_ptr<llvm::raw_ostream> log,
-         ReplMode repl_mode, std::vector<std::string> pre_init_commands)
+DAP::DAP(llvm::StringRef path, llvm::raw_ostream *log, ReplMode repl_mode,
+         std::vector<std::string> pre_init_commands)
     : debug_adaptor_path(path), broadcaster("lldb-dap"), log(log),
       exception_breakpoints(), pre_init_commands(pre_init_commands),
       focus_tid(LLDB_INVALID_THREAD_ID), stop_at_entry(false), is_attach(false),
@@ -220,19 +219,19 @@ std::string DAP::ReadJSON() {
   std::string json_str;
   int length;
 
-  if (!input.read_expected(log.get(), "Content-Length: "))
+  if (!input.read_expected(log, "Content-Length: "))
     return json_str;
 
-  if (!input.read_line(log.get(), length_str))
+  if (!input.read_line(log, length_str))
     return json_str;
 
   if (!llvm::to_integer(length_str, length))
     return json_str;
 
-  if (!input.read_expected(log.get(), "\r\n"))
+  if (!input.read_expected(log, "\r\n"))
     return json_str;
 
-  if (!input.read_full(log.get(), length, json_str))
+  if (!input.read_full(log, length, json_str))
     return json_str;
 
   if (log) {
@@ -685,9 +684,8 @@ PacketStatus DAP::GetNextObject(llvm::json::Object &object) {
     return PacketStatus::JSONMalformed;
   }
 
-  if (log) {
+  if (log)
     *log << llvm::formatv("{0:2}", *json_value).str() << "\n";
-  }
 
   llvm::json::Object *object_ptr = json_value->getAsObject();
   if (!object_ptr) {

@@ -23,7 +23,6 @@ typedef int SOCKET;
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
-#include <fstream>
 #include <string>
 
 // Windows requires different system calls for dealing with sockets and other

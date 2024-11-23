@@ -4968,10 +4968,10 @@ int main(int argc, char *argv[]) {
   }
 
   const char *log_file_path = getenv("LLDBDAP_LOG");
-  std::shared_ptr<llvm::raw_ostream> log;
+  llvm::raw_ostream *log;
   if (log_file_path) {
     std::error_code EC;
-    log.reset(new llvm::raw_fd_ostream(log_file_path, EC));
+    log = new llvm::raw_fd_ostream(log_file_path, EC);
     if (EC) {
       llvm::errs() << "Could not open log file: " << EC.message() << ", "
                    << log_file_path << '\n';
@@ -5028,7 +5028,8 @@ int main(int argc, char *argv[]) {
 
     llvm::outs() << "Listening for: "
                  << llvm::join(*maybeListenerAddresses, ", ") << "\n";
-    // Ensure listening address are flushed for calles to retrieve the resolve address.
+    // Ensure listening address are flushed for calles to retrieve the resolve
+    // address.
     llvm::outs().flush();
 
     while (g_listener && g_listener->isListening()) {
@@ -5100,8 +5101,8 @@ int main(int argc, char *argv[]) {
 
   bool CleanExit = true;
   if (auto Err = dap.Loop()) {
-    if (dap.log)
-      *dap.log << "Transport Error: " << Err << "\n";
+    if (log)
+      *log << "Transport Error: " << Err << "\n";
     CleanExit = false;
   }
 
