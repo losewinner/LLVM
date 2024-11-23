@@ -9,6 +9,7 @@ import socket
 import string
 import subprocess
 import sys
+import selectors
 import threading
 import time
 
@@ -1150,36 +1151,37 @@ class DebugCommunication(object):
         }
         return self.send_recv(command_dict)
 
+
 class DebugAdaptorServer(DebugCommunication):
     def __init__(
         self,
         executable=None,
         launch=True,
-        port=None,
-        unix_socket=None,
+        connection=None,
         init_commands=[],
         log_file=None,
         env=None,
     ):
         self.process = None
         if launch:
-            self.process = DebugAdaptorServer.launch(
+            self.process, connection = DebugAdaptorServer.launch(
                 executable,
-                port=port,
-                unix_socket=unix_socket,
+                connection=connection,
                 log_file=log_file,
                 env=env,
             )
 
-        if port:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(("127.0.0.1", port))
-            DebugCommunication.__init__(
-                self, s.makefile("rb"), s.makefile("wb"), init_commands, log_file
-            )
-        elif unix_socket:
-            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            s.connect(unix_socket)
+        if connection:
+            print("attempting connection", connection)
+            if connection.startswith("unix://"):  # unix:///path
+                s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                s.connect(connection.removeprefix("unix://"))
+            elif connection.startswith("tcp://"):  # tcp://host:port
+                host, port = connection.removeprefix("tcp://").split(":", 1)
+                # create_connection with try both ipv4 and ipv6.
+                s = socket.create_connection((host, int(port)))
+            else:
+                raise ValueError("invalid connection: {}".format(connection))
             DebugCommunication.__init__(
                 self, s.makefile("rb"), s.makefile("wb"), init_commands, log_file
             )
@@ -1202,8 +1204,8 @@ class DebugAdaptorServer(DebugCommunication):
 
     @classmethod
     def launch(
-        cls, executable: str, /, port=None, unix_socket=None, log_file=None, env=None
-    ) -> subprocess.Popen:
+        cls, executable: str, /, connection=None, log_file=None, env=None
+    ) -> tuple[subprocess.Popen, str]:
         adaptor_env = os.environ.copy()
         if env:
             adaptor_env.update(env)
@@ -1211,13 +1213,13 @@ class DebugAdaptorServer(DebugCommunication):
         if log_file:
             adaptor_env["LLDBDAP_LOG"] = log_file
 
+        if os.uname().sysname == "Darwin":
+            adaptor_env["NSUnbufferedIO"] = "YES"
+
         args = [executable]
-        if port:
-            args.append("--port")
-            args.append(str(port))
-        elif unix_socket:
-            args.append("--unix-socket")
-            args.append(unix_socket)
+        if connection:
+            args.append("--connection")
+            args.append(connection)
 
         proc = subprocess.Popen(
             args,
@@ -1227,11 +1229,34 @@ class DebugAdaptorServer(DebugCommunication):
             env=adaptor_env,
         )
 
-        if port or unix_socket:
-            # Wait for the server to startup.
-            time.sleep(0.1)
+        if connection:
+            # If a conneciton is specified, lldb-dap will print the listening
+            # address once the listener is made to stdout. The listener is
+            # formatted like `tcp://host:port` or `unix:///path`.
+            with selectors.DefaultSelector() as sel:
+                print("Reading stdout for the listening connection")
+                os.set_blocking(proc.stdout.fileno(), False)
+                stdout_key = sel.register(proc.stdout, selectors.EVENT_READ)
+                rdy_fds = sel.select(timeout=10.0)
+                for key, _ in rdy_fds:
+                    if key != stdout_key:
+                        continue
 
-        return proc
+                    outs = proc.stdout.read(1024).decode()
+                    os.set_blocking(proc.stdout.fileno(), True)
+                    for line in outs.split("\n"):
+                        if not line.startswith("Listening for: "):
+                            continue
+                        # If the listener expanded into multiple addresses, use the first.
+                        connection = line.removeprefix("Listening for: ").split(",")[0]
+                        print("")
+                        return proc, connection
+                proc.kill()
+                raise ValueError(
+                    "lldb-dap started with a connection but failed to write the listening address to stdout."
+                )
+
+        return proc, None
 
 
 def attach_options_specified(options):

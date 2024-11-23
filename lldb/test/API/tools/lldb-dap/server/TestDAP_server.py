@@ -12,10 +12,10 @@ import lldbdap_testcase
 
 
 class TestDAP_server(lldbdap_testcase.DAPTestCaseBase):
-    def do_test_server(self, port=None, unix_socket=None):
+    def do_test_server(self, connection):
         log_file_path = self.getBuildArtifact("dap.txt")
-        server = dap_server.DebugAdaptorServer.launch(
-            self.lldbDAPExec, port=port, unix_socket=unix_socket, log_file=log_file_path
+        server, connection = dap_server.DebugAdaptorServer.launch(
+            self.lldbDAPExec, connection, log_file=log_file_path
         )
 
         def cleanup():
@@ -30,7 +30,7 @@ class TestDAP_server(lldbdap_testcase.DAPTestCaseBase):
         breakpoint_line = line_number(source, "// breakpoint")
 
         # Initial connection over the port.
-        self.create_debug_adaptor(launch=False, port=port, unix_socket=unix_socket)
+        self.create_debug_adaptor(launch=False, connection=connection)
         self.launch(
             program,
             disconnectAutomatically=False,
@@ -43,7 +43,7 @@ class TestDAP_server(lldbdap_testcase.DAPTestCaseBase):
         self.dap_server.request_disconnect()
 
         # Second connection over the port.
-        self.create_debug_adaptor(launch=False, port=port, unix_socket=unix_socket)
+        self.create_debug_adaptor(launch=False, connection=connection)
         self.launch(program)
         self.set_source_breakpoints(source, [breakpoint_line])
         self.continue_to_next_stop()
@@ -55,12 +55,13 @@ class TestDAP_server(lldbdap_testcase.DAPTestCaseBase):
         """
         Test launching a binary with a lldb-dap in server mode on a specific port.
         """
-        port = pickrandomport()
-        self.do_test_server(port=port)
+        self.do_test_server(connection="tcp://localhost:0")
 
     def test_server_unix_socket(self):
         """
         Test launching a binary with a lldb-dap in server mode on a unix socket.
         """
         dir = tempfile.gettempdir()
-        self.do_test_server(unix_socket=dir + "/dap-connection-" + str(os.getpid()))
+        self.do_test_server(
+            connection="unix://" + dir + "/dap-connection-" + str(os.getpid())
+        )

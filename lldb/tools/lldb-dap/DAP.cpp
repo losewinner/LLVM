@@ -14,11 +14,14 @@
 #include "DAP.h"
 #include "JSONUtils.h"
 #include "LLDBUtils.h"
+#include "OutputRedirector.h"
 #include "lldb/API/SBCommandInterpreter.h"
 #include "lldb/API/SBLanguageRuntime.h"
 #include "lldb/API/SBListener.h"
 #include "lldb/API/SBStream.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/FormatVariadic.h"
 
 #if defined(_WIN32)
@@ -32,10 +35,10 @@ using namespace lldb_dap;
 
 namespace lldb_dap {
 
-DAP::DAP(llvm::StringRef path, std::shared_ptr<std::ofstream> log,
+DAP::DAP(llvm::StringRef path, std::shared_ptr<llvm::raw_ostream> log,
          ReplMode repl_mode, std::vector<std::string> pre_init_commands)
-    : debug_adaptor_path(path), broadcaster("lldb-dap"),
-      log(log), exception_breakpoints(), pre_init_commands(pre_init_commands),
+    : debug_adaptor_path(path), broadcaster("lldb-dap"), log(log),
+      exception_breakpoints(), pre_init_commands(pre_init_commands),
       focus_tid(LLDB_INVALID_THREAD_ID), stop_at_entry(false), is_attach(false),
       enable_auto_variable_summaries(false),
       enable_synthetic_child_debugging(false),
@@ -47,6 +50,28 @@ DAP::DAP(llvm::StringRef path, std::shared_ptr<std::ofstream> log,
       reverse_request_seq(0), repl_mode(repl_mode) {}
 
 DAP::~DAP() = default;
+
+llvm::Error DAP::ConfigureIO(int out_fd, int err_fd) {
+  llvm::Expected<int> new_stdout_fd =
+      RedirectFd(out_fd, [this](llvm::StringRef data) {
+        SendOutput(OutputType::Stdout, data);
+      });
+  if (auto Err = new_stdout_fd.takeError()) {
+    return Err;
+  }
+  llvm::Expected<int> new_stderr_fd =
+      RedirectFd(err_fd, [this](llvm::StringRef data) {
+        SendOutput(OutputType::Stderr, data);
+      });
+  if (auto Err = new_stderr_fd.takeError()) {
+    return Err;
+  }
+
+  out = lldb::SBFile(new_stdout_fd.get(), "w", false);
+  err = lldb::SBFile(new_stderr_fd.get(), "w", false);
+
+  return llvm::Error::success();
+}
 
 /// Return string with first character capitalized.
 static std::string capitalize(llvm::StringRef str) {
@@ -183,9 +208,9 @@ void DAP::SendJSON(const llvm::json::Value &json) {
   if (log) {
     auto now = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch());
-    *log << llvm::formatv("{0:f9} <-- ", now.count()).str() << std::endl
+    *log << llvm::formatv("{0:f9} <-- ", now.count()).str() << "\n"
          << "Content-Length: " << json_str.size() << "\r\n\r\n"
-         << llvm::formatv("{0:2}", json).str() << std::endl;
+         << llvm::formatv("{0:2}", json).str() << "\n";
   }
 }
 
@@ -213,8 +238,8 @@ std::string DAP::ReadJSON() {
   if (log) {
     auto now = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch());
-    *log << llvm::formatv("{0:f9} --> ", now.count()).str() << std::endl
-         << "Content-Length: " << length << "\r\n\r\n";
+    *log << llvm::formatv("{0:f9} --> ", now.count()).str()
+         << "\nContent-Length: " << length << "\r\n\r\n";
   }
   return json_str;
 }
@@ -654,20 +679,20 @@ PacketStatus DAP::GetNextObject(llvm::json::Object &object) {
       std::string error_str;
       llvm::raw_string_ostream strm(error_str);
       strm << error;
-      *log << "error: failed to parse JSON: " << error_str << std::endl
-           << json << std::endl;
+      *log << "error: failed to parse JSON: " << error_str << "\n"
+           << json << "\n";
     }
     return PacketStatus::JSONMalformed;
   }
 
   if (log) {
-    *log << llvm::formatv("{0:2}", *json_value).str() << std::endl;
+    *log << llvm::formatv("{0:2}", *json_value).str() << "\n";
   }
 
   llvm::json::Object *object_ptr = json_value->getAsObject();
   if (!object_ptr) {
     if (log)
-      *log << "error: json packet isn't a object" << std::endl;
+      *log << "error: json packet isn't a object\n";
     return PacketStatus::JSONNotObject;
   }
   object = *object_ptr;
@@ -681,8 +706,7 @@ bool DAP::HandleObject(const llvm::json::Object &object) {
     auto handler_pos = request_handlers.find(command);
     if (handler_pos == request_handlers.end()) {
       if (log)
-        *log << "error: unhandled command \"" << command.data() << "\""
-             << std::endl;
+        *log << "error: unhandled command \"" << command.data() << "\"\n";
       return false; // Fail
     }
 

@@ -22,7 +22,7 @@ typedef int SOCKET;
 #endif
 
 #include "llvm/ADT/StringRef.h"
-
+#include "llvm/Support/raw_ostream.h"
 #include <fstream>
 #include <string>
 
@@ -52,11 +52,11 @@ struct StreamDescriptor {
 struct InputStream {
   StreamDescriptor descriptor;
 
-  bool read_full(std::ofstream *log, size_t length, std::string &text);
+  bool read_full(llvm::raw_ostream *log, size_t length, std::string &text);
 
-  bool read_line(std::ofstream *log, std::string &line);
+  bool read_line(llvm::raw_ostream *log, std::string &line);
 
-  bool read_expected(std::ofstream *log, llvm::StringRef expected);
+  bool read_expected(llvm::raw_ostream *log, llvm::StringRef expected);
 };
 
 struct OutputStream {

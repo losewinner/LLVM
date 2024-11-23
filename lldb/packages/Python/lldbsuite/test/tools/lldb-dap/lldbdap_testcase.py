@@ -10,10 +10,10 @@ import lldbgdbserverutils
 class DAPTestCaseBase(TestBase):
     # set timeout based on whether ASAN was enabled or not. Increase
     # timeout by a factor of 10 if ASAN is enabled.
-    timeoutval = 10 * (10 if ('ASAN_OPTIONS' in os.environ) else 1)
+    timeoutval = 10 * (10 if ("ASAN_OPTIONS" in os.environ) else 1)
     NO_DEBUG_INFO_TESTCASE = True
 
-    def create_debug_adaptor(self, env=None, launch=True, port=None, unix_socket=None):
+    def create_debug_adaptor(self, env=None, launch=True, connection=None):
         """Create the Visual Studio Code debug adaptor"""
         self.assertTrue(
             is_exe(self.lldbDAPExec), "lldb-dap must exist and be executable"
@@ -22,8 +22,7 @@ class DAPTestCaseBase(TestBase):
         self.dap_server = dap_server.DebugAdaptorServer(
             executable=self.lldbDAPExec,
             launch=launch,
-            port=port,
-            unix_socket=unix_socket,
+            connection=connection,
             init_commands=self.setUpCommands(),
             log_file=log_file_path,
             env=env,
@@ -33,15 +32,13 @@ class DAPTestCaseBase(TestBase):
         self,
         lldbDAPEnv=None,
         lldbDAPLaunch=True,
-        lldbDAPPort=None,
-        lldbDAPUnixSocket=None,
+        lldbDAPConnection=None,
     ):
         self.build()
         self.create_debug_adaptor(
             env=lldbDAPEnv,
             launch=lldbDAPLaunch,
-            port=lldbDAPPort,
-            unix_socket=lldbDAPUnixSocket,
+            connection=lldbDAPConnection,
         )
 
     def set_source_breakpoints(self, source_path, lines, data=None):
@@ -489,9 +486,8 @@ class DAPTestCaseBase(TestBase):
         customThreadFormat=None,
         launchCommands=None,
         expectFailure=False,
-        lldbDAPPort=None,
-        lldbDAPUnixSocket=None,
         lldbDAPLaunch=True,
+        lldbDAPConnection=None,
     ):
         """Build the default Makefile target, create the DAP debug adaptor,
         and launch the process.
@@ -499,8 +495,7 @@ class DAPTestCaseBase(TestBase):
         self.build_and_create_debug_adaptor(
             lldbDAPEnv=lldbDAPEnv,
             lldbDAPLaunch=lldbDAPLaunch,
-            lldbDAPPort=lldbDAPPort,
-            lldbDAPUnixSocket=lldbDAPUnixSocket,
+            lldbDAPConnection=lldbDAPConnection,
         )
         self.assertTrue(os.path.exists(program), "executable must exist")
 

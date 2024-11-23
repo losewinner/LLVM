@@ -146,7 +146,7 @@ struct DAP {
   lldb::SBBroadcaster broadcaster;
   std::thread event_thread;
   std::thread progress_event_thread;
-  std::shared_ptr<std::ofstream> log;
+  std::shared_ptr<llvm::raw_ostream> log;
   llvm::StringMap<SourceBreakpointMap> source_breakpoints;
   FunctionBreakpointMap function_breakpoints;
   InstructionBreakpointMap instruction_breakpoints;
@@ -198,13 +198,30 @@ struct DAP {
   // will contain that expression.
   std::string last_nonempty_var_expression;
 
-  DAP(llvm::StringRef path, std::shared_ptr<std::ofstream> log,
+  DAP(llvm::StringRef path, std::shared_ptr<llvm::raw_ostream> log,
       ReplMode repl_mode, std::vector<std::string> pre_init_commands);
   ~DAP();
 
   DAP() = delete;
   DAP(const DAP &rhs) = delete;
   void operator=(const DAP &rhs) = delete;
+
+  void disconnect();
+
+  /// Configures the DAP session stdout and stderr to redirect to the DAP
+  /// connection.
+  ///
+  /// Errors in this operation will be printed to the log file and the IDE's
+  /// console output as well.
+  ///
+  /// \param[in] out_fd
+  ///    If not -1, uses the given file descriptor as stdout.
+  ///
+  /// \param[in] err_fd
+  ///    If not -1, uses the given file descriptor as stderr.
+  ///
+  /// \return An error indiciating if the configuration was applied.
+  llvm::Error ConfigureIO(int out_fd = -1, int err_fd = -1);
 
   ExceptionBreakpoint *GetExceptionBreakpoint(const std::string &filter);
   ExceptionBreakpoint *GetExceptionBreakpoint(const lldb::break_id_t bp_id);
