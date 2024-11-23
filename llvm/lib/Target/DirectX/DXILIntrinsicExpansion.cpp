@@ -94,7 +94,6 @@ static Value *expandVecReduceAdd(CallInst *Orig) {
   Value *X = Orig->getOperand(0);
   IRBuilder<> Builder(Orig);
   Type *Ty = X->getType();
-  Type *EltTy = Ty->getScalarType();
   auto *XVec = dyn_cast<FixedVectorType>(Ty);
   unsigned XVecSize = XVec->getNumElements();
 

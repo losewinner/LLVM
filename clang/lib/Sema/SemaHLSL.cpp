@@ -1976,6 +1976,20 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     TheCall->setType(ArgTyA);
     break;
   }
+  case Builtin::BI__builtin_hlsl_distance: {
+    if (CheckFloatOrHalfRepresentations(&SemaRef, TheCall))
+      return true;
+    if (SemaRef.checkArgCount(TheCall, 2))
+      return true;
+    if (CheckVectorElementCallArgs(&SemaRef, TheCall))
+      return true;
+    ExprResult A = TheCall->getArg(0);
+    QualType ArgTyA = A.get()->getType();
+    auto *VTy = ArgTyA->getAs<VectorType>();
+    QualType RetTy = VTy->getElementType();
+    TheCall->setType(RetTy);
+    break;
+  }
   case Builtin::BI__builtin_hlsl_dot: {
     if (SemaRef.checkArgCount(TheCall, 2))
       return true;
@@ -2063,18 +2077,23 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
       return true;
     break;
   }
-  case Builtin::BI__builtin_hlsl_reduce_add: {
+  case Builtin::BI__builtin_hlsl_length: {
+    if (CheckFloatOrHalfRepresentations(&SemaRef, TheCall))
+      return true;
     if (SemaRef.checkArgCount(TheCall, 1))
       return true;
     ExprResult A = TheCall->getArg(0);
     QualType ArgTyA = A.get()->getType();
-    QualType RetTy;
-
-    if (auto *VTy = ArgTyA->getAs<VectorType>())
-      RetTy = VTy->getElementType();
-    else
-      RetTy = TheCall->getArg(0)->getType();
-
+    auto *VTy = ArgTyA->getAs<VectorType>();
+    if (VTy == nullptr) {
+      SemaRef.Diag(A.get()->getBeginLoc(),
+                   diag::err_typecheck_convert_incompatible)
+          << ArgTyA
+          << SemaRef.Context.getVectorType(ArgTyA, 2, VectorKind::Generic) << 1
+          << 0 << 0;
+      return true;
+    }
+    QualType RetTy = VTy->getElementType();
     TheCall->setType(RetTy);
     break;
   }
@@ -2099,6 +2118,21 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     QualType ArgTyA = A.get()->getType();
     // return type is the same as the input type
     TheCall->setType(ArgTyA);
+    break;
+  }
+  case Builtin::BI__builtin_hlsl_reduce_add: {
+    if (SemaRef.checkArgCount(TheCall, 1))
+      return true;
+    ExprResult A = TheCall->getArg(0);
+    QualType ArgTyA = A.get()->getType();
+    QualType RetTy;
+
+    if (auto *VTy = ArgTyA->getAs<VectorType>())
+      RetTy = VTy->getElementType();
+    else
+      RetTy = TheCall->getArg(0)->getType();
+
+    TheCall->setType(RetTy);
     break;
   }
   case Builtin::BI__builtin_hlsl_elementwise_sign: {

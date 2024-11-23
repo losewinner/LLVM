@@ -9,6 +9,34 @@
 #ifndef _HLSL_HLSL_DETAILS_H_
 #define _HLSL_HLSL_DETAILS_H_
 
+#if __is_target_arch(dxil)
+#define IS_ARCH_DXIL 1
+#else
+#define IS_ARCH_DXIL 0
+#endif
+
+#if __is_target_arch(spirv)
+#define IS_ARCH_SPIRV 1
+#else
+#define IS_ARCH_SPIRV 0
+#endif
+
+#define ARCH_CONDITION(arch)                                                   \
+  if (IS_ARCH_##arch)                                                          \
+    return true;
+
+// Note: arch is used to bypass
+// the generic implementation
+#define EXPAND_ARCH_CONDITIONS(arch)                                           \
+  ARCH_CONDITION(arch)                                                         \
+  /* Add more architectures as needed */
+
+#define DEFINE_TARGET_LOWERING(function_name, ...)                             \
+  constexpr bool Has##function_name##Lowering() {                              \
+    EXPAND_ARCH_CONDITIONS(__VA_ARGS__)                                        \
+    return false; /* Default case if no match */                               \
+  }
+
 namespace hlsl {
 
 namespace __detail {
@@ -41,6 +69,7 @@ constexpr enable_if_t<sizeof(U) == sizeof(T), U> bit_cast(T F) {
   return __builtin_bit_cast(U, F);
 }
 
+DEFINE_TARGET_LOWERING(Length, SPIRV)
 template <typename T>
 constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
 length_impl(T X) {
@@ -50,15 +79,14 @@ length_impl(T X) {
 template <typename T, int N>
 constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
 length_vec_impl(vector<T, N> X) {
+  if (HasLengthLowering())
+    return __builtin_hlsl_length(X);
   vector<T, N> XSquared = X * X;
   T XSquaredSum = __builtin_hlsl_reduce_add(XSquared);
-  /*T  XSquaredSum = 0;
-  for(int I = 0; I < N; I++) {
-    XSquaredSum += XSquared[I];
-  }*/
   return __builtin_elementwise_sqrt(XSquaredSum);
 }
 
+DEFINE_TARGET_LOWERING(Distance, SPIRV)
 template <typename T>
 constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
 distance_impl(T X, T Y) {
@@ -68,6 +96,8 @@ distance_impl(T X, T Y) {
 template <typename T, int N>
 constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
 distance_vec_impl(vector<T, N> X, vector<T, N> Y) {
+  if (HasDistanceLowering())
+    return __builtin_hlsl_distance(X, Y);
   return length_vec_impl(X - Y);
 }
 

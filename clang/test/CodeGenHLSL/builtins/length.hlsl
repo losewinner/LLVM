@@ -2,6 +2,9 @@
 // RUN: %clang_cc1 -finclude-default-header -triple \
 // RUN: dxil-pc-shadermodel6.3-library %s -fnative-half-type \
 // RUN: -emit-llvm -O1 -o - | FileCheck %s
+// RUN: %clang_cc1 -finclude-default-header -triple \
+// RUN: spirv-unknown-vulkan-compute %s -fnative-half-type \
+// RUN: -emit-llvm -O1 -o - | FileCheck %s --check-prefix=SPVCHECK
 
 
 // CHECK-LABEL: define noundef half @_Z16test_length_halfDh(
@@ -9,6 +12,12 @@
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[ELT_ABS_I:%.*]] = tail call noundef half @llvm.fabs.f16(half [[P0]])
 // CHECK-NEXT:    ret half [[ELT_ABS_I]]
+//
+// SPVCHECK-LABEL: define spir_func noundef half @_Z16test_length_halfDh(
+// SPVCHECK-SAME: half noundef [[P0:%.*]]) local_unnamed_addr #[[ATTR0:[0-9]+]] {
+// SPVCHECK-NEXT:  [[ENTRY:.*:]]
+// SPVCHECK-NEXT:    [[ELT_ABS_I:%.*]] = tail call noundef half @llvm.fabs.f16(half [[P0]])
+// SPVCHECK-NEXT:    ret half [[ELT_ABS_I]]
 //
 half test_length_half(half p0)
 {
@@ -23,6 +32,12 @@ half test_length_half(half p0)
 // CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef half @llvm.sqrt.f16(half [[RDX_FADD_I]])
 // CHECK-NEXT:    ret half [[TMP0]]
 //
+// SPVCHECK-LABEL: define spir_func noundef half @_Z17test_length_half2Dv2_Dh(
+// SPVCHECK-SAME: <2 x half> noundef [[P0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+// SPVCHECK-NEXT:  [[ENTRY:.*:]]
+// SPVCHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef half @llvm.spv.length.v2f16(<2 x half> [[P0]])
+// SPVCHECK-NEXT:    ret half [[HLSL_LENGTH_I]]
+//
 half test_length_half2(half2 p0)
 {
   return length(p0);
@@ -35,6 +50,12 @@ half test_length_half2(half2 p0)
 // CHECK-NEXT:    [[RDX_FADD_I:%.*]] = tail call half @llvm.vector.reduce.fadd.v3f16(half 0xH0000, <3 x half> [[MUL_I]])
 // CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef half @llvm.sqrt.f16(half [[RDX_FADD_I]])
 // CHECK-NEXT:    ret half [[TMP0]]
+//
+// SPVCHECK-LABEL: define spir_func noundef half @_Z17test_length_half3Dv3_Dh(
+// SPVCHECK-SAME: <3 x half> noundef [[P0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+// SPVCHECK-NEXT:  [[ENTRY:.*:]]
+// SPVCHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef half @llvm.spv.length.v3f16(<3 x half> [[P0]])
+// SPVCHECK-NEXT:    ret half [[HLSL_LENGTH_I]]
 //
 half test_length_half3(half3 p0)
 {
@@ -49,6 +70,12 @@ half test_length_half3(half3 p0)
 // CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef half @llvm.sqrt.f16(half [[RDX_FADD_I]])
 // CHECK-NEXT:    ret half [[TMP0]]
 //
+// SPVCHECK-LABEL: define spir_func noundef half @_Z17test_length_half4Dv4_Dh(
+// SPVCHECK-SAME: <4 x half> noundef [[P0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+// SPVCHECK-NEXT:  [[ENTRY:.*:]]
+// SPVCHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef half @llvm.spv.length.v4f16(<4 x half> [[P0]])
+// SPVCHECK-NEXT:    ret half [[HLSL_LENGTH_I]]
+//
 half test_length_half4(half4 p0)
 {
   return length(p0);
@@ -60,6 +87,12 @@ half test_length_half4(half4 p0)
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[ELT_ABS_I:%.*]] = tail call noundef float @llvm.fabs.f32(float [[P0]])
 // CHECK-NEXT:    ret float [[ELT_ABS_I]]
+//
+// SPVCHECK-LABEL: define spir_func noundef float @_Z17test_length_floatf(
+// SPVCHECK-SAME: float noundef [[P0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+// SPVCHECK-NEXT:  [[ENTRY:.*:]]
+// SPVCHECK-NEXT:    [[ELT_ABS_I:%.*]] = tail call noundef float @llvm.fabs.f32(float [[P0]])
+// SPVCHECK-NEXT:    ret float [[ELT_ABS_I]]
 //
 float test_length_float(float p0)
 {
@@ -74,6 +107,12 @@ float test_length_float(float p0)
 // CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef float @llvm.sqrt.f32(float [[RDX_FADD_I]])
 // CHECK-NEXT:    ret float [[TMP0]]
 //
+// SPVCHECK-LABEL: define spir_func noundef float @_Z18test_length_float2Dv2_f(
+// SPVCHECK-SAME: <2 x float> noundef [[P0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+// SPVCHECK-NEXT:  [[ENTRY:.*:]]
+// SPVCHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef float @llvm.spv.length.v2f32(<2 x float> [[P0]])
+// SPVCHECK-NEXT:    ret float [[HLSL_LENGTH_I]]
+//
 float test_length_float2(float2 p0)
 {
   return length(p0);
@@ -87,6 +126,12 @@ float test_length_float2(float2 p0)
 // CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef float @llvm.sqrt.f32(float [[RDX_FADD_I]])
 // CHECK-NEXT:    ret float [[TMP0]]
 //
+// SPVCHECK-LABEL: define spir_func noundef float @_Z18test_length_float3Dv3_f(
+// SPVCHECK-SAME: <3 x float> noundef [[P0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+// SPVCHECK-NEXT:  [[ENTRY:.*:]]
+// SPVCHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef float @llvm.spv.length.v3f32(<3 x float> [[P0]])
+// SPVCHECK-NEXT:    ret float [[HLSL_LENGTH_I]]
+//
 float test_length_float3(float3 p0)
 {
   return length(p0);
@@ -98,9 +143,17 @@ float test_length_float3(float3 p0)
 // CHECK-NEXT:    [[MUL_I:%.*]] = fmul <4 x float> [[P0]], [[P0]]
 // CHECK-NEXT:    [[RDX_FADD_I:%.*]] = tail call float @llvm.vector.reduce.fadd.v4f32(float 0.000000e+00, <4 x float> [[MUL_I]])
 // CHECK-NEXT:    [[TMP0:%.*]] = tail call noundef float @llvm.sqrt.f32(float [[RDX_FADD_I]])
-// CHECK-NEXT:    ret float [[TMP0]]
+// CHECK-NEXT:    [[ADD:%.*]] = fadd float [[TMP0]], [[TMP0]]
+// CHECK-NEXT:    ret float [[ADD]]
+//
+// SPVCHECK-LABEL: define spir_func noundef float @_Z18test_length_float4Dv4_f(
+// SPVCHECK-SAME: <4 x float> noundef [[P0:%.*]]) local_unnamed_addr #[[ATTR0]] {
+// SPVCHECK-NEXT:  [[ENTRY:.*:]]
+// SPVCHECK-NEXT:    [[HLSL_LENGTH_I:%.*]] = tail call noundef float @llvm.spv.length.v4f32(<4 x float> [[P0]])
+// SPVCHECK-NEXT:    [[ADD:%.*]] = fadd float [[HLSL_LENGTH_I]], [[HLSL_LENGTH_I]]
+// SPVCHECK-NEXT:    ret float [[ADD]]
 //
 float test_length_float4(float4 p0)
 {
-  return length(p0);
+  return length(p0) + length(p0);
 }

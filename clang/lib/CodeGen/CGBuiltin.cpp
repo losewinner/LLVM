@@ -19097,6 +19097,20 @@ Value *CodeGenFunction::EmitHLSLBuiltinExpr(unsigned BuiltinID,
         /*ReturnType=*/Op0->getType(), CGM.getHLSLRuntime().getCrossIntrinsic(),
         ArrayRef<Value *>{Op0, Op1}, nullptr, "hlsl.cross");
   }
+  case Builtin::BI__builtin_hlsl_distance: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Y = EmitScalarExpr(E->getArg(1));
+    assert(E->getArg(0)->getType()->hasFloatingRepresentation() &&
+           E->getArg(1)->getType()->hasFloatingRepresentation() &&
+           "Distance operands must have a float representation");
+    assert(E->getArg(0)->getType()->isVectorType() &&
+           E->getArg(1)->getType()->isVectorType() &&
+           "Distance operands must be a vector");
+    return Builder.CreateIntrinsic(
+        /*ReturnType=*/X->getType()->getScalarType(),
+        CGM.getHLSLRuntime().getDistanceIntrinsic(), ArrayRef<Value *>{X, Y},
+        nullptr, "hlsl.distance");
+  }
   case Builtin::BI__builtin_hlsl_dot: {
     Value *Op0 = EmitScalarExpr(E->getArg(0));
     Value *Op1 = EmitScalarExpr(E->getArg(1));
@@ -19173,6 +19187,17 @@ Value *CodeGenFunction::EmitHLSLBuiltinExpr(unsigned BuiltinID,
     return Builder.CreateIntrinsic(
         /*ReturnType=*/X->getType(), CGM.getHLSLRuntime().getLerpIntrinsic(),
         ArrayRef<Value *>{X, Y, S}, nullptr, "hlsl.lerp");
+  }
+  case Builtin::BI__builtin_hlsl_length: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    assert(E->getArg(0)->getType()->hasFloatingRepresentation() &&
+           "length operand must have a float representation");
+    assert(E->getArg(0)->getType()->isVectorType() &&
+           "length operand must be a vector");
+    return Builder.CreateIntrinsic(
+        /*ReturnType=*/X->getType()->getScalarType(),
+        CGM.getHLSLRuntime().getLengthIntrinsic(), ArrayRef<Value *>{X},
+        nullptr, "hlsl.length");
   }
   case Builtin::BI__builtin_hlsl_normalize: {
     Value *X = EmitScalarExpr(E->getArg(0));
