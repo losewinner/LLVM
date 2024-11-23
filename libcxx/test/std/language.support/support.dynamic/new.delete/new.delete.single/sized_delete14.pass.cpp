@@ -9,7 +9,7 @@
 // Test sized operator delete replacement.
 
 // These compiler versions do not enable sized deallocation by default.
-// UNSUPPORTED: clang-17, clang-18
+// UNSUPPORTED: clang-18
 
 // Android clang-r536225 identifies as clang-19.0 but it predates the real
 // LLVM 19.0.0, so it also leaves sized deallocation off by default.
