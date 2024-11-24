@@ -3585,6 +3585,8 @@ public:
     return NewBlock;
   }
 
+  bool isHeader() { return any_of(phis(), IsaPred<VPHeaderPHIRecipe>); }
+
 protected:
   /// Execute the recipes in the IR basic block \p BB.
   void executeRecipes(VPTransformState *State, BasicBlock *BB);
@@ -3742,6 +3744,10 @@ public:
   /// Clone all blocks in the single-entry single-exit region of the block and
   /// their recipes without updating the operands of the cloned recipes.
   VPRegionBlock *clone() override;
+
+  /// Remove the current region from its VPlan, connecting its predecessor to
+  /// its entry and exiting block to its successor.
+  void removeRegion();
 };
 
 /// VPlan models a candidate for vectorization, encoding various decisions take
@@ -3875,10 +3881,10 @@ public:
   /// whether to execute the scalar tail loop or the exit block from the loop
   /// latch.
   const VPBasicBlock *getMiddleBlock() const {
-    return cast<VPBasicBlock>(getVectorLoopRegion()->getSingleSuccessor());
+    return cast<VPBasicBlock>(getScalarPreheader()->getSinglePredecessor());
   }
   VPBasicBlock *getMiddleBlock() {
-    return cast<VPBasicBlock>(getVectorLoopRegion()->getSingleSuccessor());
+    return cast<VPBasicBlock>(getScalarPreheader()->getSinglePredecessor());
   }
 
   /// Return an iterator range over the VPIRBasicBlock wrapping the exit blocks
@@ -4000,9 +4006,7 @@ public:
   }
 
   /// Returns the preheader of the vector loop region.
-  VPBasicBlock *getVectorPreheader() {
-    return cast<VPBasicBlock>(getVectorLoopRegion()->getSinglePredecessor());
-  }
+  VPBasicBlock *getVectorPreheader() { return cast<VPBasicBlock>(getEntry()); }
 
   /// Returns the canonical induction recipe of the vector loop.
   VPCanonicalIVPHIRecipe *getCanonicalIV() {
