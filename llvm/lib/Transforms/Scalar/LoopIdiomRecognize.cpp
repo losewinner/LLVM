@@ -20,8 +20,7 @@
 //
 // TODO List:
 //
-// Future loop memory idioms to recognize:
-//   memcmp, strlen, etc.
+// Future loop memory idioms to recognize: memcmp, etc.
 //
 // This could recognize common matrix multiplies and dot product idioms and
 // replace them with calls to BLAS (if linked in??).
@@ -1557,13 +1556,16 @@ struct StrlenIdiom {
 static bool detectStrLenIdiom(const Loop *CurLoop, ScalarEvolution *SE,
                               const TargetLibraryInfo *TLI,
                               StrlenIdiom &Idiom) {
-
+  /*
   outs() << "current loop:\n";
   CurLoop->print(outs());
   outs() << "\n";
+  */
 
-  // Give up if the loop has multiple blocks or multiple backedges.
-  if (CurLoop->getNumBackEdges() != 1 || CurLoop->getNumBlocks() != 1)
+  // Give up if the loop has multiple blocks, multiple backedges, or
+  // multiple exit blocks
+  if (CurLoop->getNumBackEdges() != 1 || CurLoop->getNumBlocks() != 1 ||
+      !CurLoop->getUniqueExitBlock())
     return false;
 
   // It should have a preheader and a branch instruction.
@@ -1581,7 +1583,7 @@ static bool detectStrLenIdiom(const Loop *CurLoop, ScalarEvolution *SE,
   BasicBlock *LoopBody = *CurLoop->block_begin();
 
   // Skip if the body is too big as it most likely is not a strlen idiom.
-  if (!LoopBody || LoopBody->size() >= 10)
+  if (!LoopBody || LoopBody->size() >= 15)
     return false;
 
   BranchInst *LoopTerm = dyn_cast<BranchInst>(LoopBody->getTerminator());
@@ -1604,9 +1606,11 @@ static bool detectStrLenIdiom(const Loop *CurLoop, ScalarEvolution *SE,
   if (!LoadEv || LoadEv->getLoop() != CurLoop || !LoadEv->isAffine())
     return false;
 
+  /*
   outs() << "pointer load ev: ";
   LoadEv->print(outs());
   outs() << "\n";
+  */
 
   const SCEVConstant *Step =
       dyn_cast<SCEVConstant>(LoadEv->getStepRecurrence(*SE));
@@ -1640,12 +1644,17 @@ static bool detectStrLenIdiom(const Loop *CurLoop, ScalarEvolution *SE,
     return false;
 
   for (PHINode &PN : LoopExitBB->phis()) {
+    if (!SE->isSCEVable(PN.getType()))
+      return false;
+
     const SCEV *Ev = SE->getSCEV(&PN);
+    /*
     outs() << "loop exit block scev exprs: ";
     PN.print(outs());
     if (Ev)
       Ev->print(outs());
     outs() << "\n";
+    */
 
     if (!Ev)
       return false;
@@ -1772,6 +1781,8 @@ bool LoopIdiomRecognize::recognizeAndInsertStrLen() {
     Cleanup.push_back(&PN);
   }
 
+  // All LCSSA Loop Phi are dead, the left over loop body can be cleaned up by
+  // later passes
   for (PHINode *PN : Cleanup) {
     RecursivelyDeleteDeadPHINode(PN);
   }
