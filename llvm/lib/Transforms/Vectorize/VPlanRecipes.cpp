@@ -967,14 +967,14 @@ void VPWidenIntrinsicRecipe::execute(VPTransformState &State) {
       CI->getOperandBundlesAsDefs(OpBundles);
   }
 
-  Value *V = State.Builder.CreateCall(VectorF, Args, OpBundles);
+  Instruction *V = State.Builder.CreateCall(VectorF, Args, OpBundles);
 
   if (IsVPIntrinsic) {
     if (isa<FPMathOperator>(V))
       // Currently vp-intrinsics only accept FMF flags.
-      setFlags(cast<Instruction>(V));
+      setFlags(V);
   } else {
-    setFlags(cast<Instruction>(V));
+    setFlags(V);
   }
 
   if (!V->getType()->isVoidTy())
