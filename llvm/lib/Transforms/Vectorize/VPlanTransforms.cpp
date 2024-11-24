@@ -690,16 +690,44 @@ void VPlanTransforms::optimizeForVFAndUF(VPlan &Plan, ElementCount BestVF,
       !SE.isKnownPredicate(CmpInst::ICMP_ULE, TripCount, C))
     return;
 
-  LLVMContext &Ctx = SE.getContext();
-  auto *BOC = new VPInstruction(
-      VPInstruction::BranchOnCond,
-      {Plan.getOrAddLiveIn(ConstantInt::getTrue(Ctx))}, Term->getDebugLoc());
-
   SmallVector<VPValue *> PossiblyDead(Term->operands());
   Term->eraseFromParent();
+  auto *Header = cast<VPBasicBlock>(Plan.getVectorLoopRegion()->getEntry());
+  if (any_of(Header->phis(),
+             IsaPred<VPWidenIntOrFpInductionRecipe, VPReductionPHIRecipe>)) {
+    LLVMContext &Ctx = SE.getContext();
+    auto *BOC = new VPInstruction(
+        VPInstruction::BranchOnCond,
+        {Plan.getOrAddLiveIn(ConstantInt::getTrue(Ctx))}, Term->getDebugLoc());
+    ExitingVPBB->appendRecipe(BOC);
+  } else {
+    for (VPRecipeBase &R : make_early_inc_range(Header->phis())) {
+      auto *P = cast<VPHeaderPHIRecipe>(&R);
+      P->replaceAllUsesWith(P->getStartValue());
+      P->eraseFromParent();
+    }
+
+    VPBlockBase *Preheader = Plan.getVectorLoopRegion()->getSinglePredecessor();
+    auto *Exiting =
+        cast<VPBasicBlock>(Plan.getVectorLoopRegion()->getExiting());
+
+    auto *LoopRegion = Plan.getVectorLoopRegion();
+    VPBlockBase *Middle = LoopRegion->getSingleSuccessor();
+    VPBlockUtils::disconnectBlocks(Preheader, LoopRegion);
+    VPBlockUtils::disconnectBlocks(LoopRegion, Middle);
+
+    Header->setParent(nullptr);
+    Exiting->setParent(nullptr);
+    VPBlockUtils::connectBlocks(Preheader, Header);
+
+    VPBlockUtils::connectBlocks(Exiting, Middle);
+    // Set LoopRegion's Entry to nullptr, as the CFG from LoopRegion shouldn't
+    // be deleted when the region is deleted.
+    LoopRegion->clearEntry();
+    delete LoopRegion;
+  }
   for (VPValue *Op : PossiblyDead)
     recursivelyDeleteDeadRecipes(Op);
-  ExitingVPBB->appendRecipe(BOC);
   Plan.setVF(BestVF);
   Plan.setUF(BestUF);
   // TODO: Further simplifications are possible
