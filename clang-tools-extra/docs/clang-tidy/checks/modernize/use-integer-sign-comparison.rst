@@ -24,7 +24,7 @@ becomes
   #include <utility>
 
   uint func(int a, uint b) {
-    return (std::cmp_equal(result, bla))
+    return (std::cmp_equal(a, b));
   }
 
 Options

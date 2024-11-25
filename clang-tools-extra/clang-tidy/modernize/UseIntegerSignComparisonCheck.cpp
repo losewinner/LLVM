@@ -108,71 +108,41 @@ void UseIntegerSignComparisonCheck::check(
     return;
 
   const BinaryOperator::Opcode OpCode = BinaryOp->getOpcode();
-  const Expr *LHS = BinaryOp->getLHS()->IgnoreParenImpCasts();
-  const Expr *RHS = BinaryOp->getRHS()->IgnoreParenImpCasts();
+
+  const Expr *LHS = BinaryOp->getLHS()->IgnoreImpCasts();
+  const Expr *RHS = BinaryOp->getRHS()->IgnoreImpCasts();
   if (LHS == nullptr || RHS == nullptr)
     return;
-
   const Expr *SubExprLHS = nullptr;
   const Expr *SubExprRHS = nullptr;
   SourceRange R1 = SourceRange(LHS->getBeginLoc());
   SourceRange R2 = SourceRange(BinaryOp->getOperatorLoc());
-
-  if (const auto *LHSCast = BinaryOp->getLHS() == SignedCastExpression
-                                ? SignedCastExpression
-                                : UnSignedCastExpression) {
-    if (LHSCast->isPartOfExplicitCast()) {
-      SubExprLHS = LHSCast->getSubExpr();
-      R1 = SourceRange(LHS->getBeginLoc(), SubExprLHS->getBeginLoc());
-    }
+  SourceRange R3 = SourceRange(Lexer::getLocForEndOfToken(
+      RHS->getEndLoc(), 0, *Result.SourceManager, getLangOpts()));
+  if (const auto *LHSCast = llvm::dyn_cast<ExplicitCastExpr>(LHS)) {
+    SubExprLHS = LHSCast->getSubExpr();
+    R1 = SourceRange(LHS->getBeginLoc(),
+                     SubExprLHS->getBeginLoc().getLocWithOffset(-1));
+    R2.setBegin(Lexer::getLocForEndOfToken(
+        SubExprLHS->getEndLoc(), 0, *Result.SourceManager, getLangOpts()));
   }
-
-  if (const auto *RHSCast = BinaryOp->getLHS() == SignedCastExpression
-                                ? UnSignedCastExpression
-                                : SignedCastExpression) {
-    if (RHSCast->isPartOfExplicitCast()) {
-      SubExprRHS = RHSCast->getSubExpr();
-      R2.setEnd(SubExprRHS->getBeginLoc());
-    }
+  if (const auto *RHSCast = llvm::dyn_cast<ExplicitCastExpr>(RHS)) {
+    SubExprRHS = RHSCast->getSubExpr();
+    R2.setEnd(SubExprRHS->getBeginLoc().getLocWithOffset(-1));
   }
-
   DiagnosticBuilder Diag =
       diag(BinaryOp->getBeginLoc(),
            "comparison between 'signed' and 'unsigned' integers");
-
   if (!getLangOpts().CPlusPlus20)
     return;
-
-  const std::string CmpNamespace =
-      llvm::Twine("std::" + parseOpCode(OpCode)).str();
+  const std::string CmpNamespace = ("std::" + parseOpCode(OpCode)).str();
   const std::string CmpHeader = "<utility>";
-
   // Prefer modernize-use-integer-sign-comparison when C++20 is available!
-  if (SubExprLHS) {
-    StringRef ExplicitLhsString =
-        Lexer::getSourceText(CharSourceRange::getTokenRange(
-                                 SubExprLHS->IgnoreCasts()->getSourceRange()),
-                             *Result.SourceManager, getLangOpts());
-    Diag << FixItHint::CreateReplacement(
-        R1, llvm::Twine(CmpNamespace + "(" + ExplicitLhsString).str());
-  } else {
-    Diag << FixItHint::CreateInsertion(R1.getBegin(),
-                                       llvm::Twine(CmpNamespace + "(").str());
-  }
-
-  StringRef ExplicitLhsRhsString =
-      SubExprRHS ? Lexer::getSourceText(
-                       CharSourceRange::getTokenRange(
-                           SubExprRHS->IgnoreCasts()->getSourceRange()),
-                       *Result.SourceManager, getLangOpts())
-                 : "";
   Diag << FixItHint::CreateReplacement(
-      R2, llvm::Twine(", " + ExplicitLhsRhsString).str());
-  Diag << FixItHint::CreateInsertion(
-      Lexer::getLocForEndOfToken(
-          Result.SourceManager->getSpellingLoc(RHS->getEndLoc()), 0,
-          *Result.SourceManager, Result.Context->getLangOpts()),
-      ")");
+      CharSourceRange(R1, SubExprLHS != nullptr),
+      llvm::Twine(CmpNamespace + "(").str());
+  Diag << FixItHint::CreateReplacement(R2, ",");
+  Diag << FixItHint::CreateReplacement(CharSourceRange::getCharRange(R3), ")");
 
   // If there is no include for cmp_{*} functions, we'll add it.
   Diag << IncludeInserter.createIncludeInsertion(

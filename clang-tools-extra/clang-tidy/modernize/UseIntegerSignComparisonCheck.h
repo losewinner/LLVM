@@ -15,7 +15,8 @@
 
 namespace clang::tidy::modernize {
 
-/// Class detects comparisons between signed and unsigned integers
+/// Replace comparisons between signed and unsigned integers with their safe
+/// C++20 ``std::cmp_*`` alternative, if available.
 ///
 /// For the user-facing documentation see:
 /// http://clang.llvm.org/extra/clang-tidy/checks/modernize/use-integer-sign-comparison.html
