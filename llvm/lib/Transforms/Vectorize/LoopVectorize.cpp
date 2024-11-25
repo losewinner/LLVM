@@ -2368,12 +2368,6 @@ void InnerLoopVectorizer::scalarizeInstruction(const Instruction *Instr,
   // End if-block.
   VPRegionBlock *Parent = RepRecipe->getParent()->getParent();
   bool IfPredicateInstr = Parent ? Parent->isReplicator() : false;
-  assert((Parent || all_of(RepRecipe->operands(),
-                           [](VPValue *Op) {
-                             return Op->isDefinedOutsideLoopRegions();
-                           })) &&
-         "Expected a recipe is either within a region or all of its operands "
-         "are defined outside the vectorized region.");
   if (IfPredicateInstr)
     PredicatedInstructions.push_back(Cloned);
 }
@@ -2969,8 +2963,8 @@ void InnerLoopVectorizer::fixVectorizedLoop(VPTransformState &State) {
   for (Instruction *PI : PredicatedInstructions)
     sinkScalarOperands(&*PI);
 
-  VPRegionBlock *VectorRegion = State.Plan->getVectorLoopRegion();
-  VPBasicBlock *HeaderVPBB = VectorRegion->getEntryBasicBlock();
+  VPBasicBlock *HeaderVPBB = cast<VPBasicBlock>(
+      State.Plan->getVectorPreheader()->getSingleSuccessor());
   BasicBlock *HeaderBB = State.CFG.VPBB2IRBB[HeaderVPBB];
 
   // Remove redundant induction instructions.
@@ -7742,6 +7736,7 @@ DenseMap<const SCEV *, Value *> LoopVectorizationPlanner::executePlan(
   BestVPlan.prepareToExecute(ILV.getTripCount(),
                              ILV.getOrCreateVectorTripCount(nullptr),
                              CanonicalIVStartValue, State);
+  VPlanTransforms::prepareToExecute(BestVPlan);
 
   BestVPlan.execute(&State);
 
@@ -7763,7 +7758,7 @@ DenseMap<const SCEV *, Value *> LoopVectorizationPlanner::executePlan(
                                       LLVMLoopVectorizeFollowupVectorized});
 
   VPBasicBlock *HeaderVPBB =
-      BestVPlan.getVectorLoopRegion()->getEntryBasicBlock();
+      cast<VPBasicBlock>(BestVPlan.getVectorPreheader()->getSingleSuccessor());
   Loop *L = LI->getLoopFor(State.CFG.VPBB2IRBB[HeaderVPBB]);
   if (VectorizedLoopID)
     L->setLoopID(*VectorizedLoopID);

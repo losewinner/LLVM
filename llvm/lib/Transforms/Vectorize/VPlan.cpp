@@ -352,8 +352,8 @@ Value *VPTransformState::get(VPValue *Def, bool NeedsScalar) {
 }
 
 BasicBlock *VPTransformState::CFGState::getPreheaderBBFor(VPRecipeBase *R) {
-  VPRegionBlock *LoopRegion = R->getParent()->getEnclosingLoopRegion();
-  return VPBB2IRBB[LoopRegion->getPreheaderVPBB()];
+
+  return VPBB2IRBB[cast<VPBasicBlock>(R->getParent()->getPredecessors()[0])];
 }
 
 void VPTransformState::addNewMetadata(Instruction *To,
@@ -425,6 +425,8 @@ void VPBasicBlock::connectToPredecessors(VPTransformState::CFGState &CFG) {
     VPBasicBlock *PredVPBB = PredVPBlock->getExitingBasicBlock();
     auto &PredVPSuccessors = PredVPBB->getHierarchicalSuccessors();
     BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
+    if (!PredBB)
+      continue;
 
     assert(PredBB && "Predecessor basic-block not found building successor.");
     auto *PredBBTerminator = PredBB->getTerminator();
@@ -432,6 +434,8 @@ void VPBasicBlock::connectToPredecessors(VPTransformState::CFGState &CFG) {
 
     auto *TermBr = dyn_cast<BranchInst>(PredBBTerminator);
     if (isa<UnreachableInst>(PredBBTerminator)) {
+      if (PredVPSuccessors.size() == 2)
+        continue;
       assert(PredVPSuccessors.size() == 1 &&
              "Predecessor ending w/o branch must have single successor.");
       DebugLoc DL = PredBBTerminator->getDebugLoc();
@@ -479,6 +483,21 @@ void VPIRBasicBlock::execute(VPTransformState *State) {
 void VPBasicBlock::execute(VPTransformState *State) {
   bool Replica = bool(State->Lane);
   BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
+
+  if (isHeader()) {
+    // Create and register the new vector loop.
+    State->CurrentVectorLoop = State->LI->AllocateLoop();
+    BasicBlock *VectorPH =
+        State->CFG.VPBB2IRBB[cast<VPBasicBlock>(getPredecessors()[0])];
+    Loop *ParentLoop = State->LI->getLoopFor(VectorPH);
+
+    // Insert the new loop into the loop nest and register the new basic blocks
+    // before calling any utilities such as SCEV that require valid LoopInfo.
+    if (ParentLoop)
+      ParentLoop->addChildLoop(State->CurrentVectorLoop);
+    else
+      State->LI->addTopLevelLoop(State->CurrentVectorLoop);
+  }
 
   auto IsReplicateRegion = [](VPBlockBase *BB) {
     auto *R = dyn_cast_or_null<VPRegionBlock>(BB);
@@ -718,37 +737,13 @@ void VPRegionBlock::dropAllReferences(VPValue *NewValue) {
 }
 
 void VPRegionBlock::execute(VPTransformState *State) {
-  ReversePostOrderTraversal<VPBlockShallowTraversalWrapper<VPBlockBase *>>
-      RPOT(Entry);
-
-  if (!isReplicator()) {
-    // Create and register the new vector loop.
-    Loop *PrevLoop = State->CurrentVectorLoop;
-    State->CurrentVectorLoop = State->LI->AllocateLoop();
-    BasicBlock *VectorPH = State->CFG.VPBB2IRBB[getPreheaderVPBB()];
-    Loop *ParentLoop = State->LI->getLoopFor(VectorPH);
-
-    // Insert the new loop into the loop nest and register the new basic blocks
-    // before calling any utilities such as SCEV that require valid LoopInfo.
-    if (ParentLoop)
-      ParentLoop->addChildLoop(State->CurrentVectorLoop);
-    else
-      State->LI->addTopLevelLoop(State->CurrentVectorLoop);
-
-    // Visit the VPBlocks connected to "this", starting from it.
-    for (VPBlockBase *Block : RPOT) {
-      LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << Block->getName() << '\n');
-      Block->execute(State);
-    }
-
-    State->CurrentVectorLoop = PrevLoop;
-    return;
-  }
-
+  assert(isReplicator() &&
+         "Loop regions should have been lowered to plain CFG");
   assert(!State->Lane && "Replicating a Region with non-null instance.");
-
-  // Enter replicating mode.
   assert(!State->VF.isScalable() && "VF is assumed to be non scalable.");
+
+  ReversePostOrderTraversal<VPBlockShallowTraversalWrapper<VPBlockBase *>> RPOT(
+      Entry);
   State->Lane = VPLane(0);
   for (unsigned Lane = 0, VF = State->VF.getKnownMinValue(); Lane < VF;
        ++Lane) {
@@ -822,6 +817,26 @@ void VPRegionBlock::print(raw_ostream &O, const Twine &Indent,
   printSuccessors(O, Indent);
 }
 #endif
+
+void VPRegionBlock::removeRegion() {
+  auto *Header = cast<VPBasicBlock>(getEntry());
+  VPBlockBase *Preheader = getSinglePredecessor();
+  auto *Exiting = cast<VPBasicBlock>(getExiting());
+
+  VPBlockBase *Middle = getSingleSuccessor();
+  VPBlockUtils::disconnectBlocks(Preheader, this);
+  VPBlockUtils::disconnectBlocks(this, Middle);
+
+  for (VPBlockBase *VPB : vp_depth_first_shallow(Entry))
+    VPB->setParent(nullptr);
+
+  VPBlockUtils::connectBlocks(Preheader, Header);
+  VPBlockUtils::connectBlocks(Exiting, Middle);
+
+  // Set LoopRegion's Entry to nullptr, as the CFG from LoopRegion shouldn't
+  // be deleted when the region is deleted.
+  Entry = nullptr;
+}
 
 VPlan::~VPlan() {
   if (Entry) {
@@ -1032,51 +1047,55 @@ void VPlan::execute(VPTransformState *State) {
   for (VPBlockBase *Block : vp_depth_first_shallow(Entry))
     Block->execute(State);
 
-  VPBasicBlock *LatchVPBB = getVectorLoopRegion()->getExitingBasicBlock();
-  BasicBlock *VectorLatchBB = State->CFG.VPBB2IRBB[LatchVPBB];
-
   // Fix the latch value of canonical, reduction and first-order recurrences
   // phis in the vector loop.
-  VPBasicBlock *Header = getVectorLoopRegion()->getEntryBasicBlock();
-  for (VPRecipeBase &R : Header->phis()) {
-    // Skip phi-like recipes that generate their backedege values themselves.
-    if (isa<VPWidenPHIRecipe>(&R))
+  for (VPBasicBlock *Header :
+       VPBlockUtils::blocksOnly<VPBasicBlock>(vp_depth_first_shallow(Entry))) {
+    if (!Header->isHeader())
       continue;
+    for (VPRecipeBase &R : Header->phis()) {
+      VPBasicBlock *LatchVPBB =
+          cast<VPBasicBlock>(Header->getPredecessors()[1]);
+      BasicBlock *VectorLatchBB = State->CFG.VPBB2IRBB[LatchVPBB];
 
-    if (isa<VPWidenPointerInductionRecipe>(&R) ||
-        isa<VPWidenIntOrFpInductionRecipe>(&R)) {
-      PHINode *Phi = nullptr;
-      if (isa<VPWidenIntOrFpInductionRecipe>(&R)) {
-        Phi = cast<PHINode>(State->get(R.getVPSingleValue()));
-      } else {
-        auto *WidenPhi = cast<VPWidenPointerInductionRecipe>(&R);
-        assert(!WidenPhi->onlyScalarsGenerated(State->VF.isScalable()) &&
-               "recipe generating only scalars should have been replaced");
-        auto *GEP = cast<GetElementPtrInst>(State->get(WidenPhi));
-        Phi = cast<PHINode>(GEP->getPointerOperand());
+      // Skip phi-like recipes that generate their backedege values themselves.
+      if (isa<VPWidenPHIRecipe>(&R))
+        continue;
+
+      if (isa<VPWidenPointerInductionRecipe>(&R) ||
+          isa<VPWidenIntOrFpInductionRecipe>(&R)) {
+        PHINode *Phi = nullptr;
+        if (isa<VPWidenIntOrFpInductionRecipe>(&R)) {
+          Phi = cast<PHINode>(State->get(R.getVPSingleValue()));
+        } else {
+          auto *WidenPhi = cast<VPWidenPointerInductionRecipe>(&R);
+          assert(!WidenPhi->onlyScalarsGenerated(State->VF.isScalable()) &&
+                 "recipe generating only scalars should have been replaced");
+          auto *GEP = cast<GetElementPtrInst>(State->get(WidenPhi));
+          Phi = cast<PHINode>(GEP->getPointerOperand());
+        }
+
+        Phi->setIncomingBlock(1, VectorLatchBB);
+
+        // Move the last step to the end of the latch block. This ensures
+        // consistent placement of all induction updates.
+        Instruction *Inc = cast<Instruction>(Phi->getIncomingValue(1));
+        Inc->moveBefore(VectorLatchBB->getTerminator()->getPrevNode());
+
+        // Use the steps for the last part as backedge value for the induction.
+        if (auto *IV = dyn_cast<VPWidenIntOrFpInductionRecipe>(&R))
+          Inc->setOperand(0, State->get(IV->getLastUnrolledPartOperand()));
+        continue;
       }
 
-      Phi->setIncomingBlock(1, VectorLatchBB);
-
-      // Move the last step to the end of the latch block. This ensures
-      // consistent placement of all induction updates.
-      Instruction *Inc = cast<Instruction>(Phi->getIncomingValue(1));
-      Inc->moveBefore(VectorLatchBB->getTerminator()->getPrevNode());
-
-      // Use the steps for the last part as backedge value for the induction.
-      if (auto *IV = dyn_cast<VPWidenIntOrFpInductionRecipe>(&R))
-        Inc->setOperand(0, State->get(IV->getLastUnrolledPartOperand()));
-      continue;
+      auto *PhiR = cast<VPHeaderPHIRecipe>(&R);
+      bool NeedsScalar = isa<VPScalarPHIRecipe>(PhiR) ||
+                         (isa<VPReductionPHIRecipe>(PhiR) &&
+                          cast<VPReductionPHIRecipe>(PhiR)->isInLoop());
+      Value *Phi = State->get(PhiR, NeedsScalar);
+      Value *Val = State->get(PhiR->getBackedgeValue(), NeedsScalar);
+      cast<PHINode>(Phi)->addIncoming(Val, VectorLatchBB);
     }
-
-    auto *PhiR = cast<VPHeaderPHIRecipe>(&R);
-    bool NeedsScalar =
-        isa<VPCanonicalIVPHIRecipe, VPEVLBasedIVPHIRecipe>(PhiR) ||
-        (isa<VPReductionPHIRecipe>(PhiR) &&
-         cast<VPReductionPHIRecipe>(PhiR)->isInLoop());
-    Value *Phi = State->get(PhiR, NeedsScalar);
-    Value *Val = State->get(PhiR->getBackedgeValue(), NeedsScalar);
-    cast<PHINode>(Phi)->addIncoming(Val, VectorLatchBB);
   }
 
   State->CFG.DTU.flush();
@@ -1418,8 +1437,13 @@ void VPlanIngredient::print(raw_ostream &O) const {
 #endif
 
 bool VPValue::isDefinedOutsideLoopRegions() const {
-  return !hasDefiningRecipe() ||
-         !getDefiningRecipe()->getParent()->getEnclosingLoopRegion();
+  auto *DefR = getDefiningRecipe();
+  if (!DefR)
+    return true;
+
+  const VPBasicBlock *DefVPBB = DefR->getParent();
+  auto *Plan = DefVPBB->getPlan();
+  return DefVPBB == Plan->getPreheader() || DefVPBB == Plan->getEntry();
 }
 
 void VPValue::replaceAllUsesWith(VPValue *New) {
