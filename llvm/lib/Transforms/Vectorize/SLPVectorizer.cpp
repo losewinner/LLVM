@@ -3267,8 +3267,18 @@ private:
     void setOperand(ArrayRef<Value *> VL, const BoUpSLP &R,
                     bool RequireReorder = false) {
       VLOperands Ops(VL, R);
-      if (RequireReorder)
+      if (RequireReorder) {
         Ops.reorder();
+        if (auto *CI = dyn_cast<CallInst>(VL[0])) {
+          Intrinsic::ID ID = getVectorIntrinsicIDForCall(CI, R.TLI);
+          for (unsigned I : seq<unsigned>(CI->arg_size())) {
+            if (isVectorIntrinsicWithScalarOpAtArg(ID, I))
+              continue;
+            setOperand(I, Ops.getVL(I));
+          }
+          return;
+        }
+      }
       for (unsigned I :
            seq<unsigned>(cast<Instruction>(VL[0])->getNumOperands()))
         setOperand(I, Ops.getVL(I));
