@@ -239,7 +239,7 @@ public:
   /// Return true if the intrinsic takes a splat operand.
   bool hasSplat() const {
     // These prototype modifiers are described in arm_sve.td.
-    return Proto.find_first_of("ajfrKLR@") != std::string::npos;
+    return Proto.find_first_of("ajfrKLR@!") != std::string::npos;
   }
 
   /// Return the parameter index of the splat operand.
@@ -248,7 +248,7 @@ public:
     for (; I < Proto.size(); ++I, ++Param) {
       if (Proto[I] == 'a' || Proto[I] == 'j' || Proto[I] == 'f' ||
           Proto[I] == 'r' || Proto[I] == 'K' || Proto[I] == 'L' ||
-          Proto[I] == 'R' || Proto[I] == '@')
+          Proto[I] == 'R' || Proto[I] == '@' || Proto[I] == '!')
         break;
 
       // Multivector modifier can be skipped
@@ -938,6 +938,13 @@ void SVEType::applyModifier(char Mod) {
     BFloat = false;
     MFloat = true;
     ElementBitwidth = 8;
+    break;
+  case '!':
+    Float = false;
+    BFloat = false;
+    MFloat = true;
+    Bitwidth = ElementBitwidth = 8;
+    NumVectors = 0;
     break;
   case '.':
     llvm_unreachable(". is never a type in itself");
