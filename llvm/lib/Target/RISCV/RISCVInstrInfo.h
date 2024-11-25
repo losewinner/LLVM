@@ -293,6 +293,9 @@ public:
 
   unsigned getTailDuplicateSize(CodeGenOptLevel OptLevel) const override;
 
+  std::unique_ptr<TargetInstrInfo::PipelinerLoopInfo>
+  analyzeLoopForPipelining(MachineBasicBlock *LoopBB) const override;
+
 protected:
   const RISCVSubtarget &STI;
 
