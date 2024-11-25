@@ -16,13 +16,14 @@ using namespace clang::ast_matchers;
 namespace clang::tidy::modernize {
 
 MakeSharedCheck::MakeSharedCheck(StringRef Name, ClangTidyContext *Context)
-    : MakeSmartPtrCheck(Name, Context, "std::make_shared") {}
+    : MakeSmartPtrCheck(Name, Context, "std::make_shared"),
+      MakeSmartPtrType(Options.get("MakeSmartPtrType", "::std::shared_ptr")) {}
 
 MakeSharedCheck::SmartPtrTypeMatcher
 MakeSharedCheck::getSmartPointerTypeMatcher() const {
   return qualType(hasUnqualifiedDesugaredType(
       recordType(hasDeclaration(classTemplateSpecializationDecl(
-          hasName("::std::shared_ptr"), templateArgumentCountIs(1),
+          hasName(MakeSmartPtrType), templateArgumentCountIs(1),
           hasTemplateArgument(0, templateArgument(refersToType(
                                      qualType().bind(PointerType)))))))));
 }

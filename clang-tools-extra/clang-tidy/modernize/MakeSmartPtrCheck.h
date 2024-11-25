@@ -46,6 +46,7 @@ protected:
 private:
   utils::IncludeInserter Inserter;
   const StringRef MakeSmartPtrFunctionHeader;
+  const StringRef MakeSmartPtrType;
   const StringRef MakeSmartPtrFunctionName;
   const bool IgnoreMacros;
   const bool IgnoreDefaultInitialization;

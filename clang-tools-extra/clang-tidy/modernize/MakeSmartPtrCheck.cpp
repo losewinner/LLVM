@@ -46,6 +46,7 @@ MakeSmartPtrCheck::MakeSmartPtrCheck(StringRef Name, ClangTidyContext *Context,
                areDiagsSelfContained()),
       MakeSmartPtrFunctionHeader(
           Options.get("MakeSmartPtrFunctionHeader", "<memory>")),
+      MakeSmartPtrType(Options.get("MakeSmartPtrType", "::std::shared_ptr")),
       MakeSmartPtrFunctionName(
           Options.get("MakeSmartPtrFunction", MakeSmartPtrFunctionName)),
       IgnoreMacros(Options.getLocalOrGlobal("IgnoreMacros", true)),
@@ -55,6 +56,7 @@ MakeSmartPtrCheck::MakeSmartPtrCheck(StringRef Name, ClangTidyContext *Context,
 void MakeSmartPtrCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "IncludeStyle", Inserter.getStyle());
   Options.store(Opts, "MakeSmartPtrFunctionHeader", MakeSmartPtrFunctionHeader);
+  Options.store(Opts, "MakeSmartPtrType", MakeSmartPtrType);
   Options.store(Opts, "MakeSmartPtrFunction", MakeSmartPtrFunctionName);
   Options.store(Opts, "IgnoreMacros", IgnoreMacros);
   Options.store(Opts, "IgnoreDefaultInitialization",
@@ -115,7 +117,6 @@ void MakeSmartPtrCheck::check(const MatchFinder::MatchResult &Result) {
   // 'smart_ptr' refers to 'std::shared_ptr' or 'std::unique_ptr' or other
   // pointer, 'make_smart_ptr' refers to 'std::make_shared' or
   // 'std::make_unique' or other function that creates smart_ptr.
-
   SourceManager &SM = *Result.SourceManager;
   const auto *Construct =
       Result.Nodes.getNodeAs<CXXConstructExpr>(ConstructorCall);
@@ -361,8 +362,7 @@ bool MakeSmartPtrCheck::replaceNew(DiagnosticBuilder &Diag,
       Diag << FixItHint::CreateRemoval(
           SourceRange(NewStart, InitRange.getBegin()));
       Diag << FixItHint::CreateRemoval(SourceRange(InitRange.getEnd(), NewEnd));
-    }
-    else {
+    } else {
       // New array expression with default/value initialization:
       //   smart_ptr<Foo[]>(new int[5]());
       //   smart_ptr<Foo[]>(new Foo[5]());
