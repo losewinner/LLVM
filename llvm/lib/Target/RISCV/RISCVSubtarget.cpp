@@ -186,6 +186,10 @@ bool RISCVSubtarget::useRVVForFixedLengthVectors() const {
 
 bool RISCVSubtarget::enableSubRegLiveness() const { return true; }
 
+bool RISCVSubtarget::enableMachinePipeliner() const {
+  return getSchedModel().hasInstrSchedModel();
+}
+
 void RISCVSubtarget::getPostRAMutations(
     std::vector<std::unique_ptr<ScheduleDAGMutation>> &Mutations) const {
   Mutations.push_back(createMacroFusionDAGMutation(getMacroFusions()));
