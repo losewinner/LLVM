@@ -9,6 +9,7 @@
 #include "Writer.h"
 #include "AArch64ErrataFix.h"
 #include "ARMErrataFix.h"
+#include "BPSectionOrderer.h"
 #include "CallGraphSort.h"
 #include "Config.h"
 #include "InputFiles.h"
@@ -1078,8 +1079,17 @@ static void maybeShuffle(Ctx &ctx,
 // Builds section order for handling --symbol-ordering-file.
 static DenseMap<const InputSectionBase *, int> buildSectionOrder(Ctx &ctx) {
   DenseMap<const InputSectionBase *, int> sectionOrder;
+  if (!ctx.arg.irpgoProfileSortProfilePath.empty() ||
+      ctx.arg.functionOrderForCompression || ctx.arg.dataOrderForCompression) {
+    TimeTraceScope timeScope("Balanced Partitioning Section Orderer");
+    sectionOrder = runBalancedPartitioning(
+        ctx, ctx.arg.irpgoProfileSortProfilePath,
+        ctx.arg.functionOrderForCompression, ctx.arg.dataOrderForCompression,
+        ctx.arg.compressionSortStartupFunctions,
+        ctx.arg.verboseBpSectionOrderer);
+  }
   // Use the rarely used option --call-graph-ordering-file to sort sections.
-  if (!ctx.arg.callGraphProfile.empty())
+  else if (!ctx.arg.callGraphProfile.empty())
     return computeCallGraphProfileOrder(ctx);
 
   if (ctx.arg.symbolOrderingFile.empty())
