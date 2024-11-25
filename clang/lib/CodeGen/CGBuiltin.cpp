@@ -19097,7 +19097,7 @@ Value *CodeGenFunction::EmitHLSLBuiltinExpr(unsigned BuiltinID,
         /*ReturnType=*/Op0->getType(), CGM.getHLSLRuntime().getCrossIntrinsic(),
         ArrayRef<Value *>{Op0, Op1}, nullptr, "hlsl.cross");
   }
-  case Builtin::BI__builtin_hlsl_distance: {
+  case SPIRV::BI__builtin_hlsl_distance: {
     Value *X = EmitScalarExpr(E->getArg(0));
     Value *Y = EmitScalarExpr(E->getArg(1));
     assert(E->getArg(0)->getType()->hasFloatingRepresentation() &&
@@ -19188,7 +19188,7 @@ Value *CodeGenFunction::EmitHLSLBuiltinExpr(unsigned BuiltinID,
         /*ReturnType=*/X->getType(), CGM.getHLSLRuntime().getLerpIntrinsic(),
         ArrayRef<Value *>{X, Y, S}, nullptr, "hlsl.lerp");
   }
-  case Builtin::BI__builtin_hlsl_length: {
+  case SPIRV::BI__builtin_hlsl_length: {
     Value *X = EmitScalarExpr(E->getArg(0));
     assert(E->getArg(0)->getType()->hasFloatingRepresentation() &&
            "length operand must have a float representation");

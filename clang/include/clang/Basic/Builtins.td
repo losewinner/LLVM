@@ -4810,12 +4810,6 @@ def HLSLDegrees : LangBuiltin<"HLSL_LANG"> {
   let Prototype = "void(...)";
 }
 
-def HLSLDistance : LangBuiltin<"HLSL_LANG"> {
-  let Spellings = ["__builtin_hlsl_distance"];
-  let Attributes = [NoThrow, Const];
-  let Prototype = "void(...)";
-}
-
 def HLSLDotProduct : LangBuiltin<"HLSL_LANG"> {
   let Spellings = ["__builtin_hlsl_dot"];
   let Attributes = [NoThrow, Const];
@@ -4848,12 +4842,6 @@ def HLSLFrac : LangBuiltin<"HLSL_LANG"> {
 
 def HLSLIsinf : LangBuiltin<"HLSL_LANG"> {
   let Spellings = ["__builtin_hlsl_elementwise_isinf"];
-  let Attributes = [NoThrow, Const];
-  let Prototype = "void(...)";
-}
-
-def HLSLLength : LangBuiltin<"HLSL_LANG"> {
-  let Spellings = ["__builtin_hlsl_length"];
   let Attributes = [NoThrow, Const];
   let Prototype = "void(...)";
 }

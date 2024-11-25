@@ -23,6 +23,7 @@
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/ParsedAttr.h"
@@ -1976,7 +1977,7 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     TheCall->setType(ArgTyA);
     break;
   }
-  case Builtin::BI__builtin_hlsl_distance: {
+  case SPIRV::BI__builtin_hlsl_distance: {
     if (CheckFloatOrHalfRepresentations(&SemaRef, TheCall))
       return true;
     if (SemaRef.checkArgCount(TheCall, 2))
@@ -2077,7 +2078,7 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
       return true;
     break;
   }
-  case Builtin::BI__builtin_hlsl_length: {
+  case SPIRV::BI__builtin_hlsl_length: {
     if (CheckFloatOrHalfRepresentations(&SemaRef, TheCall))
       return true;
     if (SemaRef.checkArgCount(TheCall, 1))
