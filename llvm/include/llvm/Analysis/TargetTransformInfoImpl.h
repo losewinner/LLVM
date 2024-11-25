@@ -730,6 +730,11 @@ public:
     return 1;
   }
 
+  InstructionCost getConstantMaterializationCost(ArrayRef<Value *> VL) const {
+    // Vector cost is considered same as Scalar Cost.
+    return TTI::TCC_Free;
+  }
+
   InstructionCost getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                                   unsigned AddressSpace,
                                   TTI::TargetCostKind CostKind,

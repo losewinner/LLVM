@@ -1451,6 +1451,7 @@ public:
   void deleteTree() {
     VectorizableTree.clear();
     ScalarToTreeEntry.clear();
+    ConstVectList.clear();
     MultiNodeScalars.clear();
     MustGather.clear();
     NonScheduledFirst.clear();
@@ -3726,6 +3727,9 @@ private:
 
   /// Maps a specific scalar to its tree entry.
   SmallDenseMap<Value *, TreeEntry *> ScalarToTreeEntry;
+
+  // Vector containing lists of constants used as operands during vectorization.
+  static inline SmallVector<SmallVector<Value *, 16>, 4> ConstVectList = {};
 
   /// List of scalars, used in several vectorize nodes, and the list of the
   /// nodes.
@@ -10054,8 +10058,21 @@ class BoUpSLP::ShuffleCostEstimator : public BaseShuffleAnalysis {
   }
 
   InstructionCost getBuildVectorCost(ArrayRef<Value *> VL, Value *Root) {
-    if ((!Root && allConstant(VL)) || all_of(VL, IsaPred<UndefValue>))
+    if (all_of(VL, IsaPred<UndefValue>))
       return TTI::TCC_Free;
+    if ((!Root && allConstant(VL))) {
+      if (isSplat(VL))
+        return TTI::TCC_Free;
+      // Check if cost has been considered once.
+      auto *It = find_if(ConstVectList, [RefVL = VL](ArrayRef<Value *> VL) {
+        return VL == RefVL;
+      });
+      // Cost has been considered already.
+      if (It != ConstVectList.end())
+        return TTI::TCC_Free;
+      ConstVectList.emplace_back(SmallVector<Value *>(VL));
+      return TTI.getConstantMaterializationCost(VL);
+    }
     auto *VecTy = getWidenedType(ScalarTy, VL.size());
     InstructionCost GatherCost = 0;
     SmallVector<Value *> Gathers(VL);
@@ -11019,8 +11036,6 @@ BoUpSLP::getEntryCost(const TreeEntry *E, ArrayRef<Value *> VectorizedVals,
 
   bool NeedToShuffleReuses = !E->ReuseShuffleIndices.empty();
   if (E->isGather()) {
-    if (allConstant(VL))
-      return 0;
     if (isa<InsertElementInst>(VL[0]))
       return InstructionCost::getInvalid();
     if (isa<CmpInst>(VL.front()))

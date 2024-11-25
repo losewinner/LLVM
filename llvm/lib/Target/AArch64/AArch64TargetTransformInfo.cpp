@@ -3785,12 +3785,44 @@ bool AArch64TTIImpl::useNeonVector(const Type *Ty) const {
   return isa<FixedVectorType>(Ty) && !ST->useSVEForFixedLengthVectors();
 }
 
-InstructionCost AArch64TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Ty,
-                                                MaybeAlign Alignment,
-                                                unsigned AddressSpace,
-                                                TTI::TargetCostKind CostKind,
-                                                TTI::OperandValueInfo OpInfo,
-                                                const Instruction *I) {
+// Return the cost of materializing a constant vector.
+InstructionCost
+AArch64TTIImpl::getConstantMaterializationCost(ArrayRef<Value *> VL) {
+  auto isSplat = [](ArrayRef<Value *> VL) {
+    Value *FirstNonUndef = nullptr;
+    for (Value *V : VL) {
+      if (isa<UndefValue>(V))
+        continue;
+      if (!FirstNonUndef) {
+        FirstNonUndef = V;
+        continue;
+      }
+      if (V != FirstNonUndef)
+        return false;
+    }
+    return FirstNonUndef != nullptr;
+  };
+  if (isSplat(VL) || all_of(VL, IsaPred<UndefValue, PoisonValue>))
+    return TTI::TCC_Free;
+
+  SmallDenseSet<Value *, 16> S;
+  for (auto *V : VL)
+    S.insert(V);
+  // This necessitates mov/fmov into GPR. So,
+  // ScalarCost = #Unique Scalars.
+  InstructionCost ScalarCost = S.size();
+  auto *EltTy = VL[0]->getType();
+  auto *VecTy = FixedVectorType::get(EltTy, VL.size());
+  InstructionCost VectorCost = getMemoryOpCost(
+      Instruction::Load, VecTy, Align(), 0, TTI::TCK_RecipThroughput,
+      {TTI::OK_AnyValue, TTI::OP_None}, nullptr, ScalarCost);
+  return VectorCost - ScalarCost;
+}
+
+InstructionCost AArch64TTIImpl::getMemoryOpCost(
+    unsigned Opcode, Type *Ty, MaybeAlign Alignment, unsigned AddressSpace,
+    TTI::TargetCostKind CostKind, TTI::OperandValueInfo OpInfo,
+    const Instruction *I, InstructionCost ConstVectScalarCost) {
   EVT VT = TLI->getValueType(DL, Ty, true);
   // Type legalization can't handle structs
   if (VT == MVT::Other)
@@ -3800,6 +3832,11 @@ InstructionCost AArch64TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Ty,
   auto LT = getTypeLegalizationCost(Ty);
   if (!LT.first.isValid())
     return InstructionCost::getInvalid();
+
+  // FIXME: Consider the cost of materializing const vector where the
+  // legalization cost > 1.
+  if (ConstVectScalarCost.isValid() && LT.first.getValue().value() > 1)
+    return ConstVectScalarCost;
 
   // The code-generator is currently not able to handle scalable vectors
   // of <vscale x 1 x eltty> yet, so return an invalid cost to avoid selecting
@@ -3845,6 +3882,14 @@ InstructionCost AArch64TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Ty,
       // Otherwise we need to scalarize.
       return cast<FixedVectorType>(Ty)->getNumElements() * 2;
     }
+
+    // Const vector is lowered into `adrp + ldr`. This ldr is of the form
+    // "load vector reg, literal, S/D/Q forms" and is of very high latency.
+    // FIXME: This only considers the cost of ldr. Also consider the cost of
+    // adrp.
+    if (ConstVectScalarCost.isValid())
+      return 4;
+
     EVT EltVT = VT.getVectorElementType();
     unsigned EltSize = EltVT.getScalarSizeInBits();
     if (!isPowerOf2_32(EltSize) || EltSize < 8 || EltSize > 64 ||

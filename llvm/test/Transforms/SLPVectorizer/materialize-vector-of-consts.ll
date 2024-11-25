@@ -4,9 +4,10 @@
 define <2 x float> @v2f32_diff_consts(float %a, float %b)
 ; CHECK-LABEL: define <2 x float> @v2f32_diff_consts(
 ; CHECK-SAME: float [[A:%.*]], float [[B:%.*]]) {
-; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x float> poison, float [[A]], i32 0
-; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x float> [[TMP1]], float [[B]], i32 1
-; CHECK-NEXT:    [[TMP3:%.*]] = fmul <2 x float> [[TMP2]], <float 2.200000e+01, float 2.300000e+01>
+; CHECK-NEXT:    [[TMP1:%.*]] = fmul float [[A]], 2.200000e+01
+; CHECK-NEXT:    [[TMP2:%.*]] = fmul float [[B]], 2.300000e+01
+; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x float> poison, float [[TMP1]], i32 0
+; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x float> [[TMP4]], float [[TMP2]], i32 1
 ; CHECK-NEXT:    ret <2 x float> [[TMP3]]
 ;
 {
@@ -33,6 +34,8 @@ define <2 x float> @v2f32_const_splat(float %a, float %b)
   ret <2 x float> %4
 }
 
+; This needs type legalization since <4 x double> won't fit into a single register.
+; So, we bail out for now while calculating the cost of vector of constants.
 define <4 x double> @v4f64_illegal_type(double %a, double %b, double %c, double %d)
 ; CHECK-LABEL: define <4 x double> @v4f64_illegal_type(
 ; CHECK-SAME: double [[A:%.*]], double [[B:%.*]], double [[C:%.*]], double [[D:%.*]]) {
@@ -55,15 +58,22 @@ define <4 x double> @v4f64_illegal_type(double %a, double %b, double %c, double 
   ret <4 x double> %8
 }
 
+; Here, we have 2 SLP trees. Both calculate the cost of <2 x double><double 21.0, double 22.0>
+; seperately/individually and hence, both the trees are not vectorized. But, in terms of codegen,
+; this const vector needs to be realized only once and hence, considering the cost of const
+; vector twice is inappropriate.
+; But, suprisingly, llvm-mca for -mtriple=aarch64 shows scalar version to be slightly better.
 define <2 x double> @v2f64_dup_const_vector_case1(double %a, double %b, double %c, double %d)
 ; CHECK-LABEL: define <2 x double> @v2f64_dup_const_vector_case1(
 ; CHECK-SAME: double [[A:%.*]], double [[B:%.*]], double [[C:%.*]], double [[D:%.*]]) {
-; CHECK-NEXT:    [[TMP1:%.*]] = insertelement <2 x double> poison, double [[A]], i32 0
-; CHECK-NEXT:    [[TMP2:%.*]] = insertelement <2 x double> [[TMP1]], double [[B]], i32 1
-; CHECK-NEXT:    [[TMP3:%.*]] = fmul <2 x double> [[TMP2]], <double 2.100000e+01, double 2.200000e+01>
-; CHECK-NEXT:    [[TMP4:%.*]] = insertelement <2 x double> poison, double [[C]], i32 0
-; CHECK-NEXT:    [[TMP5:%.*]] = insertelement <2 x double> [[TMP4]], double [[D]], i32 1
-; CHECK-NEXT:    [[TMP6:%.*]] = fmul <2 x double> [[TMP5]], <double 2.100000e+01, double 2.200000e+01>
+; CHECK-NEXT:    [[TMP1:%.*]] = fmul double [[A]], 2.100000e+01
+; CHECK-NEXT:    [[TMP2:%.*]] = fmul double [[B]], 2.200000e+01
+; CHECK-NEXT:    [[TMP8:%.*]] = fmul double [[C]], 2.100000e+01
+; CHECK-NEXT:    [[TMP4:%.*]] = fmul double [[D]], 2.200000e+01
+; CHECK-NEXT:    [[TMP5:%.*]] = insertelement <2 x double> poison, double [[TMP1]], i32 0
+; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x double> [[TMP5]], double [[TMP2]], i32 1
+; CHECK-NEXT:    [[TMP9:%.*]] = insertelement <2 x double> poison, double [[TMP8]], i32 0
+; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <2 x double> [[TMP9]], double [[TMP4]], i32 1
 ; CHECK-NEXT:    [[TMP7:%.*]] = fadd <2 x double> [[TMP3]], [[TMP6]]
 ; CHECK-NEXT:    ret <2 x double> [[TMP7]]
 ;
@@ -80,6 +90,7 @@ define <2 x double> @v2f64_dup_const_vector_case1(double %a, double %b, double %
   ret <2 x double> %9
 }
 
+; llvm-mca for -mtriple=aarch64 shows scalar version to be only slightly better.
 define <2 x double> @v2f64_dup_const_vector_case2(double %a, double %b, double %c, double %d)
 ; CHECK-LABEL: define <2 x double> @v2f64_dup_const_vector_case2(
 ; CHECK-SAME: double [[A:%.*]], double [[B:%.*]], double [[C:%.*]], double [[D:%.*]]) {
