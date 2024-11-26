@@ -23478,7 +23478,7 @@ Examples:
 .. _int_experimental_get_alias_lane_mask:
 
 '``llvm.experimental.get.alias.lane.mask.*``' Intrinsics
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Syntax:
 """""""
