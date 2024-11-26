@@ -663,6 +663,7 @@ backend:SPIR-V:
   - clang/lib/Driver/ToolChains/SPIRV.*
   - clang/lib/Sema/SemaSPIRV.cpp
   - clang/include/clang/Sema/SemaSPIRV.h
+  - clang/include/clang/Basic/BuiltinsSPIRV.td
   - llvm/lib/Target/SPIRV/**
   - llvm/test/CodeGen/SPIRV/**
   - llvm/test/Frontend/HLSL/**
