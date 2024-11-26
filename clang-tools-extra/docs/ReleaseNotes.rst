@@ -150,6 +150,16 @@ New check aliases
 Changes in existing checks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Improved :doc:modernize-make-shared
+  <clang-tidy/checks/modernize/make-shared> check by adding a new option 
+  `MakeSmartPtrType`` to specify the corresponding smart pointer type, with a
+  default value of ``::std::shared_ptr`.
+
+- Improved :doc:modernize-make-unique
+  <clang-tidy/checks/modernize/make-unique> check by adding a new option 
+  `MakeSmartPtrType`` to specify the corresponding smart pointer type, with a
+  default value of ``::std::unique_ptr`.
+
 - Improved :doc:`altera-id-dependent-backward-branch
   <clang-tidy/checks/altera/id-dependent-backward-branch>` check by fixing
   crashes from invalid code.
