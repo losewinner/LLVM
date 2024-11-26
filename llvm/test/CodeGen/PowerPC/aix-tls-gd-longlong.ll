@@ -325,12 +325,16 @@ define i64 @loadsTGInit() #1 {
 ; SMALL32-NEXT:    stw 0, 40(1)
 ; SMALL32-NEXT:    bla .__tls_get_addr[PR]
 ; SMALL32-NEXT:    lwz 4, L..C7(2) # @GInit
+<<<<<<< HEAD
 ; SMALL32-NEXT:    lwz 5, 4(3)
+=======
+; SMALL32-NEXT:    lwz 5, 0(3)
+; SMALL32-NEXT:    lwz 3, 4(3)
+>>>>>>> 9eab7483bf41 ([PowerPC] Deprecate uses of ISD::ADDC/ISD::ADDE/ISD::SUBC/ISD::SUBE)
 ; SMALL32-NEXT:    lwz 6, 4(4)
-; SMALL32-NEXT:    lwz 3, 0(3)
 ; SMALL32-NEXT:    lwz 7, 0(4)
-; SMALL32-NEXT:    addc 4, 6, 5
-; SMALL32-NEXT:    adde 3, 7, 3
+; SMALL32-NEXT:    addc 4, 6, 3
+; SMALL32-NEXT:    adde 3, 7, 5
 ; SMALL32-NEXT:    addi 1, 1, 32
 ; SMALL32-NEXT:    lwz 0, 8(1)
 ; SMALL32-NEXT:    mtlr 0
@@ -346,14 +350,14 @@ define i64 @loadsTGInit() #1 {
 ; LARGE32-NEXT:    lwz 3, L..C0@l(3)
 ; LARGE32-NEXT:    lwz 4, L..C1@l(4)
 ; LARGE32-NEXT:    bla .__tls_get_addr[PR]
-; LARGE32-NEXT:    lwz 4, 4(3)
-; LARGE32-NEXT:    lwz 3, 0(3)
-; LARGE32-NEXT:    addis 5, L..C7@u(2)
-; LARGE32-NEXT:    lwz 5, L..C7@l(5)
-; LARGE32-NEXT:    lwz 6, 4(5)
-; LARGE32-NEXT:    lwz 5, 0(5)
-; LARGE32-NEXT:    addc 4, 6, 4
-; LARGE32-NEXT:    adde 3, 5, 3
+; LARGE32-NEXT:    lwz 5, 0(3)
+; LARGE32-NEXT:    lwz 3, 4(3)
+; LARGE32-NEXT:    addis 4, L..C7@u(2)
+; LARGE32-NEXT:    lwz 4, L..C7@l(4)
+; LARGE32-NEXT:    lwz 6, 4(4)
+; LARGE32-NEXT:    lwz 7, 0(4)
+; LARGE32-NEXT:    addc 4, 6, 3
+; LARGE32-NEXT:    adde 3, 7, 5
 ; LARGE32-NEXT:    addi 1, 1, 32
 ; LARGE32-NEXT:    lwz 0, 8(1)
 ; LARGE32-NEXT:    mtlr 0
@@ -589,12 +593,12 @@ define i64 @loadsTWInit() #1 {
 ; SMALL32-NEXT:    stw 0, 40(1)
 ; SMALL32-NEXT:    bla .__tls_get_addr[PR]
 ; SMALL32-NEXT:    lwz 4, L..C7(2) # @GInit
-; SMALL32-NEXT:    lwz 5, 4(3)
+; SMALL32-NEXT:    lwz 5, 0(3)
+; SMALL32-NEXT:    lwz 3, 4(3)
 ; SMALL32-NEXT:    lwz 6, 4(4)
-; SMALL32-NEXT:    lwz 3, 0(3)
 ; SMALL32-NEXT:    lwz 7, 0(4)
-; SMALL32-NEXT:    addc 4, 6, 5
-; SMALL32-NEXT:    adde 3, 7, 3
+; SMALL32-NEXT:    addc 4, 6, 3
+; SMALL32-NEXT:    adde 3, 7, 5
 ; SMALL32-NEXT:    addi 1, 1, 32
 ; SMALL32-NEXT:    lwz 0, 8(1)
 ; SMALL32-NEXT:    mtlr 0
@@ -610,14 +614,14 @@ define i64 @loadsTWInit() #1 {
 ; LARGE32-NEXT:    lwz 3, L..C5@l(3)
 ; LARGE32-NEXT:    lwz 4, L..C6@l(4)
 ; LARGE32-NEXT:    bla .__tls_get_addr[PR]
-; LARGE32-NEXT:    lwz 4, 4(3)
-; LARGE32-NEXT:    lwz 3, 0(3)
-; LARGE32-NEXT:    addis 5, L..C7@u(2)
-; LARGE32-NEXT:    lwz 5, L..C7@l(5)
-; LARGE32-NEXT:    lwz 6, 4(5)
-; LARGE32-NEXT:    lwz 5, 0(5)
-; LARGE32-NEXT:    addc 4, 6, 4
-; LARGE32-NEXT:    adde 3, 5, 3
+; LARGE32-NEXT:    lwz 5, 0(3)
+; LARGE32-NEXT:    lwz 3, 4(3)
+; LARGE32-NEXT:    addis 4, L..C7@u(2)
+; LARGE32-NEXT:    lwz 4, L..C7@l(4)
+; LARGE32-NEXT:    lwz 6, 4(4)
+; LARGE32-NEXT:    lwz 7, 0(4)
+; LARGE32-NEXT:    addc 4, 6, 3
+; LARGE32-NEXT:    adde 3, 7, 5
 ; LARGE32-NEXT:    addi 1, 1, 32
 ; LARGE32-NEXT:    lwz 0, 8(1)
 ; LARGE32-NEXT:    mtlr 0
