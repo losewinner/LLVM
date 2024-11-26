@@ -5675,6 +5675,7 @@ cc_library(
         ":GPUTransforms",
         ":IndexToLLVM",
         ":LLVMDialect",
+        ":LLVMIRTransforms",
         ":LinalgTransforms",
         ":MathToLLVM",
         ":MemRefToLLVM",
