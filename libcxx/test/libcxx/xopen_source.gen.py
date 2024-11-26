@@ -26,10 +26,11 @@ from libcxx.header_information import (
 for header in public_headers:
     for version in (500, 600, 700):
         # TODO: <fstream> currently uses ::fseeko unguarded, which fails with _XOPEN_SOURCE=500.
-        if header == 'fstream' and version == 500:
+        if header == "fstream" and version == 500:
             continue
 
-        print(f"""\
+        print(
+            f"""\
 //--- {header}.xopen_source_{version}.compile.pass.cpp
 {lit_header_restrictions.get(header, '')}
 {lit_header_undeprecations.get(header, '')}
