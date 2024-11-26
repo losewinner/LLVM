@@ -1977,20 +1977,6 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     TheCall->setType(ArgTyA);
     break;
   }
-  case SPIRV::BI__builtin_hlsl_distance: {
-    if (CheckFloatOrHalfRepresentations(&SemaRef, TheCall))
-      return true;
-    if (SemaRef.checkArgCount(TheCall, 2))
-      return true;
-    if (CheckVectorElementCallArgs(&SemaRef, TheCall))
-      return true;
-    ExprResult A = TheCall->getArg(0);
-    QualType ArgTyA = A.get()->getType();
-    auto *VTy = ArgTyA->getAs<VectorType>();
-    QualType RetTy = VTy->getElementType();
-    TheCall->setType(RetTy);
-    break;
-  }
   case Builtin::BI__builtin_hlsl_dot: {
     if (SemaRef.checkArgCount(TheCall, 2))
       return true;
@@ -2076,26 +2062,6 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
       return true;
     if (CheckFloatOrHalfRepresentations(&SemaRef, TheCall))
       return true;
-    break;
-  }
-  case SPIRV::BI__builtin_hlsl_length: {
-    if (CheckFloatOrHalfRepresentations(&SemaRef, TheCall))
-      return true;
-    if (SemaRef.checkArgCount(TheCall, 1))
-      return true;
-    ExprResult A = TheCall->getArg(0);
-    QualType ArgTyA = A.get()->getType();
-    auto *VTy = ArgTyA->getAs<VectorType>();
-    if (VTy == nullptr) {
-      SemaRef.Diag(A.get()->getBeginLoc(),
-                   diag::err_typecheck_convert_incompatible)
-          << ArgTyA
-          << SemaRef.Context.getVectorType(ArgTyA, 2, VectorKind::Generic) << 1
-          << 0 << 0;
-      return true;
-    }
-    QualType RetTy = VTy->getElementType();
-    TheCall->setType(RetTy);
     break;
   }
   case Builtin::BI__builtin_hlsl_mad: {
@@ -2215,6 +2181,8 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
       return true;
     break;
   }
+  case SPIRV::BI__builtin_spirv_distance:
+  case SPIRV::BI__builtin_spirv_length:
   case Builtin::BI__builtin_elementwise_acos:
   case Builtin::BI__builtin_elementwise_asin:
   case Builtin::BI__builtin_elementwise_atan:

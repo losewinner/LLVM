@@ -50,12 +50,13 @@ length_impl(T X) {
 template <typename T, int N>
 constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
 length_vec_impl(vector<T, N> X) {
-#if (__has_builtin(__builtin_hlsl_length))
-  return __builtin_hlsl_length(X);
-#endif
+#if (__has_builtin(__builtin_spirv_length))
+  return __builtin_spirv_length(X);
+#else
   vector<T, N> XSquared = X * X;
   T XSquaredSum = __builtin_hlsl_reduce_add(XSquared);
   return __builtin_elementwise_sqrt(XSquaredSum);
+#endif
 }
 
 template <typename T>
@@ -67,10 +68,11 @@ distance_impl(T X, T Y) {
 template <typename T, int N>
 constexpr enable_if_t<is_same<float, T>::value || is_same<half, T>::value, T>
 distance_vec_impl(vector<T, N> X, vector<T, N> Y) {
-#if (__has_builtin(__builtin_hlsl_distance))
-  return __builtin_hlsl_distance(X, Y);
-#endif
+#if (__has_builtin(__builtin_spirv_distance))
+  return __builtin_spirv_distance(X, Y);
+#else
   return length_vec_impl(X - Y);
+#endif
 }
 
 } // namespace __detail
