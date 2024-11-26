@@ -57,11 +57,14 @@ class TestDAP_server(lldbdap_testcase.DAPTestCaseBase):
         """
         self.do_test_server(connection="tcp://localhost:0")
 
+    @skipIfWindows
     def test_server_unix_socket(self):
         """
         Test launching a binary with a lldb-dap in server mode on a unix socket.
         """
         dir = tempfile.gettempdir()
-        self.do_test_server(
-            connection="unix://" + dir + "/dap-connection-" + str(os.getpid())
-        )
+        name = dir + "/dap-connection-" + str(os.getpid())
+        def cleanup():
+            os.unlink(name)
+        self.addTearDownHook(cleanup)
+        self.do_test_server(connection="unix://" + name)

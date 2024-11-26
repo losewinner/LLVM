@@ -13,6 +13,7 @@
 #include "FunctionBreakpoint.h"
 #include "IOStream.h"
 #include "InstructionBreakpoint.h"
+#include "OutputRedirector.h"
 #include "ProgressEvent.h"
 #include "SourceBreakpoint.h"
 #include "lldb/API/SBAttachInfo.h"
@@ -60,7 +61,7 @@ enum DAPBroadcasterBits {
 };
 
 typedef void (*RequestCallback)(DAP &dap, const llvm::json::Object &command);
-typedef void (*ResponseCallback)(llvm::Expected<llvm::json::Value> value);
+typedef void (*ResponseCallback)(DAP &dap, llvm::Expected<llvm::json::Value> value);
 
 enum class PacketStatus {
   Success = 0,
@@ -145,7 +146,7 @@ struct DAP {
   lldb::SBBroadcaster broadcaster;
   std::thread event_thread;
   std::thread progress_event_thread;
-  llvm::raw_ostream *log;
+  std::ofstream *log;
   llvm::StringMap<SourceBreakpointMap> source_breakpoints;
   FunctionBreakpointMap function_breakpoints;
   InstructionBreakpointMap instruction_breakpoints;
@@ -196,8 +197,9 @@ struct DAP {
   // empty; if the previous expression was a variable expression, this string
   // will contain that expression.
   std::string last_nonempty_var_expression;
+  OutputRedirector redirector;
 
-  DAP(llvm::StringRef path, llvm::raw_ostream *log, ReplMode repl_mode,
+  DAP(llvm::StringRef path, std::ofstream *log, ReplMode repl_mode,
       std::vector<std::string> pre_init_commands);
   ~DAP();
 

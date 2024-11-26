@@ -11,7 +11,6 @@
 #include "JSONUtils.h"
 #include "LLDBUtils.h"
 #include "RunInTerminal.h"
-#include "Socket.h"
 #include "Watchpoint.h"
 #include "lldb/API/SBDeclaration.h"
 #include "lldb/API/SBFile.h"
@@ -21,11 +20,18 @@
 #include "lldb/API/SBStream.h"
 #include "lldb/API/SBStringList.h"
 #include "lldb/Host/Config.h"
+#include "lldb/Host/MainLoop.h"
+#include "lldb/Host/MainLoopBase.h"
+#include "lldb/Host/Socket.h"
+#include "lldb/Host/common/TCPSocket.h"
+#include "lldb/Host/posix/DomainSocket.h"
+#include "lldb/Utility/Status.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
@@ -46,13 +52,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <set>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <system_error>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -86,6 +95,13 @@ typedef int socklen_t;
 #endif
 
 using namespace lldb_dap;
+using lldb_private::DomainSocket;
+using lldb_private::MainLoop;
+using lldb_private::MainLoopBase;
+using lldb_private::NativeSocket;
+using lldb_private::Socket;
+using lldb_private::Status;
+using lldb_private::TCPSocket;
 
 namespace {
 using namespace llvm::opt;
@@ -1994,15 +2010,16 @@ llvm::Error request_runInTerminal(DAP &dap,
 #endif
   llvm::json::Object reverse_request = CreateRunInTerminalReverseRequest(
       launch_request, dap.debug_adaptor_path, comm_file.m_path, debugger_pid);
-  dap.SendReverseRequest("runInTerminal", std::move(reverse_request),
-                         [](llvm::Expected<llvm::json::Value> value) {
-                           if (!value) {
-                             llvm::Error err = value.takeError();
-                             llvm::errs()
-                                 << "runInTerminal request failed: "
-                                 << llvm::toString(std::move(err)) << "\n";
-                           }
-                         });
+  dap.SendReverseRequest(
+      "runInTerminal", std::move(reverse_request), [](auto dap, auto value) {
+        if (!value) {
+          dap.SendOutput(
+              OutputType::Stderr,
+              llvm::formatv("runInTerminal request failed: {}",
+                            llvm::toString(std::move(value.takeError())))
+                  .str());
+        }
+      });
 
   if (llvm::Expected<lldb::pid_t> pid = comm_channel.GetLauncherPid())
     attach_info.SetProcessID(*pid);
@@ -4889,7 +4906,28 @@ static void redirection_test() {
   fflush(stderr);
 }
 
-static SocketListener *g_listener = nullptr;
+static llvm::Expected<std::pair<Socket::SocketProtocol, std::string>>
+parseConnection(llvm::StringRef conn) {
+  if (conn.contains("://")) {
+    llvm::StringRef scheme, rest;
+    std::tie(scheme, rest) = conn.split("://");
+
+    if (scheme == "unix" || scheme == "unix-connect") {
+      return std::make_pair(Socket::ProtocolUnixDomain, rest.str());
+    }
+    if (scheme == "tcp" || scheme == "connect") {
+      return std::make_pair(Socket::ProtocolTcp, rest.str());
+    }
+  } else if (conn.starts_with("/")) {
+    return std::make_pair(Socket::ProtocolUnixDomain, conn.str());
+  } else if (conn.contains(":")) {
+    return std::make_pair(Socket::ProtocolTcp, conn.str());
+  }
+
+  return llvm::createStringError(
+      "expected '[unix://]/path' or '[tcp://][host]:port', got '%s'.",
+      conn.str().c_str());
+}
 
 int main(int argc, char *argv[]) {
   llvm::InitLLVM IL(argc, argv, /*InstallPipeSignalExitHandler=*/false);
@@ -4968,16 +5006,9 @@ int main(int argc, char *argv[]) {
   }
 
   const char *log_file_path = getenv("LLDBDAP_LOG");
-  llvm::raw_ostream *log;
-  if (log_file_path) {
-    std::error_code EC;
-    log = new llvm::raw_fd_ostream(log_file_path, EC);
-    if (EC) {
-      llvm::errs() << "Could not open log file: " << EC.message() << ", "
-                   << log_file_path << '\n';
-      return EXIT_FAILURE;
-    }
-  }
+  std::ofstream *log = nullptr;
+  if (log_file_path)
+    log = new std::ofstream(log_file_path);
 
   const auto pre_init_commands =
       input_args.getAllArgValues(OPT_pre_init_command);
@@ -5001,72 +5032,95 @@ int main(int argc, char *argv[]) {
       llvm::make_scope_exit([] { lldb::SBDebugger::Terminate(); });
 
   if (!connection.empty()) {
-    auto maybeListener = SocketListener::createListener(connection);
-    if (auto Err = maybeListener.takeError()) {
-      llvm::errs() << "Failed to listen for connections: "
-                   << llvm::toString(std::move(Err)) << "\n";
+    auto maybeProtoclAndName = parseConnection(connection);
+    if (auto Err = maybeProtoclAndName.takeError()) {
+      std::cerr << "Invalid connection specification "
+                << llvm::toString(std::move(Err)) << std::endl;
       return EXIT_FAILURE;
     }
 
-    g_listener = &*maybeListener;
+    Socket::SocketProtocol protocol;
+    std::string name;
+    std::tie(protocol, name) = *maybeProtoclAndName;
 
-    llvm::sys::SetInterruptFunction([]() {
-      if (g_listener)
-        g_listener->shutdown();
-    });
-
-    auto maybeListenerAddresses = g_listener->addresses();
-    if (auto Err = maybeListenerAddresses.takeError()) {
-      llvm::errs() << "listener failed to retrieve listening socket address: "
-                   << Err << "\n";
+    Status error;
+    std::unique_ptr<Socket> listener = Socket::Create(protocol, false, error);
+    if (error.Fail()) {
+      std::cerr << "Failed to create listener for protocol "
+                << Socket::FindSchemeByProtocol(protocol)
+                << ", error: " << llvm::toString(error.takeError())
+                << std::endl;
       return EXIT_FAILURE;
     }
+
+    error = listener->Listen(name, /* backlog */ 5);
+    if (error.Fail()) {
+      std::cerr << "Failed to listen, error: "
+                << llvm::toString(error.takeError()) << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    std::string address = listener->GetListeningConnectionURI();
 
     if (log)
-      *log << "started with connection listeners "
-           << llvm::join(*maybeListenerAddresses, ", ") << "\n";
+      *log << "started with connection listeners " << address << "\n";
 
-    llvm::outs() << "Listening for: "
-                 << llvm::join(*maybeListenerAddresses, ", ") << "\n";
+    std::cout << "Listening for: " << address << std::endl;
     // Ensure listening address are flushed for calles to retrieve the resolve
     // address.
-    llvm::outs().flush();
+    std::flush(std::cout);
 
-    while (g_listener && g_listener->isListening()) {
-      llvm::Expected<Socket> maybeClient = g_listener->accept();
-      if (auto Err = maybeClient.takeError()) {
+    MainLoop mainloop;
+    mainloop.RegisterSignal(
+        SIGHUP, [](auto &RL) { RL.RequestTermination(); }, error);
+
+    auto start_dap = [=](std::unique_ptr<Socket> client) {
+      DAP dap = DAP(program_path, log, default_repl_mode, pre_init_commands);
+      NativeSocket sock = client->GetNativeSocket();
+
+      if (auto Err = dap.ConfigureIO()) {
         if (log)
-          *log << "client accept failed: " << Err << "\n";
-        llvm::errs() << "client connection failed: " << Err << "\n";
-        continue;
+          *log << "client[" << sock << "] configureIO failed: "
+               << llvm::toStringWithoutConsuming(Err) << "\n";
+        std::cerr << "failed to configure client connect: "
+                  << llvm::toString(std::move(Err)) << std::endl;
+        return;
       }
 
-      Socket client = std::move(*maybeClient);
-      std::thread t([=, client = std::move(client)]() mutable {
-        DAP dap = DAP(program_path, log, default_repl_mode, pre_init_commands);
-
-        if (auto Err = dap.ConfigureIO()) {
-          llvm::errs() << "failed to configure client connect: "
-                       << llvm::toString(std::move(Err)) << "\n";
-          return;
-        }
-
-        RegisterRequestCallbacks(dap);
-        dap.input.descriptor = StreamDescriptor::from_socket(client.fd, false);
-        dap.output.descriptor = StreamDescriptor::from_socket(client.fd, false);
-        if (auto Err = dap.Loop()) {
-          if (log)
-            *log << "client[" << client.fd
-                 << "] Transport Error: " << llvm::toString(std::move(Err))
-                 << "\n";
-        }
-
+      RegisterRequestCallbacks(dap);
+      dap.input.descriptor = StreamDescriptor::from_socket(sock, false);
+      dap.output.descriptor = StreamDescriptor::from_socket(sock, false);
+      if (auto Err = dap.Loop()) {
         if (log)
-          *log << "client[" << client.fd << "] connection closed\n";
+          *log << "client[" << sock
+               << "] Transport Error: " << llvm::toStringWithoutConsuming(Err)
+               << "\n";
+        std::cerr << "client transport error: "
+                  << llvm::toString(std::move(Err)) << std::endl;
+      }
 
-        client.close();
-      });
-      t.detach();
+      if (log)
+        *log << "client[" << sock << "] connection closed\n";
+    };
+
+    auto on_accept = [=](std::unique_ptr<Socket> client) {
+      llvm::errs() << "Client connected...\n";
+      // Start a thread for each connection, unblocking the listening thread.
+      std::thread(start_dap, std::move(client)).detach();
+    };
+
+    auto handles = listener->Accept(mainloop, on_accept);
+    if (auto Err = handles.takeError()) {
+      std::cerr << "failed to register accept() with the main loop: "
+                << llvm::toString(std::move(Err)) << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    error = mainloop.Run();
+    if (error.Fail()) {
+      std::cerr << "failed to accept()" << llvm::toString(error.takeError())
+                << std::endl;
+      return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;
@@ -5076,7 +5130,8 @@ int main(int argc, char *argv[]) {
   int new_stdout_fd = dup(fileno(stdout));
   DAP dap = DAP(program_path.str(), log, default_repl_mode, pre_init_commands);
   if (auto Err = dap.ConfigureIO(fileno(stdout), fileno(stderr))) {
-    llvm::errs() << "Failed to create lldb-dap instance: " << Err << "\n";
+    std::cout << "Failed to create lldb-dap instance: "
+              << llvm::toString(std::move(Err)) << "\n";
     return EXIT_FAILURE;
   }
   RegisterRequestCallbacks(dap);
@@ -5102,7 +5157,10 @@ int main(int argc, char *argv[]) {
   bool CleanExit = true;
   if (auto Err = dap.Loop()) {
     if (log)
-      *log << "Transport Error: " << Err << "\n";
+      *log << "Transport Error: " << llvm::toStringWithoutConsuming(Err)
+           << "\n";
+    std::cerr << "Transport Error: " << llvm::toString(std::move(Err))
+              << std::endl;
     CleanExit = false;
   }
 

@@ -9,7 +9,6 @@ import socket
 import string
 import subprocess
 import sys
-import selectors
 import threading
 import time
 
@@ -1172,14 +1171,13 @@ class DebugAdaptorServer(DebugCommunication):
             )
 
         if connection:
-            print("attempting connection", connection)
-            if connection.startswith("unix://"):  # unix:///path
+            if connection.startswith("unix-connect://"):  # unix-connect:///path
                 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                s.connect(connection.removeprefix("unix://"))
-            elif connection.startswith("tcp://"):  # tcp://host:port
-                host, port = connection.removeprefix("tcp://").split(":", 1)
+                s.connect(connection.removeprefix("unix-connect://"))
+            elif connection.startswith("connection://"):  # connection://[host]:port
+                host, port = connection.removeprefix("connection://").rsplit(":", 1)
                 # create_connection with try both ipv4 and ipv6.
-                s = socket.create_connection((host, int(port)))
+                s = socket.create_connection((host.strip("[]"), int(port)))
             else:
                 raise ValueError("invalid connection: {}".format(connection))
             DebugCommunication.__init__(
@@ -1213,16 +1211,16 @@ class DebugAdaptorServer(DebugCommunication):
         if log_file:
             adaptor_env["LLDBDAP_LOG"] = log_file
 
-        if os.uname().sysname == "Darwin":
-            adaptor_env["NSUnbufferedIO"] = "YES"
-
         args = [executable]
+        bufsize = -1
         if connection:
+            bufsize = 0
             args.append("--connection")
             args.append(connection)
 
         proc = subprocess.Popen(
             args,
+            bufsize=bufsize,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=sys.stdout,
@@ -1233,28 +1231,19 @@ class DebugAdaptorServer(DebugCommunication):
             # If a conneciton is specified, lldb-dap will print the listening
             # address once the listener is made to stdout. The listener is
             # formatted like `tcp://host:port` or `unix:///path`.
-            with selectors.DefaultSelector() as sel:
-                print("Reading stdout for the listening connection")
-                os.set_blocking(proc.stdout.fileno(), False)
-                stdout_key = sel.register(proc.stdout, selectors.EVENT_READ)
-                rdy_fds = sel.select(timeout=10.0)
-                for key, _ in rdy_fds:
-                    if key != stdout_key:
-                        continue
-
-                    outs = proc.stdout.read(1024).decode()
-                    os.set_blocking(proc.stdout.fileno(), True)
-                    for line in outs.split("\n"):
-                        if not line.startswith("Listening for: "):
-                            continue
-                        # If the listener expanded into multiple addresses, use the first.
-                        connection = line.removeprefix("Listening for: ").split(",")[0]
-                        print("")
-                        return proc, connection
+            expected_prefix = "Listening for: "
+            out = proc.stdout.readline().decode()
+            if not out.startswith(expected_prefix):
                 proc.kill()
                 raise ValueError(
-                    "lldb-dap started with a connection but failed to write the listening address to stdout."
+                    "lldb-dap failed to print listening address, expected '{}', got '{}'".format(
+                        expected_prefix, out
+                    )
                 )
+
+            # If the listener expanded into multiple addresses, use the first.
+            connection = out.removeprefix(expected_prefix).rstrip("\r\n")
+            return proc, connection
 
         return proc, None
 

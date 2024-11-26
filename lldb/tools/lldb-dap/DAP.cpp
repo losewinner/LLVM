@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <cstdarg>
+#include <fstream>
 #include <mutex>
 
 #include "DAP.h"
@@ -34,7 +35,7 @@ using namespace lldb_dap;
 
 namespace lldb_dap {
 
-DAP::DAP(llvm::StringRef path, llvm::raw_ostream *log, ReplMode repl_mode,
+DAP::DAP(llvm::StringRef path, std::ofstream *log, ReplMode repl_mode,
          std::vector<std::string> pre_init_commands)
     : debug_adaptor_path(path), broadcaster("lldb-dap"), log(log),
       exception_breakpoints(), pre_init_commands(pre_init_commands),
@@ -52,22 +53,24 @@ DAP::~DAP() = default;
 
 llvm::Error DAP::ConfigureIO(int out_fd, int err_fd) {
   llvm::Expected<int> new_stdout_fd =
-      RedirectFd(out_fd, [this](llvm::StringRef data) {
+      redirector.RedirectFd(out_fd, [this](llvm::StringRef data) {
         SendOutput(OutputType::Stdout, data);
       });
   if (auto Err = new_stdout_fd.takeError()) {
     return Err;
   }
   llvm::Expected<int> new_stderr_fd =
-      RedirectFd(err_fd, [this](llvm::StringRef data) {
+      redirector.RedirectFd(err_fd, [this](llvm::StringRef data) {
         SendOutput(OutputType::Stderr, data);
       });
   if (auto Err = new_stderr_fd.takeError()) {
     return Err;
   }
 
-  out = lldb::SBFile(new_stdout_fd.get(), "w", false);
-  err = lldb::SBFile(new_stderr_fd.get(), "w", false);
+  out = lldb::SBFile(/*fd=*/new_stdout_fd.get(), /*mode=*/"w",
+                     /*transfer_ownership=*/false);
+  err = lldb::SBFile(/*fd=*/new_stderr_fd.get(), /*mode=*/"w",
+                     /*transfer_ownership=*/false);
 
   return llvm::Error::success();
 }
@@ -207,9 +210,9 @@ void DAP::SendJSON(const llvm::json::Value &json) {
   if (log) {
     auto now = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch());
-    *log << llvm::formatv("{0:f9} <-- ", now.count()).str() << "\n"
+    *log << llvm::formatv("{0:f9} <-- ", now.count()).str() << std::endl
          << "Content-Length: " << json_str.size() << "\r\n\r\n"
-         << llvm::formatv("{0:2}", json).str() << "\n";
+         << llvm::formatv("{0:2}", json).str() << std::endl;
   }
 }
 
@@ -237,8 +240,8 @@ std::string DAP::ReadJSON() {
   if (log) {
     auto now = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch());
-    *log << llvm::formatv("{0:f9} --> ", now.count()).str()
-         << "\nContent-Length: " << length << "\r\n\r\n";
+    *log << llvm::formatv("{0:f9} --> ", now.count()).str() << std::endl
+         << "Content-Length: " << length << "\r\n\r\n";
   }
   return json_str;
 }
@@ -537,11 +540,14 @@ ReplMode DAP::DetectReplMode(lldb::SBFrame frame, std::string &expression,
 
     // If we have both a variable and command, warn the user about the conflict.
     if (term_is_command && term_is_variable) {
-      llvm::errs()
-          << "Warning: Expression '" << term
-          << "' is both an LLDB command and variable. It will be evaluated as "
-             "a variable. To evaluate the expression as an LLDB command, use '"
-          << command_escape_prefix << "' as a prefix.\n";
+      SendOutput(
+          OutputType::Stderr,
+          llvm::formatv(
+              "Warning: Expression '{0}' is both an LLDB command and variable. "
+              "It will be evaluated as a variable. To evaluate the expression "
+              "as an LLDB command, use '{1}' as a prefix.",
+              term, command_escape_prefix)
+              .str());
     }
 
     // Variables take preference to commands in auto, since commands can always
@@ -678,19 +684,19 @@ PacketStatus DAP::GetNextObject(llvm::json::Object &object) {
       std::string error_str;
       llvm::raw_string_ostream strm(error_str);
       strm << error;
-      *log << "error: failed to parse JSON: " << error_str << "\n"
-           << json << "\n";
+      *log << "error: failed to parse JSON: " << error_str << std::endl
+           << json << std::endl;
     }
     return PacketStatus::JSONMalformed;
   }
 
   if (log)
-    *log << llvm::formatv("{0:2}", *json_value).str() << "\n";
+    *log << llvm::formatv("{0:2}", *json_value).str() << std::endl;
 
   llvm::json::Object *object_ptr = json_value->getAsObject();
   if (!object_ptr) {
     if (log)
-      *log << "error: json packet isn't a object\n";
+      *log << "error: json packet isn't a object" << std::endl;
     return PacketStatus::JSONNotObject;
   }
   object = *object_ptr;
@@ -704,7 +710,8 @@ bool DAP::HandleObject(const llvm::json::Object &object) {
     auto handler_pos = request_handlers.find(command);
     if (handler_pos == request_handlers.end()) {
       if (log)
-        *log << "error: unhandled command \"" << command.data() << "\"\n";
+        *log << "error: unhandled command \"" << command.data() << "\""
+             << std::endl;
       return false; // Fail
     }
 
@@ -714,8 +721,15 @@ bool DAP::HandleObject(const llvm::json::Object &object) {
 
   if (packet_type == "response") {
     auto id = GetSigned(object, "request_seq", 0);
-    ResponseCallback response_handler = [](llvm::Expected<llvm::json::Value>) {
-      llvm::errs() << "Unhandled response\n";
+    ResponseCallback response_handler = [](auto dap, auto value) {
+      if (value)
+        dap.SendOutput(OutputType::Stderr,
+                       llvm::formatv("unexpected response: {0}", *value).str());
+      else
+        dap.SendOutput(OutputType::Stderr,
+                       llvm::formatv("unexpected response: {0}",
+                                     llvm::toString(value.takeError()))
+                           .str());
     };
 
     {
@@ -733,14 +747,15 @@ bool DAP::HandleObject(const llvm::json::Object &object) {
       if (auto *B = object.get("body")) {
         Result = std::move(*B);
       }
-      response_handler(Result);
+      response_handler(*this, Result);
     } else {
       llvm::StringRef message = GetString(object, "message");
       if (message.empty()) {
         message = "Unknown error, response failed";
       }
-      response_handler(llvm::createStringError(
-          std::error_code(-1, std::generic_category()), message));
+      response_handler(
+          *this, llvm::createStringError(
+                     std::error_code(-1, std::generic_category()), message));
     }
 
     return true;
@@ -913,11 +928,14 @@ bool StartDebuggingRequestHandler::DoExecute(
       "startDebugging",
       llvm::json::Object{{"request", request},
                          {"configuration", std::move(*configuration)}},
-      [](llvm::Expected<llvm::json::Value> value) {
+      [](auto dap, auto value) {
         if (!value) {
           llvm::Error err = value.takeError();
-          llvm::errs() << "reverse start debugging request failed: "
-                       << llvm::toString(std::move(err)) << "\n";
+          dap.SendOutput(
+              OutputType::Console,
+              llvm::formatv("reverse start debugging request failed: {0}",
+                            llvm::toString(std::move(err)))
+                  .str());
         }
       });
 

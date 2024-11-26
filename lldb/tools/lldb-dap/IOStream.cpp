@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IOStream.h"
-#include "llvm/Support/raw_ostream.h"
+#include <fstream>
 #include <string>
 
 #if defined(_WIN32)
@@ -86,7 +86,7 @@ bool OutputStream::write_full(llvm::StringRef str) {
   return true;
 }
 
-bool InputStream::read_full(llvm::raw_ostream *log, size_t length,
+bool InputStream::read_full(std::ofstream *log, size_t length,
                             std::string &text) {
   std::string data;
   data.resize(length);
@@ -130,7 +130,7 @@ bool InputStream::read_full(llvm::raw_ostream *log, size_t length,
   return true;
 }
 
-bool InputStream::read_line(llvm::raw_ostream *log, std::string &line) {
+bool InputStream::read_line(std::ofstream *log, std::string &line) {
   line.clear();
   while (true) {
     if (!read_full(log, 1, line))
@@ -143,8 +143,7 @@ bool InputStream::read_line(llvm::raw_ostream *log, std::string &line) {
   return true;
 }
 
-bool InputStream::read_expected(llvm::raw_ostream *log,
-                                llvm::StringRef expected) {
+bool InputStream::read_expected(std::ofstream *log, llvm::StringRef expected) {
   std::string result;
   if (!read_full(log, expected.size(), result))
     return false;

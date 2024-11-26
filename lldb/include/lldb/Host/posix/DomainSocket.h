@@ -28,6 +28,8 @@ public:
 
   std::string GetRemoteConnectionURI() const override;
 
+  std::string GetListeningConnectionURI() const override;
+
 protected:
   DomainSocket(SocketProtocol protocol, bool child_processes_inherit);
 
