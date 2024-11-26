@@ -3264,7 +3264,8 @@ static void propagateAttributes(ParmVarDecl *toDecl,
 
 /// mergeParamDeclAttributes - Copy attributes from the old parameter
 /// to the new one.
-static void mergeParamDeclAttributes(ParmVarDecl *newDecl, ParmVarDecl *oldDecl,
+static void mergeParamDeclAttributes(ParmVarDecl *newDecl,
+                                     const ParmVarDecl *oldDecl,
                                      Sema &S) {
   // C++11 [dcl.attr.depend]p2:
   //   The first declaration of a function shall specify the
@@ -3284,20 +3285,12 @@ static void mergeParamDeclAttributes(ParmVarDecl *newDecl, ParmVarDecl *oldDecl,
            diag::note_carries_dependency_missing_first_decl) << 1/*Param*/;
   }
 
-  // Forward propagation (from old parameter to new)
   propagateAttributes(
       newDecl, oldDecl, [&S](ParmVarDecl *toDecl, const ParmVarDecl *fromDecl) {
         unsigned found = 0;
         found += propagateAttribute<InheritableParamAttr>(toDecl, fromDecl, S);
-        return found;
-      });
-
-  // Backward propagation (from new parameter to old)
-  propagateAttributes(
-      oldDecl, newDecl, [&S](ParmVarDecl *toDecl, const ParmVarDecl *fromDecl) {
-        unsigned found = 0;
         // Propagate the lifetimebound attribute from parameters to the
-        // canonical declaration. Note that this doesn't include the implicit
+        // most recent declaration. Note that this doesn't include the implicit
         // 'this' parameter, as the attribute is applied to the function type in
         // that case.
         found += propagateAttribute<LifetimeBoundAttr>(toDecl, fromDecl, S);
@@ -4356,8 +4349,8 @@ void Sema::mergeObjCMethodDecls(ObjCMethodDecl *newMethod,
   mergeDeclAttributes(newMethod, oldMethod, MergeKind);
 
   // Merge attributes from the parameters.
-  ObjCMethodDecl::param_iterator oi = oldMethod->param_begin(),
-                                 oe = oldMethod->param_end();
+  ObjCMethodDecl::param_const_iterator oi = oldMethod->param_begin(),
+                                       oe = oldMethod->param_end();
   for (ObjCMethodDecl::param_iterator
          ni = newMethod->param_begin(), ne = newMethod->param_end();
        ni != ne && oi != oe; ++ni, ++oi)
@@ -6981,6 +6974,7 @@ static void checkInheritableAttr(Sema &S, NamedDecl &ND) {
 static void checkLifetimeBoundAttr(Sema &S, NamedDecl &ND) {
   // Check the attributes on the function type and function params, if any.
   if (const auto *FD = dyn_cast<FunctionDecl>(&ND)) {
+    FD = FD->getMostRecentDecl();
     // Don't declare this variable in the second operand of the for-statement;
     // GCC miscompiles that by ending its lifetime before evaluating the
     // third operand. See gcc.gnu.org/PR86769.
