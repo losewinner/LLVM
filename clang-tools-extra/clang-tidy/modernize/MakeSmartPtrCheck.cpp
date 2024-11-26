@@ -39,14 +39,15 @@ std::string getNewExprName(const CXXNewExpr *NewExpr, const SourceManager &SM,
 const char MakeSmartPtrCheck::PointerType[] = "pointerType";
 
 MakeSmartPtrCheck::MakeSmartPtrCheck(StringRef Name, ClangTidyContext *Context,
-                                     StringRef MakeSmartPtrFunctionName)
+                                     StringRef MakeSmartPtrFunctionName,
+                                     StringRef MakeSmartPtrType)
     : ClangTidyCheck(Name, Context),
+      MakeSmartPtrType(Options.get("MakeSmartPtrType", MakeSmartPtrType)),
       Inserter(Options.getLocalOrGlobal("IncludeStyle",
                                         utils::IncludeSorter::IS_LLVM),
                areDiagsSelfContained()),
       MakeSmartPtrFunctionHeader(
           Options.get("MakeSmartPtrFunctionHeader", "<memory>")),
-      MakeSmartPtrType(Options.get("MakeSmartPtrType", "::std::shared_ptr")),
       MakeSmartPtrFunctionName(
           Options.get("MakeSmartPtrFunction", MakeSmartPtrFunctionName)),
       IgnoreMacros(Options.getLocalOrGlobal("IgnoreMacros", true)),
