@@ -64,7 +64,9 @@ class TestDAP_server(lldbdap_testcase.DAPTestCaseBase):
         """
         dir = tempfile.gettempdir()
         name = dir + "/dap-connection-" + str(os.getpid())
+
         def cleanup():
             os.unlink(name)
+
         self.addTearDownHook(cleanup)
         self.do_test_server(connection="unix://" + name)

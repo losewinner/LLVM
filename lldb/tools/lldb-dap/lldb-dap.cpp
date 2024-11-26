@@ -5031,6 +5031,43 @@ int main(int argc, char *argv[]) {
   auto terminate_debugger =
       llvm::make_scope_exit([] { lldb::SBDebugger::Terminate(); });
 
+  auto HandleClient = [=](int out_fd, int err_fd, StreamDescriptor input,
+                          StreamDescriptor output) {
+    DAP dap = DAP(program_path, log, default_repl_mode, pre_init_commands);
+    if (auto Err = dap.ConfigureIO(out_fd, err_fd)) {
+      if (log)
+        *log << "configureIO failed: " << llvm::toStringWithoutConsuming(Err)
+             << "\n";
+      std::cerr << "failed to configureIO: " << llvm::toString(std::move(Err))
+                << std::endl;
+      return false;
+    }
+
+    RegisterRequestCallbacks(dap);
+    dap.input.descriptor = std::move(input);
+    dap.output.descriptor = std::move(output);
+
+    // used only by TestVSCode_redirection_to_console.py
+    if (getenv("LLDB_DAP_TEST_STDOUT_STDERR_REDIRECTION") != nullptr)
+      redirection_test();
+
+    if (auto Err = dap.Loop()) {
+      if (log)
+        *log << "Transport Error: " << llvm::toStringWithoutConsuming(Err)
+             << "\n";
+
+      std::cerr << "Transpot Error: " << llvm::toString(std::move(Err))
+                << std::endl;
+
+      return false;
+    }
+
+    if (log)
+      *log << "connection closed\n";
+
+    return true;
+  };
+
   if (!connection.empty()) {
     auto maybeProtoclAndName = parseConnection(connection);
     if (auto Err = maybeProtoclAndName.takeError()) {
@@ -5074,42 +5111,17 @@ int main(int argc, char *argv[]) {
     mainloop.RegisterSignal(
         SIGHUP, [](auto &RL) { RL.RequestTermination(); }, error);
 
-    auto start_dap = [=](std::unique_ptr<Socket> client) {
-      DAP dap = DAP(program_path, log, default_repl_mode, pre_init_commands);
-      NativeSocket sock = client->GetNativeSocket();
-
-      if (auto Err = dap.ConfigureIO()) {
-        if (log)
-          *log << "client[" << sock << "] configureIO failed: "
-               << llvm::toStringWithoutConsuming(Err) << "\n";
-        std::cerr << "failed to configure client connect: "
-                  << llvm::toString(std::move(Err)) << std::endl;
-        return;
-      }
-
-      RegisterRequestCallbacks(dap);
-      dap.input.descriptor = StreamDescriptor::from_socket(sock, false);
-      dap.output.descriptor = StreamDescriptor::from_socket(sock, false);
-      if (auto Err = dap.Loop()) {
-        if (log)
-          *log << "client[" << sock
-               << "] Transport Error: " << llvm::toStringWithoutConsuming(Err)
-               << "\n";
-        std::cerr << "client transport error: "
-                  << llvm::toString(std::move(Err)) << std::endl;
-      }
-
-      if (log)
-        *log << "client[" << sock << "] connection closed\n";
-    };
-
-    auto on_accept = [=](std::unique_ptr<Socket> client) {
-      llvm::errs() << "Client connected...\n";
+    auto OnAccept = [=](std::unique_ptr<Socket> client) {
       // Start a thread for each connection, unblocking the listening thread.
-      std::thread(start_dap, std::move(client)).detach();
+      std::thread([=, client = std::move(client)]() {
+        HandleClient(
+            /*out_fd=*/-1, /*err_fd=*/-1,
+            StreamDescriptor::from_socket(client->GetNativeSocket()),
+            StreamDescriptor::from_socket(client->GetNativeSocket()));
+      }).detach();
     };
 
-    auto handles = listener->Accept(mainloop, on_accept);
+    auto handles = listener->Accept(mainloop, OnAccept);
     if (auto Err = handles.takeError()) {
       std::cerr << "failed to register accept() with the main loop: "
                 << llvm::toString(std::move(Err)) << std::endl;
@@ -5128,41 +5140,9 @@ int main(int argc, char *argv[]) {
 
   // stdout/stderr redirection to the IDE's console
   int new_stdout_fd = dup(fileno(stdout));
-  DAP dap = DAP(program_path.str(), log, default_repl_mode, pre_init_commands);
-  if (auto Err = dap.ConfigureIO(fileno(stdout), fileno(stderr))) {
-    std::cout << "Failed to create lldb-dap instance: "
-              << llvm::toString(std::move(Err)) << "\n";
-    return EXIT_FAILURE;
-  }
-  RegisterRequestCallbacks(dap);
+  bool clean_exit = HandleClient(fileno(stdout), fileno(stderr),
+                                 StreamDescriptor::from_file(fileno(stdin)),
+                                 StreamDescriptor::from_file(new_stdout_fd));
 
-#if defined(_WIN32)
-  // Windows opens stdout and stdin in text mode which converts \n to 13,10
-  // while the value is just 10 on Darwin/Linux. Setting the file mode to
-  // binary fixes this.
-  int result = _setmode(fileno(stdout), _O_BINARY);
-  assert(result);
-  result = _setmode(fileno(stdin), _O_BINARY);
-  UNUSED_IF_ASSERT_DISABLED(result);
-  assert(result);
-#endif
-
-  dap.input.descriptor = StreamDescriptor::from_file(fileno(stdin), false);
-  dap.output.descriptor = StreamDescriptor::from_file(new_stdout_fd, false);
-
-  /// used only by TestVSCode_redirection_to_console.py
-  if (getenv("LLDB_DAP_TEST_STDOUT_STDERR_REDIRECTION") != nullptr)
-    redirection_test();
-
-  bool CleanExit = true;
-  if (auto Err = dap.Loop()) {
-    if (log)
-      *log << "Transport Error: " << llvm::toStringWithoutConsuming(Err)
-           << "\n";
-    std::cerr << "Transport Error: " << llvm::toString(std::move(Err))
-              << std::endl;
-    CleanExit = false;
-  }
-
-  return CleanExit ? EXIT_SUCCESS : EXIT_FAILURE;
+  return clean_exit ? EXIT_SUCCESS : EXIT_FAILURE;
 }

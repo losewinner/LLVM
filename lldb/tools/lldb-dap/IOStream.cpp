@@ -26,23 +26,9 @@ StreamDescriptor::StreamDescriptor(StreamDescriptor &&other) {
   *this = std::move(other);
 }
 
-StreamDescriptor::~StreamDescriptor() {
-  if (!m_close)
-    return;
-
-  if (m_is_socket)
-#if defined(_WIN32)
-    ::closesocket(m_socket);
-#else
-    ::close(m_socket);
-#endif
-  else
-    ::close(m_fd);
-}
+StreamDescriptor::~StreamDescriptor() = default;
 
 StreamDescriptor &StreamDescriptor::operator=(StreamDescriptor &&other) {
-  m_close = other.m_close;
-  other.m_close = false;
   m_is_socket = other.m_is_socket;
   if (m_is_socket)
     m_socket = other.m_socket;
@@ -51,19 +37,17 @@ StreamDescriptor &StreamDescriptor::operator=(StreamDescriptor &&other) {
   return *this;
 }
 
-StreamDescriptor StreamDescriptor::from_socket(SOCKET s, bool close) {
+StreamDescriptor StreamDescriptor::from_socket(SOCKET s) {
   StreamDescriptor sd;
   sd.m_is_socket = true;
   sd.m_socket = s;
-  sd.m_close = close;
   return sd;
 }
 
-StreamDescriptor StreamDescriptor::from_file(int fd, bool close) {
+StreamDescriptor StreamDescriptor::from_file(int fd) {
   StreamDescriptor sd;
   sd.m_is_socket = false;
   sd.m_fd = fd;
-  sd.m_close = close;
   return sd;
 }
 
