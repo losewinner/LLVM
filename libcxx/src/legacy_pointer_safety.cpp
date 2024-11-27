@@ -15,9 +15,13 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
+_LIBCPP_DIAGNOSTIC_PUSH
+_LIBCPP_CLANG_DIAGNOSTIC_IGNORED("-Wmissing-prototypes")
+// These functions exist for ABI compatibility, so we don't ever want a declaration.
 _LIBCPP_EXPORTED_FROM_ABI void declare_reachable(void*) {}
 _LIBCPP_EXPORTED_FROM_ABI void declare_no_pointers(char*, size_t) {}
 _LIBCPP_EXPORTED_FROM_ABI void undeclare_no_pointers(char*, size_t) {}
 _LIBCPP_EXPORTED_FROM_ABI void* __undeclare_reachable(void* p) { return p; }
+_LIBCPP_DIAGNOSTIC_POP
 
 _LIBCPP_END_NAMESPACE_STD
