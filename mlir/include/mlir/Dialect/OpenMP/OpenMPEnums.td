@@ -179,6 +179,27 @@ def OrderModifierAttr : EnumAttr<OpenMP_Dialect, OrderModifier,
                                     "order_mod">;
 
 //===----------------------------------------------------------------------===//
+// reduction_modifier enum.
+//===----------------------------------------------------------------------===//
+
+def ReductionModifierDefault : I32EnumAttrCase<"Default", 0>;
+def ReductionModifierInScan : I32EnumAttrCase<"InScan", 1>;
+def ReductionModifierTask : I32EnumAttrCase<"Task", 2>;
+
+def ReductionModifier : OpenMP_I32EnumAttr<
+    "ReductionModifier",
+    "reduction modifier", [
+      ReductionModifierDefault,
+      ReductionModifierInScan,
+      ReductionModifierTask
+    ]>;
+
+def ReductionModifierAttr : OpenMP_EnumAttr<ReductionModifier,
+                                                  "reduction_modifier"> {
+  let assemblyFormat = "`(` $value `)`";
+}
+
+//===----------------------------------------------------------------------===//
 // sched_mod enum.
 //===----------------------------------------------------------------------===//
 
