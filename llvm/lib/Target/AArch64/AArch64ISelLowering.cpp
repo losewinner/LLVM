@@ -21720,21 +21720,21 @@ static SDValue tryCombineWhileLo(SDNode *N,
   return SDValue(N, 0);
 }
 
-SDValue tryLowerPartialReductionToDot(PartialReduceAddSDNode *PR,
+SDValue tryLowerPartialReductionToDot(SDNode *N,
                                       const AArch64Subtarget *Subtarget,
                                       SelectionDAG &DAG) {
 
-  bool Scalable = PR->getValueType(0).isScalableVector();
+  bool Scalable = N->getValueType(0).isScalableVector();
   if (Scalable && !Subtarget->isSVEorStreamingSVEAvailable())
     return SDValue();
   if (!Scalable && (!Subtarget->isNeonAvailable() || !Subtarget->hasDotProd()))
     return SDValue();
 
-  SDLoc DL(PR);
+  SDLoc DL(N);
 
   // The narrower of the two operands. Used as the accumulator
-  auto NarrowOp = PR->getAcc();
-  auto MulOp = PR->getInput();
+  auto NarrowOp = N->getOperand(0);
+  auto MulOp = N->getOperand(1);
   if (MulOp->getOpcode() != ISD::MUL)
     return SDValue();
 
@@ -21752,7 +21752,7 @@ SDValue tryLowerPartialReductionToDot(PartialReduceAddSDNode *PR,
   if (A.getValueType() != B.getValueType())
     return SDValue();
 
-  EVT ReducedType = PR->getValueType(0);
+  EVT ReducedType = N->getValueType(0);
   EVT MulSrcType = A.getValueType();
 
   // Dot products operate on chunks of four elements so there must be four times
@@ -21771,7 +21771,7 @@ SDValue tryLowerPartialReductionToDot(PartialReduceAddSDNode *PR,
     if (!Subtarget->hasMatMulInt8())
       return SDValue();
 
-    bool Scalable = PR->getValueType(0).isScalableVT();
+    bool Scalable = N->getValueType(0).isScalableVT();
     // There's no nxv2i64 version of usdot
     if (Scalable && ReducedType != MVT::nxv4i32 && ReducedType != MVT::nxv4i64)
       return SDValue();
@@ -21802,17 +21802,17 @@ SDValue tryLowerPartialReductionToDot(PartialReduceAddSDNode *PR,
   return DAG.getNode(Opcode, DL, ReducedType, NarrowOp, A, B);
 }
 
-SDValue tryLowerPartialReductionToWideAdd(PartialReduceAddSDNode *PR,
+SDValue tryLowerPartialReductionToWideAdd(SDNode *N,
                                           const AArch64Subtarget *Subtarget,
                                           SelectionDAG &DAG) {
 
   if (!Subtarget->isSVEorStreamingSVEAvailable())
     return SDValue();
 
-  SDLoc DL(PR);
+  SDLoc DL(N);
 
-  auto Acc = PR->getAcc();
-  auto ExtInput = PR->getInput();
+  auto Acc = N->getOperand(0);
+  auto ExtInput = N->getOperand(1);
 
   EVT AccVT = Acc.getValueType();
   EVT AccElemVT = AccVT.getVectorElementType();
@@ -21842,13 +21842,12 @@ SDValue tryLowerPartialReductionToWideAdd(PartialReduceAddSDNode *PR,
 static SDValue
 performPartialReduceAddCombine(SDNode *N, SelectionDAG &DAG,
                                const AArch64Subtarget *Subtarget) {
-  auto *PR = cast<PartialReduceAddSDNode>(N);
-  if (auto Dot = tryLowerPartialReductionToDot(PR, Subtarget, DAG))
+  if (auto Dot = tryLowerPartialReductionToDot(N, Subtarget, DAG))
     return Dot;
-  if (auto WideAdd = tryLowerPartialReductionToWideAdd(PR, Subtarget, DAG))
+  if (auto WideAdd = tryLowerPartialReductionToWideAdd(N, Subtarget, DAG))
     return WideAdd;
-  return DAG.getPartialReduceAdd(SDLoc(PR), PR->getValueType(0), PR->getAcc(),
-                                 PR->getInput());
+  return DAG.expandPartialReduceAdd(SDLoc(N), N->getValueType(0),
+                                    N->getOperand(0), N->getOperand(1));
 }
 
 static SDValue performIntrinsicCombine(SDNode *N,
