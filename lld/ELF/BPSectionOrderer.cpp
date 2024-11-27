@@ -34,7 +34,9 @@ lld::elf::runBalancedPartitioning(Ctx &ctx, llvm::StringRef profilePath,
   for (Symbol *sym : ctx.symtab->getSymbols()) {
     if (auto *d = dyn_cast<Defined>(sym)) {
       if (auto *sec = dyn_cast_or_null<InputSectionBase>(d->section)) {
-        sections.push_back(new ELFSection(sec, new ELFSymbol(sym)));
+        if (sym->getSize() > 0) {
+          sections.push_back(new ELFSection(sec, new ELFSymbol(sym)));
+        }
       }
     }
   }
@@ -43,7 +45,9 @@ lld::elf::runBalancedPartitioning(Ctx &ctx, llvm::StringRef profilePath,
     for (Symbol *sym : file->getLocalSymbols()) {
       if (auto *d = dyn_cast<Defined>(sym)) {
         if (auto *sec = dyn_cast_or_null<InputSectionBase>(d->section)) {
-          sections.push_back(new ELFSection(sec, new ELFSymbol(sym)));
+          if (sym->getSize() > 0) {
+            sections.push_back(new ELFSection(sec, new ELFSymbol(sym)));
+          }
         }
       }
     }

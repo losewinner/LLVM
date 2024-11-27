@@ -128,8 +128,9 @@ public:
 /// Run Balanced Partitioning to find the optimal function and data order to
 /// improve startup time and compressed size.
 ///
-/// It is important that .subsections_via_symbols is used to ensure functions
-/// and data are in their own sections and thus can be reordered.
+/// It is important that -ffunction-sections and -fdata-sections are used to
+/// ensure functions and data are in their own sections and thus can be
+/// reordered.
 llvm::DenseMap<const lld::elf::InputSectionBase *, int>
 runBalancedPartitioning(Ctx &ctx, llvm::StringRef profilePath,
                         bool forFunctionCompression, bool forDataCompression,
