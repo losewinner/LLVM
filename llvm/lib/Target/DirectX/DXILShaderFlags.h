@@ -95,6 +95,8 @@ private:
   SmallVector<std::pair<Function const *, ComputedShaderFlags>> FunctionFlags;
   /// Combined Shader Flag Mask of all functions of the module
   ComputedShaderFlags CombinedSFMask{};
+  auto getFunctionShaderFlagInfo(const Function *) const;
+  bool mergeFunctionShaderFlags(const Function *, ComputedShaderFlags);
 };
 
 class ShaderFlagsAnalysis : public AnalysisInfoMixin<ShaderFlagsAnalysis> {
