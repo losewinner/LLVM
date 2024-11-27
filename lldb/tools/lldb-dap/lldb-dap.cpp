@@ -5034,6 +5034,10 @@ int main(int argc, char *argv[]) {
   auto HandleClient = [=](int out_fd, int err_fd, StreamDescriptor input,
                           StreamDescriptor output) {
     DAP dap = DAP(program_path, log, default_repl_mode, pre_init_commands);
+    dap.input.descriptor = std::move(input);
+    dap.output.descriptor = std::move(output);
+    RegisterRequestCallbacks(dap);
+
     if (auto Err = dap.ConfigureIO(out_fd, err_fd)) {
       if (log)
         *log << "configureIO failed: " << llvm::toStringWithoutConsuming(Err)
@@ -5042,10 +5046,6 @@ int main(int argc, char *argv[]) {
                 << std::endl;
       return false;
     }
-
-    RegisterRequestCallbacks(dap);
-    dap.input.descriptor = std::move(input);
-    dap.output.descriptor = std::move(output);
 
     // used only by TestVSCode_redirection_to_console.py
     if (getenv("LLDB_DAP_TEST_STDOUT_STDERR_REDIRECTION") != nullptr)
