@@ -499,6 +499,7 @@ static bool isNormalAssignmentOperator(const FunctionDecl *FD) {
 }
 
 bool implicitObjectParamIsLifetimeBound(const FunctionDecl *FD) {
+  FD = FD->getMostRecentDecl();
   const TypeSourceInfo *TSI = FD->getTypeSourceInfo();
   if (!TSI)
     return false;
@@ -611,9 +612,9 @@ static void visitFunctionCallArguments(IndirectLocalPath &Path, Expr *Call,
     }
   }
 
-  for (unsigned I = 0,
-                N = std::min<unsigned>(Callee->getNumParams(), Args.size());
-       I != N; ++I) {
+  const FunctionDecl *CanonCallee = Callee->getMostRecentDecl();
+  unsigned NP = std::min(Callee->getNumParams(), CanonCallee->getNumParams());
+  for (unsigned I = 0, N = std::min<unsigned>(NP, Args.size()); I != N; ++I) {
     Expr *Arg = Args[I];
     RevertToOldSizeRAII RAII(Path);
     if (auto *DAE = dyn_cast<CXXDefaultArgExpr>(Arg)) {
@@ -621,12 +622,13 @@ static void visitFunctionCallArguments(IndirectLocalPath &Path, Expr *Call,
           {IndirectLocalPathEntry::DefaultArg, DAE, DAE->getParam()});
       Arg = DAE->getExpr();
     }
-    if (CheckCoroCall || Callee->getParamDecl(I)->hasAttr<LifetimeBoundAttr>())
-      VisitLifetimeBoundArg(Callee->getParamDecl(I), Arg);
+    if (CheckCoroCall ||
+        CanonCallee->getParamDecl(I)->hasAttr<LifetimeBoundAttr>())
+      VisitLifetimeBoundArg(CanonCallee->getParamDecl(I), Arg);
     else if (EnableGSLAnalysis && I == 0) {
       // Perform GSL analysis for the first argument
-      if (shouldTrackFirstArgument(Callee)) {
-        VisitGSLPointerArg(Callee, Arg);
+      if (shouldTrackFirstArgument(CanonCallee)) {
+        VisitGSLPointerArg(CanonCallee, Arg);
       } else if (auto *Ctor = dyn_cast<CXXConstructExpr>(Call);
                  Ctor && shouldTrackFirstArgumentForConstructor(Ctor)) {
         VisitGSLPointerArg(Ctor->getConstructor(), Arg);
@@ -1099,6 +1101,7 @@ static bool pathOnlyHandlesGslPointer(const IndirectLocalPath &Path) {
 }
 
 static bool isAssignmentOperatorLifetimeBound(CXXMethodDecl *CMD) {
+  CMD = CMD->getMostRecentDecl();
   return CMD && isNormalAssignmentOperator(CMD) && CMD->param_size() == 1 &&
          CMD->getParamDecl(0)->hasAttr<LifetimeBoundAttr>();
 }
