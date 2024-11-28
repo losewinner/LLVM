@@ -94,9 +94,9 @@ struct __radix_sort_traits {
   using __radix_type = decay_t<typename __invoke_of<_Radix, __image_type>::type>;
   static_assert(is_integral<__radix_type>::value, "");
 
-  constexpr static auto __radix_value_range = numeric_limits<__radix_type>::max() + 1;
-  constexpr static auto __radix_size        = std::__bit_log2<uint64_t>(__radix_value_range);
-  constexpr static auto __radix_count       = sizeof(__image_type) * CHAR_BIT / __radix_size;
+  static constexpr auto __radix_value_range = numeric_limits<__radix_type>::max() + 1;
+  static constexpr auto __radix_size        = std::__bit_log2<uint64_t>(__radix_value_range);
+  static constexpr auto __radix_count       = sizeof(__image_type) * CHAR_BIT / __radix_size;
 };
 
 template <class _Value, class _Map>
@@ -104,8 +104,8 @@ struct __counting_sort_traits {
   using __image_type = decay_t<typename __invoke_of<_Map, _Value>::type>;
   static_assert(is_unsigned<__image_type>::value, "");
 
-  constexpr static const auto __value_range = numeric_limits<__image_type>::max() + 1;
-  constexpr static auto __radix_size        = std::__bit_log2<uint64_t>(__value_range);
+  static constexpr const auto __value_range = numeric_limits<__image_type>::max() + 1;
+  static constexpr auto __radix_size        = std::__bit_log2<uint64_t>(__value_range);
 };
 
 template <class _Radix, class _Integer>
