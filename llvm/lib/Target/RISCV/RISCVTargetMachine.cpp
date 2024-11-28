@@ -81,6 +81,10 @@ static cl::opt<bool> EnableRISCVCopyPropagation(
     "riscv-enable-copy-propagation",
     cl::desc("Enable the copy propagation with RISC-V copy instr"),
     cl::init(true), cl::Hidden);
+static cl::opt<bool>
+    EnableGEPOpt("riscv-enable-gep-opt", cl::Hidden,
+                 cl::desc("Enable optimizations on complex GEPs"),
+                 cl::init(false));
 
 static cl::opt<bool> EnableRISCVDeadRegisterElimination(
     "riscv-enable-dead-defs", cl::Hidden,
@@ -140,6 +144,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeRISCVTarget() {
   initializeRISCVDAGToDAGISelLegacyPass(*PR);
   initializeRISCVMoveMergePass(*PR);
   initializeRISCVPushPopOptPass(*PR);
+  initializeRISCVLoadStoreOptPass(*PR);
 }
 
 static StringRef computeDataLayout(const Triple &TT,
@@ -367,6 +372,16 @@ public:
       DAG->addMutation(createStoreClusterDAGMutation(
           DAG->TII, DAG->TRI, /*ReorderWhileClustering=*/true));
     }
+
+    const RISCVSubtarget &ST = C->MF->getSubtarget<RISCVSubtarget>();
+    if (!ST.getMacroFusions().empty()) {
+      DAG = DAG ? DAG : createGenericSchedLive(C);
+
+      if (ST.useLoadStorePairs()) {
+        DAG->addMutation(createLoadClusterDAGMutation(DAG->TII, DAG->TRI));
+        DAG->addMutation(createStoreClusterDAGMutation(DAG->TII, DAG->TRI));
+      }
+    }
     return DAG;
   }
 
@@ -454,6 +469,16 @@ void RISCVPassConfig::addIRPasses() {
   addPass(createAtomicExpandLegacyPass());
   addPass(createRISCVZacasABIFixPass());
 
+  if (TM->getOptLevel() == CodeGenOptLevel::Aggressive && EnableGEPOpt) {
+    addPass(createSeparateConstOffsetFromGEPPass(false));
+    // Call EarlyCSE pass to find and remove subexpressions in the lowered
+    // result.
+    addPass(createEarlyCSEPass());
+    // Do loop invariant code motion in case part of the lowered result is
+    // invariant.
+    addPass(createLICMPass());
+  }
+
   if (getOptLevel() != CodeGenOptLevel::None) {
     if (EnableLoopDataPrefetch)
       addPass(createLoopDataPrefetchPass());
@@ -540,6 +565,9 @@ void RISCVPassConfig::addPreSched2() {
 
   // Emit KCFI checks for indirect calls.
   addPass(createKCFIPass());
+  if (TM->getOptLevel() != CodeGenOptLevel::None) {
+    addPass(createRISCVLoadStoreOptPass());
+  }
 }
 
 void RISCVPassConfig::addPreEmitPass() {
@@ -551,8 +579,14 @@ void RISCVPassConfig::addPreEmitPass() {
   if (TM->getOptLevel() >= CodeGenOptLevel::Default &&
       EnableRISCVCopyPropagation)
     addPass(createMachineCopyPropagationPass(true));
-  addPass(&BranchRelaxationPassID);
   addPass(createRISCVMakeCompressibleOptPass());
+
+  // LoadStoreOptimizer creates bundles for load-store bonding.
+  addPass(createUnpackMachineBundles([](const MachineFunction &MF) {
+    return MF.getSubtarget<RISCVSubtarget>().useLoadStorePairs();
+  }));
+  addPass(&BranchRelaxationPassID);
+  addPass(createRISCVRemoveBackToBackBranches());
 }
 
 void RISCVPassConfig::addPreEmitPass2() {

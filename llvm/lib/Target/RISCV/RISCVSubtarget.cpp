@@ -62,6 +62,20 @@ static cl::opt<unsigned> RISCVMinimumJumpTableEntries(
     "riscv-min-jump-table-entries", cl::Hidden,
     cl::desc("Set minimum number of entries to use a jump table on RISCV"));
 
+static cl::opt<bool>
+    UseLoadStorePairsOpt("riscv-load-store-pairs",
+                         cl::desc("RISCV: Optimize for load-store bonding"),
+                         cl::init(false), cl::Hidden);
+
+static cl::opt<bool> UseCCMovInsn("riscv-ccmov",
+                                  cl::desc("RISCV: Use 'ccmov' instruction"),
+                                  cl::init(true), cl::Hidden);
+
+static cl::opt<bool> RISCVRemoveBackToBackBranches(
+    "riscv-remove-back-to-back-branches",
+    cl::desc("RISCV: Insert nops to clear pipeline hazards."), cl::init(false),
+    cl::Hidden);
+
 void RISCVSubtarget::anchor() {}
 
 RISCVSubtarget &
@@ -70,8 +84,17 @@ RISCVSubtarget::initializeSubtargetDependencies(const Triple &TT, StringRef CPU,
                                                 StringRef ABIName) {
   // Determine default and user-specified characteristics
   bool Is64Bit = TT.isArch64Bit();
-  if (CPU.empty() || CPU == "generic")
-    CPU = Is64Bit ? "generic-rv64" : "generic-rv32";
+  if (CPU.empty() || CPU == "generic") {
+    if (Is64Bit) {
+      if (TT.getVendor() == llvm::Triple::MipsTechnologies) {
+        CPU = "p8700";
+      } else {
+        CPU = "generic-rv64";
+      }
+    } else {
+      CPU = "generic-rv32";
+    }
+  }
 
   if (TuneCPU.empty())
     TuneCPU = CPU;
@@ -206,4 +229,16 @@ void RISCVSubtarget::overrideSchedPolicy(MachineSchedPolicy &Policy,
   // Spilling is generally expensive on all RISC-V cores, so always enable
   // register-pressure tracking. This will increase compile time.
   Policy.ShouldTrackPressure = true;
+}
+
+bool RISCVSubtarget::useLoadStorePairs() const {
+  return UseLoadStorePairsOpt && HasMIPSLSP;
+}
+
+bool RISCVSubtarget::useCCMovInsn() const {
+  return UseCCMovInsn && HasMIPSCMov;
+}
+
+bool RISCVSubtarget::shouldRemoveBackToBackBranches() const {
+  return RISCVRemoveBackToBackBranches && hasFeature(RISCV::TuneMIPSP8700);
 }
