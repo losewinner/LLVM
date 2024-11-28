@@ -731,7 +731,7 @@ void BinaryEmitter::emitJumpTables(const BinaryFunction &BF) {
     if (opts::PrintJumpTables)
       JT.print(BC.outs());
     if (opts::JumpTables == JTS_BASIC && BC.HasRelocations) {
-      JT.updateOriginal();
+      JT.updateOriginal(/*Zero=*/false);
     } else {
       MCSection *HotSection, *ColdSection;
       if (opts::JumpTables == JTS_BASIC) {
@@ -756,6 +756,8 @@ void BinaryEmitter::emitJumpTables(const BinaryFunction &BF) {
         }
       }
       emitJumpTable(JT, HotSection, ColdSection);
+      if (opts::JumpTables > JTS_BASIC && BC.HasRelocations)
+        JT.updateOriginal(/*Zero=*/true);
     }
   }
 }
