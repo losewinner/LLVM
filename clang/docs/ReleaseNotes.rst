@@ -441,6 +441,10 @@ Modified Compiler Flags
   ``memset`` and similar functions for which it is a documented undefined
   behavior. It is implied by ``-Wnontrivial-memaccess``
 
+- The ``-Og`` optimization flag now sets ``-fextend-lifetimes``, a new compiler
+  flag, resulting in slightly reduced optimization compared to ``-O1`` in
+  exchange for improved variable visibility.
+
 Removed Compiler Flags
 -------------------------
 
