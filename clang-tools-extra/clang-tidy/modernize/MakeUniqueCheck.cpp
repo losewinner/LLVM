@@ -14,9 +14,7 @@ namespace clang::tidy::modernize {
 
 MakeUniqueCheck::MakeUniqueCheck(StringRef Name,
                                  clang::tidy::ClangTidyContext *Context)
-    : MakeSmartPtrCheck(Name, Context,
-                        "std::make_unique",
-                        "::std::unique_ptr"),
+    : MakeSmartPtrCheck(Name, Context, "std::make_unique", "::std::unique_ptr"),
       RequireCPlusPlus14(Options.get("MakeSmartPtrFunction", "").empty()) {}
 
 MakeUniqueCheck::SmartPtrTypeMatcher
