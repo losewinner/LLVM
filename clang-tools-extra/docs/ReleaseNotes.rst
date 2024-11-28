@@ -155,7 +155,7 @@ Changes in existing checks
   `MakeSmartPtrType` to specify the corresponding smart pointer type, with a
   default value of `::std::shared_ptr`.
 
-- Improved :doc:modernize-make-unique
+- Improved :doc:`modernize-make-unique
   <clang-tidy/checks/modernize/make-unique> check by adding a new option 
   `MakeSmartPtrType` to specify the corresponding smart pointer type, with a
   default value of `::std::unique_ptr`.
