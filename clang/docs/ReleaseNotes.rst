@@ -627,6 +627,8 @@ Improvements to Clang's diagnostics
 - Clang now supports using alias templates in deduction guides, aligning with the C++ standard,
   which treats alias templates as synonyms for their underlying types (#GH54909).
 
+- Clang now diagnoses ``-Wunused-member-function`` with a specific message for constructors.
+
 Improvements to Clang's time-trace
 ----------------------------------
 
