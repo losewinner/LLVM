@@ -4013,7 +4013,9 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
   }
 
   // Approximation only
-  void handleNEONVectorMultiplyIntrinsic(IntrinsicInst &I) { handleShadowOr(I); }
+  void handleNEONVectorMultiplyIntrinsic(IntrinsicInst &I) {
+    handleShadowOr(I);
+  }
 
   void visitIntrinsicInst(IntrinsicInst &I) {
     switch (I.getIntrinsicID()) {
