@@ -355,6 +355,13 @@ struct Fragment {
     std::vector<Located<std::string>> DisabledModifiers;
   };
   SemanticTokensBlock SemanticTokens;
+
+  /// Configure the call hierarchy feature
+  struct CallHierarchyBlock {
+    /// Disables the outgoing calls feature.
+    std::optional<Located<bool>> OutgoingCalls;
+  };
+  CallHierarchyBlock CallHierarchy;
 };
 
 } // namespace config

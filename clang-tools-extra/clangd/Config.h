@@ -173,6 +173,11 @@ struct Config {
     /// Controls highlighting modifiers that are disabled.
     std::vector<std::string> DisabledModifiers;
   } SemanticTokens;
+
+  struct {
+    /// If false, support for outgoing calls is disabled.
+    bool OutgoingCalls = true;
+  } CallHierarchy;
 };
 
 } // namespace clangd

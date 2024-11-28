@@ -70,10 +70,12 @@ struct UpdateIndexCallbacks : public ParsingCallbacks {
   UpdateIndexCallbacks(FileIndex *FIndex,
                        ClangdServer::Callbacks *ServerCallbacks,
                        const ThreadsafeFS &TFS, AsyncTaskRunner *Tasks,
-                       bool CollectInactiveRegions)
+                       bool CollectInactiveRegions,
+                       std::function<Context(PathRef)> ContextProvider)
       : FIndex(FIndex), ServerCallbacks(ServerCallbacks), TFS(TFS),
         Stdlib{std::make_shared<StdLibSet>()}, Tasks(Tasks),
-        CollectInactiveRegions(CollectInactiveRegions) {}
+        CollectInactiveRegions(CollectInactiveRegions),
+        ContextProvider(ContextProvider) {}
 
   void onPreambleAST(
       PathRef Path, llvm::StringRef Version, CapturedASTCtx ASTCtx,
@@ -88,9 +90,12 @@ struct UpdateIndexCallbacks : public ParsingCallbacks {
       indexStdlib(CI, std::move(*Loc));
 
     // FIndex outlives the UpdateIndexCallbacks.
-    auto Task = [FIndex(FIndex), Path(Path.str()), Version(Version.str()),
+    auto Task = [this, FIndex(FIndex), Path(Path.str()), Version(Version.str()),
                  ASTCtx(std::move(ASTCtx)), PI(std::move(PI))]() mutable {
       trace::Span Tracer("PreambleIndexing");
+      std::optional<WithContext> WithProvidedContext;
+      if (ContextProvider)
+        WithProvidedContext.emplace(ContextProvider(""));
       FIndex->updatePreamble(Path, Version, ASTCtx.getASTContext(),
                              ASTCtx.getPreprocessor(), *PI);
     };
@@ -171,6 +176,7 @@ private:
   std::shared_ptr<StdLibSet> Stdlib;
   AsyncTaskRunner *Tasks;
   bool CollectInactiveRegions;
+  std::function<Context(PathRef)> ContextProvider;
 };
 
 class DraftStoreFS : public ThreadsafeFS {
@@ -236,7 +242,7 @@ ClangdServer::ClangdServer(const GlobalCompilationDatabase &CDB,
                         std::make_unique<UpdateIndexCallbacks>(
                             DynamicIdx.get(), Callbacks, TFS,
                             IndexTasks ? &*IndexTasks : nullptr,
-                            PublishInactiveRegions));
+                            PublishInactiveRegions, Opts.ContextProvider));
   // Adds an index to the stack, at higher priority than existing indexes.
   auto AddIndex = [&](SymbolIndex *Idx) {
     if (this->Index != nullptr) {

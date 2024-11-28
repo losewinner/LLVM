@@ -68,6 +68,7 @@ public:
     Dict.handle("Hover", [&](Node &N) { parse(F.Hover, N); });
     Dict.handle("InlayHints", [&](Node &N) { parse(F.InlayHints, N); });
     Dict.handle("SemanticTokens", [&](Node &N) { parse(F.SemanticTokens, N); });
+    Dict.handle("CallHierarchy", [&](Node &N) { parse(F.CallHierarchy, N); });
     Dict.parse(N);
     return !(N.failed() || HadError);
   }
@@ -287,6 +288,15 @@ private:
     Dict.handle("DisabledModifiers", [&](Node &N) {
       if (auto Values = scalarValues(N))
         F.DisabledModifiers = std::move(*Values);
+    });
+    Dict.parse(N);
+  }
+
+  void parse(Fragment::CallHierarchyBlock &F, Node &N) {
+    DictParser Dict("CallHierarchy", this);
+    Dict.handle("OutgoingCalls", [&](Node &N) {
+      if (auto Value = boolValue(N, "OutgoingCalls"))
+        F.OutgoingCalls = *Value;
     });
     Dict.parse(N);
   }

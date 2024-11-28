@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dex.h"
+#include "Config.h"
 #include "FileDistance.h"
 #include "FuzzyMatch.h"
 #include "Quality.h"
@@ -149,15 +150,18 @@ void Dex::buildIndex() {
   InvertedIndex = std::move(Builder).build();
 
   // Build RevRefs
-  for (const auto &[ID, RefList] : Refs)
-    for (const auto &R : RefList)
-      if ((R.Kind & ContainedRefsRequest::SupportedRefKinds) !=
-          RefKind::Unknown)
-        RevRefs.emplace_back(R, ID);
-  // Sort by container ID so we can use binary search for lookup.
-  llvm::sort(RevRefs, [](const RevRef &A, const RevRef &B) {
-    return A.ref().Container < B.ref().Container;
-  });
+  if (Config::current().CallHierarchy.OutgoingCalls) {
+    vlog("WALDOWALDO Building RevRefs");
+    for (const auto &[ID, RefList] : Refs)
+      for (const auto &R : RefList)
+        if ((R.Kind & ContainedRefsRequest::SupportedRefKinds) !=
+            RefKind::Unknown)
+          RevRefs.emplace_back(R, ID);
+    // Sort by container ID so we can use binary search for lookup.
+    llvm::sort(RevRefs, [](const RevRef &A, const RevRef &B) {
+      return A.ref().Container < B.ref().Container;
+    });
+  }
 }
 
 std::unique_ptr<Iterator> Dex::iterator(const Token &Tok) const {
