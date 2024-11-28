@@ -7331,51 +7331,6 @@ LoopVectorizationPlanner::precomputeCosts(VPlan &Plan, ElementCount VF,
       Cost += ReductionCost;
       continue;
     }
-
-    const auto &ChainOps = RdxDesc.getReductionOpChain(RedPhi, OrigLoop);
-    SetVector<Instruction *> ChainOpsAndOperands(ChainOps.begin(),
-                                                 ChainOps.end());
-    auto IsZExtOrSExt = [](const unsigned Opcode) -> bool {
-      return Opcode == Instruction::ZExt || Opcode == Instruction::SExt;
-    };
-    // Also include the operands of instructions in the chain, as the cost-model
-    // may mark extends as free.
-    //
-    // For ARM, some of the instruction can folded into the reducion
-    // instruction. So we need to mark all folded instructions free.
-    // For example: We can fold reduce(mul(ext(A), ext(B))) into one
-    // instruction.
-    for (auto *ChainOp : ChainOps) {
-      for (Value *Op : ChainOp->operands()) {
-        if (auto *I = dyn_cast<Instruction>(Op)) {
-          ChainOpsAndOperands.insert(I);
-          if (I->getOpcode() == Instruction::Mul) {
-            auto *Ext0 = dyn_cast<Instruction>(I->getOperand(0));
-            auto *Ext1 = dyn_cast<Instruction>(I->getOperand(1));
-            if (Ext0 && IsZExtOrSExt(Ext0->getOpcode()) && Ext1 &&
-                Ext0->getOpcode() == Ext1->getOpcode()) {
-              ChainOpsAndOperands.insert(Ext0);
-              ChainOpsAndOperands.insert(Ext1);
-            }
-          }
-        }
-      }
-    }
-
-    // Pre-compute the cost for I, if it has a reduction pattern cost.
-    for (Instruction *I : ChainOpsAndOperands) {
-      auto ReductionCost = CM.getReductionPatternCost(
-          I, VF, ToVectorTy(I->getType(), VF), TTI::TCK_RecipThroughput);
-      if (!ReductionCost)
-        continue;
-
-      assert(!CostCtx.SkipCostComputation.contains(I) &&
-             "reduction op visited multiple times");
-      CostCtx.SkipCostComputation.insert(I);
-      LLVM_DEBUG(dbgs() << "Cost of " << ReductionCost << " for VF " << VF
-                        << ":\n in-loop reduction " << *I << "\n");
-      Cost += *ReductionCost;
-    }
   }
 
   // Pre-compute the costs for branches except for the backedge, as the number
@@ -7743,6 +7698,8 @@ DenseMap<const SCEV *, Value *> LoopVectorizationPlanner::executePlan(
                              ILV.getOrCreateVectorTripCount(nullptr),
                              CanonicalIVStartValue, State);
 
+  // TODO: Replace with upstream implementation.
+  VPlanTransforms::prepareExecute(BestVPlan);
   BestVPlan.execute(&State);
 
   // 2.5 Collect reduction resume values.
@@ -9218,7 +9175,7 @@ LoopVectorizationPlanner::tryToBuildVPlanWithVPRecipes(VFRange &Range) {
   // ---------------------------------------------------------------------------
 
   // Adjust the recipes for any inloop reductions.
-  adjustRecipesForReductions(Plan, RecipeBuilder, Range.Start);
+  adjustRecipesForReductions(Plan, RecipeBuilder, Range);
 
   // Interleave memory: for each Interleave Group we marked earlier as relevant
   // for this VPlan, replace the Recipes widening its memory instructions with a
@@ -9326,6 +9283,145 @@ VPlanPtr LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
   return Plan;
 }
 
+/// Try to match the extended-reduction and create VPExtendedReductionRecipe.
+///
+/// This function try to match following pattern which will generate
+/// extended-reduction instruction.
+///    reduce(ext(...)).
+static VPExtendedReductionRecipe *tryToMatchAndCreateExtendedReduction(
+    const RecurrenceDescriptor &RdxDesc, Instruction *CurrentLinkI,
+    VPValue *PreviousLink, VPValue *VecOp, VPValue *CondOp,
+    LoopVectorizationCostModel &CM, VPCostContext &Ctx, VFRange &Range) {
+  using namespace VPlanPatternMatch;
+
+  VPValue *A;
+  Type *RedTy = RdxDesc.getRecurrenceType();
+
+  // Test if the cost of extended-reduction is valid and clamp the range.
+  // Note that reduction-extended is not always valid for all VF and types.
+  auto IsExtendedRedValidAndClampRange = [&](unsigned Opcode, bool isZExt,
+                                             Type *SrcTy) -> bool {
+    return LoopVectorizationPlanner::getDecisionAndClampRange(
+        [&](ElementCount VF) {
+          VectorType *SrcVecTy = cast<VectorType>(ToVectorTy(SrcTy, VF));
+          return Ctx.TTI
+              .getExtendedReductionCost(Opcode, isZExt, RedTy, SrcVecTy,
+                                        RdxDesc.getFastMathFlags(),
+                                        TTI::TCK_RecipThroughput)
+              .isValid();
+        },
+        Range);
+  };
+
+  // Matched reduce(ext)).
+  if (match(VecOp, m_ZExtOrSExt(m_VPValue(A)))) {
+    if (!IsExtendedRedValidAndClampRange(
+            RdxDesc.getOpcode(),
+            cast<VPWidenCastRecipe>(VecOp)->getOpcode() ==
+                Instruction::CastOps::ZExt,
+            Ctx.Types.inferScalarType(A)))
+      return nullptr;
+    return new VPExtendedReductionRecipe(RdxDesc, CurrentLinkI, PreviousLink,
+                                         cast<VPWidenCastRecipe>(VecOp), CondOp,
+                                         CM.useOrderedReductions(RdxDesc));
+  }
+  return nullptr;
+}
+
+/// Try to match the mul-acc-reduction and create VPMulAccRecipe.
+///
+/// This function try to match following patterns which will generate mul-acc
+/// instructions.
+///    reduce.add(mul(...)),
+///    reduce.add(mul(ext(A), ext(B))),
+///    reduce.add(ext(mul(ext(A), ext(B)))).
+static VPMulAccRecipe *tryToMatchAndCreateMulAcc(
+    const RecurrenceDescriptor &RdxDesc, Instruction *CurrentLinkI,
+    VPValue *PreviousLink, VPValue *VecOp, VPValue *CondOp,
+    LoopVectorizationCostModel &CM, VPCostContext &Ctx, VFRange &Range) {
+  using namespace VPlanPatternMatch;
+
+  VPValue *A, *B;
+  Type *RedTy = RdxDesc.getRecurrenceType();
+
+  // Test if the cost of MulAcc is valid and clamp the range.
+  // Note that mul-acc is not always valid for all VF and types.
+  auto IsMulAccValidAndClampRange = [&](bool isZExt, Type *SrcTy) -> bool {
+    return LoopVectorizationPlanner::getDecisionAndClampRange(
+        [&](ElementCount VF) {
+          VectorType *SrcVecTy = cast<VectorType>(ToVectorTy(SrcTy, VF));
+          return Ctx.TTI
+              .getMulAccReductionCost(isZExt, RedTy, SrcVecTy,
+                                      TTI::TCK_RecipThroughput)
+              .isValid();
+        },
+        Range);
+  };
+
+  if (RdxDesc.getOpcode() != Instruction::Add)
+    return nullptr;
+
+  // Try to match reduce.add(mul(...))
+  if (match(VecOp, m_Mul(m_VPValue(A), m_VPValue(B)))) {
+    VPWidenCastRecipe *RecipeA =
+        dyn_cast_if_present<VPWidenCastRecipe>(A->getDefiningRecipe());
+    VPWidenCastRecipe *RecipeB =
+        dyn_cast_if_present<VPWidenCastRecipe>(B->getDefiningRecipe());
+
+    // Matched reduce.add(mul(ext, ext))
+    if (RecipeA && RecipeB && match(RecipeA, m_ZExtOrSExt(m_VPValue())) &&
+        match(RecipeB, m_ZExtOrSExt(m_VPValue())) &&
+        (RecipeA->getOpcode() == RecipeB->getOpcode() || A == B)) {
+
+      // Only create MulAccRecipe if the cost is valid.
+      if (!IsMulAccValidAndClampRange(RecipeA->getOpcode() ==
+                                          Instruction::CastOps::ZExt,
+                                      Ctx.Types.inferScalarType(RecipeA)))
+        return nullptr;
+
+      return new VPMulAccRecipe(RdxDesc, CurrentLinkI, PreviousLink, CondOp,
+                                CM.useOrderedReductions(RdxDesc),
+                                cast<VPWidenRecipe>(VecOp->getDefiningRecipe()),
+                                RecipeA, RecipeB);
+    } else {
+      // Matched reduce.add(mul)
+      if (!IsMulAccValidAndClampRange(true, RedTy))
+        return nullptr;
+
+      return new VPMulAccRecipe(
+          RdxDesc, CurrentLinkI, PreviousLink, CondOp,
+          CM.useOrderedReductions(RdxDesc),
+          cast<VPWidenRecipe>(VecOp->getDefiningRecipe()));
+    }
+    // Matched reduce.add(ext(mul(ext(A), ext(B))))
+    // All extend instructions must have same opcode or A == B
+    // which can be transform to reduce.add(zext(mul(sext(A), sext(B)))).
+  } else if (match(VecOp, m_ZExtOrSExt(m_Mul(m_ZExtOrSExt(m_VPValue()),
+                                             m_ZExtOrSExt(m_VPValue()))))) {
+    VPWidenCastRecipe *Ext =
+        cast<VPWidenCastRecipe>(VecOp->getDefiningRecipe());
+    VPWidenRecipe *Mul =
+        cast<VPWidenRecipe>(Ext->getOperand(0)->getDefiningRecipe());
+    VPWidenCastRecipe *Ext0 =
+        cast<VPWidenCastRecipe>(Mul->getOperand(0)->getDefiningRecipe());
+    VPWidenCastRecipe *Ext1 =
+        cast<VPWidenCastRecipe>(Mul->getOperand(1)->getDefiningRecipe());
+    if ((Ext->getOpcode() == Ext0->getOpcode() || Ext0 == Ext1) &&
+        Ext0->getOpcode() == Ext1->getOpcode()) {
+      // Only create MulAcc recipe if the cost if valid.
+      if (!IsMulAccValidAndClampRange(Ext0->getOpcode() ==
+                                          Instruction::CastOps::ZExt,
+                                      Ctx.Types.inferScalarType(Ext0)))
+        return nullptr;
+
+      return new VPMulAccRecipe(RdxDesc, CurrentLinkI, PreviousLink, CondOp,
+                                CM.useOrderedReductions(RdxDesc), Mul, Ext0,
+                                Ext1);
+    }
+  }
+  return nullptr;
+}
+
 // Adjust the recipes for reductions. For in-loop reductions the chain of
 // instructions leading from the loop exit instr to the phi need to be converted
 // to reductions, with one operand being vector and the other being the scalar
@@ -9340,8 +9436,9 @@ VPlanPtr LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
 // with a boolean reduction phi node to check if the condition is true in any
 // iteration. The final value is selected by the final ComputeReductionResult.
 void LoopVectorizationPlanner::adjustRecipesForReductions(
-    VPlanPtr &Plan, VPRecipeBuilder &RecipeBuilder, ElementCount MinVF) {
+    VPlanPtr &Plan, VPRecipeBuilder &RecipeBuilder, VFRange &Range) {
   using namespace VPlanPatternMatch;
+  ElementCount MinVF = Range.Start;
   VPRegionBlock *VectorLoopRegion = Plan->getVectorLoopRegion();
   VPBasicBlock *Header = VectorLoopRegion->getEntryBasicBlock();
   VPBasicBlock *MiddleVPBB = Plan->getMiddleBlock();
@@ -9457,9 +9554,21 @@ void LoopVectorizationPlanner::adjustRecipesForReductions(
       if (CM.blockNeedsPredicationForAnyReason(BB))
         CondOp = RecipeBuilder.getBlockInMask(BB);
 
-      VPReductionRecipe *RedRecipe =
-          new VPReductionRecipe(RdxDesc, CurrentLinkI, PreviousLink, VecOp,
-                                CondOp, CM.useOrderedReductions(RdxDesc));
+      VPReductionRecipe *RedRecipe;
+      VPCostContext CostCtx(CM.TTI, *CM.TLI, Legal->getWidestInductionType(),
+                            CM);
+      if (auto *MulAcc =
+              tryToMatchAndCreateMulAcc(RdxDesc, CurrentLinkI, PreviousLink,
+                                        VecOp, CondOp, CM, CostCtx, Range))
+        RedRecipe = MulAcc;
+      else if (auto *ExtRed = tryToMatchAndCreateExtendedReduction(
+                   RdxDesc, CurrentLinkI, PreviousLink, VecOp, CondOp, CM,
+                   CostCtx, Range))
+        RedRecipe = ExtRed;
+      else
+        RedRecipe =
+            new VPReductionRecipe(RdxDesc, CurrentLinkI, PreviousLink, VecOp,
+                                  CondOp, CM.useOrderedReductions(RdxDesc));
       // Append the recipe to the end of the VPBasicBlock because we need to
       // ensure that it comes after all of it's inputs, including CondOp.
       // Note that this transformation may leave over dead recipes (including

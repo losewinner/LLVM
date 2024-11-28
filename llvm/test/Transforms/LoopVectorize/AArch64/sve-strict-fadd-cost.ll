@@ -9,13 +9,13 @@ target triple="aarch64-unknown-linux-gnu"
 
 ; CHECK-LABEL: LV: Checking a loop in 'fadd_strict32'
 ; CHECK: Cost of 4 for VF vscale x 2:
-; CHECK:  in-loop reduction   %add = fadd float %0, %sum.07
+; CHECK:  REDUCE ir<%add> = ir<%sum.07> + reduce.fadd (ir<%0>)
 ; CHECK: Cost of 8 for VF vscale x 4:
-; CHECK:  in-loop reduction   %add = fadd float %0, %sum.07
+; CHECK:  REDUCE ir<%add> = ir<%sum.07> + reduce.fadd (ir<%0>)
 ; CHECK-CPU-NEOVERSE-N2: Cost of 2 for VF vscale x 2:
-; CHECK-CPU-NEOVERSE-N2:  in-loop reduction   %add = fadd float %0, %sum.07
+; CHECK-CPU-NEOVERSE-N2:  REDUCE ir<%add> = ir<%sum.07> + reduce.fadd (ir<%0>)
 ; CHECK-CPU-NEOVERSE-N2: Cost of 4 for VF vscale x 4:
-; CHECK-CPU-NEOVERSE-N2:  in-loop reduction   %add = fadd float %0, %sum.07
+; CHECK-CPU-NEOVERSE-N2:  REDUCE ir<%add> = ir<%sum.07> + reduce.fadd (ir<%0>)
 
 define float @fadd_strict32(ptr noalias nocapture readonly %a, i64 %n) #0 {
 entry:
@@ -38,9 +38,9 @@ for.end:
 
 ; CHECK-LABEL: LV: Checking a loop in 'fadd_strict64'
 ; CHECK: Cost of 4 for VF vscale x 2:
-; CHECK:  in-loop reduction   %add = fadd double %0, %sum.07
+; CHECK:  REDUCE ir<%add> = ir<%sum.07> + reduce.fadd (ir<%0>)
 ; CHECK-CPU-NEOVERSE-N2: Cost of 2 for VF vscale x 2:
-; CHECK-CPU-NEOVERSE-N2:  in-loop reduction   %add = fadd double %0, %sum.07
+; CHECK-CPU-NEOVERSE-N2:  REDUCE ir<%add> = ir<%sum.07> + reduce.fadd (ir<%0>)
 
 define double @fadd_strict64(ptr noalias nocapture readonly %a, i64 %n) #0 {
 entry:
