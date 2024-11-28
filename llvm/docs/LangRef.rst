@@ -23495,7 +23495,8 @@ This is an overloaded intrinsic.
 Overview:
 """""""""
 
-Create a mask representing lanes that do or not overlap between two pointers across one vector loop iteration.
+Create a mask representing lanes that do or not overlap between two pointers
+across one vector loop iteration.
 
 
 Arguments:
@@ -23507,8 +23508,9 @@ The final two are immediates and the result is a vector with the i1 element type
 Semantics:
 """"""""""
 
-In the case that ``%writeAfterRead`` is true, the '``llvm.experimental.get.alias.lane.mask.*``' intrinsics are semantically equivalent
-to:
+In the case that ``%writeAfterRead`` is true, the
+'``llvm.experimental.get.alias.lane.mask.*``' intrinsics are semantically
+equivalent to:
 
 ::
 
@@ -23524,8 +23526,12 @@ Otherwise they are semantically equivalent to:
 
 where ``%m`` is a vector (mask) of active/inactive lanes with its elements
 indexed by ``i``,  and ``%ptrA``, ``%ptrB`` are the two i64 arguments to
-``llvm.experimental.get.alias.lane.mask.*``, ``%elementSize`` is the first immediate argument, ``%abs`` is the absolute difference operation, ``%icmp`` is an integer compare and ``ult``
-the unsigned less-than comparison operator. The subtraction between ``%ptrA`` and ``%ptrB`` could be negative. The ``%writeAfterRead`` argument is expected to be true if the ``%ptrB`` is stored to after ``%ptrA`` is read from.
+``llvm.experimental.get.alias.lane.mask.*``, ``%elementSize`` is the first
+immediate argument, ``%abs`` is the absolute difference operation, ``%icmp`` is
+an integer compare and ``ult`` the unsigned less-than comparison operator. The
+subtraction between ``%ptrA`` and ``%ptrB`` could be negative. The
+``%writeAfterRead`` argument is expected to be true if the ``%ptrB`` is stored
+to after ``%ptrA`` is read from.
 The above is equivalent to:
 
 ::
@@ -23533,17 +23539,14 @@ The above is equivalent to:
       %m = @llvm.experimental.get.alias.lane.mask(%ptrA, %ptrB, %elementSize, %writeAfterRead)
 
 This can, for example, be emitted by the loop vectorizer in which case
-``%ptrA`` is a pointer that is read from within the loop, and ``%ptrB`` is a pointer that is stored to within the loop.
-If the difference between these pointers is less than the vector factor, then they overlap (alias) within a loop iteration.
-An example is if ``%ptrA`` is 20 and ``%ptrB`` is 23 with a vector factor of 8, then lanes 3, 4, 5, 6 and 7 of the vector loaded from ``%ptrA``
-share addresses with lanes 0, 1, 2, 3, 4 and 5 from the vector stored to at ``%ptrB``.
-An alias mask of these two pointers should be <1, 1, 1, 0, 0, 0, 0, 0> so that only the non-overlapping lanes are loaded and stored.
-This operation allows many loops to be vectorised when it would otherwise be unsafe to do so.
-
-To account for the fact that only a subset of lanes have been operated on in an iteration,
-the loop's induction variable should be incremented by the popcount of the mask rather than the vector factor.
-
-This mask ``%m`` can e.g. be used in masked load/store instructions.
+``%ptrA`` is a pointer that is read from within the loop, and ``%ptrB`` is a
+pointer that is stored to within the loop.
+If the difference between these pointers is less than the vector factor, then
+they overlap (alias) within a loop iteration.
+An example is if ``%ptrA`` is 20 and ``%ptrB`` is 23 with a vector factor of 8,
+then lanes 3, 4, 5, 6 and 7 of the vector loaded from ``%ptrA``
+share addresses with lanes 0, 1, 2, 3, 4 and 5 from the vector stored to at
+``%ptrB``.
 
 
 Examples:
