@@ -557,17 +557,23 @@ void AVRInstrInfo::insertIndirectBranch(MachineBasicBlock &MBB,
                                         MachineBasicBlock &RestoreBB,
                                         const DebugLoc &DL, int64_t BrOffset,
                                         RegScavenger *RS) const {
-  // This method inserts a *direct* branch (JMP), despite its name.
-  // LLVM calls this method to fixup unconditional branches; it never calls
-  // insertBranch or some hypothetical "insertDirectBranch".
-  // See lib/CodeGen/RegisterRelaxation.cpp for details.
-  // We end up here when a jump is too long for a RJMP instruction.
+  // When an instruction's jump target is too far away¹, the branch relaxation
+  // pass might split an existing, large basic block into two pieces - if that
+  // happens, this function gets called to create a new jump between the blocks.
+  //
+  // Since this new jump might be too large for an `rjmp` anyway, let's
+  // conservatively emit `jmp` and back off to `rjmp` only if the target arch
+  // doesn't support `jmp`.
+  //
+  // TODO maybe we could use `BrOffset` to determine whether it's safe to emit
+  //      `rjmp`? (it takes one byte less to encode, so it'd be a small win)
+  //
+  // ¹ "too far" in the sense of "the instruction encoding doesn't allow for an
+  //   offset that large"
+
   if (STI.hasJMPCALL())
     BuildMI(&MBB, DL, get(AVR::JMPk)).addMBB(&NewDestBB);
   else
-    // The RJMP may jump to a far place beyond its legal range. We let the
-    // linker to report 'out of range' rather than crash, or silently emit
-    // incorrect assembly code.
     BuildMI(&MBB, DL, get(AVR::RJMPk)).addMBB(&NewDestBB);
 }
 

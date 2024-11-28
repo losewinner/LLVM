@@ -21,8 +21,12 @@ foo:
 ; CHECK-NEXT:                 ;   fixup A - offset: 0, value: (.Ltmp3+46)+2, kind: fixup_13_pcrel
 
 ; INST-LABEL: <foo>:
-; INST-NEXT: 00 d0    rcall .+0
-; INST-NEXT: fc df    rcall .-8
-; INST-NEXT: 06 d0    rcall .+12
-; INST-NEXT: 17 d0    rcall .+46
-; INST-NEXT: ea df    rcall .-44
+; INST-NEXT: 00 d0 rcall .+0
+; INST-NEXT: R_AVR_13_PCREL .text+0x2
+; INST-NEXT: 00 d0 rcall .+0
+; INST-NEXT: R_AVR_13_PCREL .text-0x4
+; INST-NEXT: 00 d0 rcall .+0
+; INST-NEXT: R_AVR_13_PCREL .text+0x12
+; INST-NEXT: 00 d0 rcall .+0
+; INST-NEXT: R_AVR_13_PCREL .text+0x36
+; INST-NEXT: ea df rcall .-44
