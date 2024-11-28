@@ -210,7 +210,7 @@ constexpr unsigned __radix_sort_min_bound() {
 template <class _Tp>
 constexpr unsigned __radix_sort_max_bound() {
   static_assert(is_integral<_Tp>::value);
-  if constexpr (sizeof(_Tp) == 8) {
+  if constexpr (sizeof(_Tp) >= 8) {
     return 1 << 15;
   }
 
