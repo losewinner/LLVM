@@ -40,12 +40,9 @@ void testArraySubscripts(int idx, int *p, int **pp) {
 // expected-warning@-1{{'p' is an unsafe pointer used for buffer access}}
 // expected-warning@-2{{'pp' is an unsafe pointer used for buffer access}}
   foo(p[1],             // expected-note{{used in buffer access here}}
-      pp[1][1],         // expected-note{{used in buffer access here}}
-                        // expected-warning@-1{{unsafe buffer access}}
-      1[1[pp]],         // expected-note{{used in buffer access here}}
-                        // expected-warning@-1{{unsafe buffer access}}
-      1[pp][1]          // expected-note{{used in buffer access here}}
-                        // expected-warning@-1{{unsafe buffer access}}
+      pp[1][1],         // expected-note2{{used in buffer access here}}
+      1[1[pp]],         // expected-note2{{used in buffer access here}}
+      1[pp][1]          // expected-note2{{used in buffer access here}}
       );
 
   if (p[3]) {           // expected-note{{used in buffer access here}}
@@ -65,13 +62,9 @@ void testArraySubscripts(int idx, int *p, int **pp) {
     int b[10][10];      // expected-warning{{'b' is an unsafe buffer that does not perform bounds checks}}
 
   foo(a[idx], idx[a],   // expected-note2{{used in buffer access here}}
-      b[idx][idx + 1],  // expected-warning{{unsafe buffer access}}
-                        // expected-note@-1{{used in buffer access here}}
-      (idx + 1)[b][idx],// expected-warning{{unsafe buffer access}}
-                        // expected-note@-1{{used in buffer access here}}
-      (idx + 1)[idx[b]]);
-                        // expected-warning@-1{{unsafe buffer access}}
-                        // expected-note@-2{{used in buffer access here}}
+      b[idx][idx + 1],  // expected-note2{{used in buffer access here}}
+      (idx + 1)[b][idx],// expected-note2{{used in buffer access here}}
+      (idx + 1)[idx[b]]); // expected-note2{{used in buffer access here}}
 
   // Not to warn when index is zero
   foo(p[0], pp[0][0], 0[0[pp]], 0[pp][0],
@@ -108,8 +101,7 @@ void testQualifiedParameters(const int * p, const int * const q, const int a[10]
   foo(p[1], 1[p], p[-1],    // expected-note3{{used in buffer access here}}
       q[1], 1[q], q[-1],    // expected-note3{{used in buffer access here}}
       a[1],                 // expected-note{{used in buffer access here}}     `a` is of pointer type
-      b[1][2]               // expected-note{{used in buffer access here}}     `b[1]` is of array type
-                            // expected-warning@-1{{unsafe buffer access}}
+      b[1][2]               // expected-note2{{used in buffer access here}}     `b[1]` is of array type
       );
 }
 
@@ -128,25 +120,25 @@ T_t funRetT();
 T_t * funRetTStar();
 
 void testStructMembers(struct T * sp, struct T s, T_t * sp2, T_t s2) {
-  foo(sp->a[1],     // expected-warning{{unsafe buffer access}}
+  foo(sp->a[1],     
       sp->b[1],     // expected-warning{{unsafe buffer access}}
-      sp->c.a[1],   // expected-warning{{unsafe buffer access}}
+      sp->c.a[1],   
       sp->c.b[1],   // expected-warning{{unsafe buffer access}}
-      s.a[1],       // expected-warning{{unsafe buffer access}}
+      s.a[1],       
       s.b[1],       // expected-warning{{unsafe buffer access}}
-      s.c.a[1],     // expected-warning{{unsafe buffer access}}
+      s.c.a[1],     
       s.c.b[1],     // expected-warning{{unsafe buffer access}}
-      sp2->a[1],    // expected-warning{{unsafe buffer access}}
+      sp2->a[1],    
       sp2->b[1],    // expected-warning{{unsafe buffer access}}
-      sp2->c.a[1],  // expected-warning{{unsafe buffer access}}
+      sp2->c.a[1],  
       sp2->c.b[1],  // expected-warning{{unsafe buffer access}}
-      s2.a[1],      // expected-warning{{unsafe buffer access}}
+      s2.a[1],      
       s2.b[1],      // expected-warning{{unsafe buffer access}}
-      s2.c.a[1],           // expected-warning{{unsafe buffer access}}
+      s2.c.a[1],           
       s2.c.b[1],           // expected-warning{{unsafe buffer access}}
-      funRetT().a[1],      // expected-warning{{unsafe buffer access}}
+      funRetT().a[1],      
       funRetT().b[1],      // expected-warning{{unsafe buffer access}}
-      funRetTStar()->a[1], // expected-warning{{unsafe buffer access}}
+      funRetTStar()->a[1], 
       funRetTStar()->b[1]  // expected-warning{{unsafe buffer access}}
       );
 }
@@ -213,7 +205,6 @@ void testTypedefs(T_ptr_t p) {
   // expected-warning@-1{{'p' is an unsafe pointer used for buffer access}}
   foo(p[1],       // expected-note{{used in buffer access here}}
       p[1].a[1],  // expected-note{{used in buffer access here}}
-                  // expected-warning@-1{{unsafe buffer access}}
       p[1].b[1]   // expected-note{{used in buffer access here}}
                   // expected-warning@-1{{unsafe buffer access}}
       );
@@ -223,10 +214,9 @@ template<typename T, int N> T f(T t, T * pt, T a[N], T (&b)[N]) {
   // expected-warning@-1{{'t' is an unsafe pointer used for buffer access}}
   // expected-warning@-2{{'pt' is an unsafe pointer used for buffer access}}
   // expected-warning@-3{{'a' is an unsafe pointer used for buffer access}}
-  // expected-warning@-4{{'b' is an unsafe buffer that does not perform bounds checks}}
   foo(pt[1],    // expected-note{{used in buffer access here}}
       a[1],     // expected-note{{used in buffer access here}}
-      b[1]);    // expected-note{{used in buffer access here}}
+      b[1]);    
   return &t[1]; // expected-note{{used in buffer access here}}
 }
 
@@ -366,17 +356,15 @@ int testArrayAccesses(int n, int idx) {
     // expected-warning@-1{{'cArr' is an unsafe buffer that does not perform bounds checks}}
     int d = cArr[0][0];
     foo(cArr[0][0]);
-    foo(cArr[idx][idx + 1]);        // expected-note{{used in buffer access here}}
-                                    // expected-warning@-1{{unsafe buffer access}}
-    auto cPtr = cArr[idx][idx * 2]; // expected-note{{used in buffer access here}}
-                                    // expected-warning@-1{{unsafe buffer access}}
+    foo(cArr[idx][idx + 1]);        // expected-note2{{used in buffer access here}}
+    auto cPtr = cArr[idx][idx * 2]; // expected-note2{{used in buffer access here}}
     foo(cPtr);
 
     // Typdefs
     typedef int A[3];
     const A tArr = {4, 5, 6};
     foo(tArr[0], tArr[1]);
-    return cArr[0][1];      // expected-warning{{unsafe buffer access}}
+    return cArr[0][1];      
 }
 
 void testArrayPtrArithmetic(int x[]) { // expected-warning{{'x' is an unsafe pointer used for buffer access}}

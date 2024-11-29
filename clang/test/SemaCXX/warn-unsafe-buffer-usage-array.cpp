@@ -52,3 +52,9 @@ void constant_id_string(unsigned idx) {
   unsafe_char = ""[1]; //expected-warning{{unsafe buffer access}} 
   unsafe_char = ""[idx]; //expected-warning{{unsafe buffer access}}
 }
+
+typedef float Float4x4[4][4];
+
+float multi_dimension_array(Float4x4& matrix) {
+  return matrix[1][1];
+}
