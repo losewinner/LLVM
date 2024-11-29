@@ -1,6 +1,6 @@
-.. title:: clang-tidy - modernize-use-starts-ends-with
+.. title:: clang-tidy - readability-use-starts-ends-with
 
-modernize-use-starts-ends-with
+readability-use-starts-ends-with
 ==============================
 
 Checks for common roundabout ways to express ``starts_with`` and ``ends_with``

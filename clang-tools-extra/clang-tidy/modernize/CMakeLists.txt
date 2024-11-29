@@ -49,7 +49,6 @@ add_clang_library(clangTidyModernizeModule STATIC
   UseTransparentFunctorsCheck.cpp
   UseUncaughtExceptionsCheck.cpp
   UseUsingCheck.cpp
-  UseSpanFirstLastCheck.cpp
 
   LINK_LIBS
   clangTidy

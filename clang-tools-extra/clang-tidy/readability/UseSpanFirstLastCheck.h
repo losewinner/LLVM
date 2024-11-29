@@ -6,12 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_USESPANFIRSTLASTCHECK_H
-#define LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_USESPANFIRSTLASTCHECK_H
+#ifndef LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_USESPANFIRSTLASTCHECK_H
+#define LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_USESPANFIRSTLASTCHECK_H
 
 #include "../ClangTidyCheck.h"
 
-namespace clang::tidy::modernize {
+namespace clang::tidy::readability {
 
 /// Converts std::span::subspan() calls to the more modern first()/last()
 /// methods where applicable.
@@ -35,6 +35,6 @@ private:
                          const CXXMemberCallExpr *Call);
 };
 
-} // namespace clang::tidy::modernize
+} // namespace clang::tidy::readability
 
-#endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_USESPANFIRSTLASTCHECK_H
+#endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_READABILITY_USESPANFIRSTLASTCHECK_H

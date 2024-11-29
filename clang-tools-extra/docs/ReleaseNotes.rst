@@ -145,7 +145,7 @@ New checks
 New check aliases
 ^^^^^^^^^^^^^^^^^
 
-- New check `modernize-use-span-first-last` has been added that suggests using
+- New check `readability-use-span-first-last` has been added that suggests using
   ``std::span::first()`` and ``std::span::last()`` member functions instead of
   equivalent ``subspan()``.
 

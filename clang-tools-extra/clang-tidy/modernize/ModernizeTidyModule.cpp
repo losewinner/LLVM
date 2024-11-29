@@ -42,7 +42,6 @@
 #include "UseNullptrCheck.h"
 #include "UseOverrideCheck.h"
 #include "UseRangesCheck.h"
-#include "UseSpanFirstLastCheck.h"
 #include "UseStartsEndsWithCheck.h"
 #include "UseStdFormatCheck.h"
 #include "UseStdNumbersCheck.h"
@@ -123,8 +122,6 @@ public:
     CheckFactories.registerCheck<UseUncaughtExceptionsCheck>(
         "modernize-use-uncaught-exceptions");
     CheckFactories.registerCheck<UseUsingCheck>("modernize-use-using");
-    CheckFactories.registerCheck<UseSpanFirstLastCheck>(
-        "modernize-use-span-first-last");
 
   }
 };

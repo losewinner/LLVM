@@ -14,7 +14,7 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang::tidy::modernize {
+namespace clang::tidy::readability {
 
 void UseSpanFirstLastCheck::registerMatchers(MatchFinder *Finder) {
   // Match span::subspan calls
@@ -95,4 +95,4 @@ void UseSpanFirstLastCheck::handleSubspanCall(
   }
 }
 
-} // namespace clang::tidy::modernize
+} // namespace clang::tidy::readability
