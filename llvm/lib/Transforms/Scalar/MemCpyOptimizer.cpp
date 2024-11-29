@@ -1853,30 +1853,17 @@ bool MemCpyOptPass::isMemMoveMemSetDependency(MemMoveInst *M) {
   // The memmove is of form memmove(x, x + A, B).
   MemoryLocation SourceLoc = MemoryLocation::getForSource(M);
   auto *MemMoveSourceOp = M->getSource();
-  auto *Source = dyn_cast<GetElementPtrInst>(MemMoveSourceOp);
-  bool MemMoveHasGEPOperator = false;
-  if (!Source) {
-    if (auto *CE = dyn_cast<ConstantExpr>(MemMoveSourceOp))
-      if (isa<GEPOperator>(CE)) {
-        Source = cast<GetElementPtrInst>(CE->getAsInstruction());
-        MemMoveHasGEPOperator = true;
-      }
-    if (!Source)
+  auto *Source = dyn_cast<GEPOperator>(MemMoveSourceOp);
+  if (!Source)
       return false;
-  }
 
   APInt Offset(DL.getIndexTypeSizeInBits(Source->getType()), 0);
   LocationSize MemMoveLocSize = SourceLoc.Size;
   if (Source->getPointerOperand() != M->getDest() ||
       !MemMoveLocSize.hasValue() || Offset.isNegative() ||
       !Source->accumulateConstantOffset(DL, Offset)) {
-    if (MemMoveHasGEPOperator)
-      Source->dropAllReferences();
     return false;
   }
-
-  if (MemMoveHasGEPOperator)
-    Source->dropAllReferences();
 
   const uint64_t MemMoveSize = MemMoveLocSize.getValue();
   LocationSize TotalSize =
