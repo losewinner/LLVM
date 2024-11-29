@@ -13,8 +13,8 @@
 
 namespace clang::tidy::modernize {
 
-/// Converts std::span::subspan() calls to the more modern first()/last() methods
-/// where applicable.
+/// Converts std::span::subspan() calls to the more modern first()/last()
+/// methods where applicable.
 ///
 /// For example:
 /// \code
@@ -32,7 +32,7 @@ public:
 
 private:
   void handleSubspanCall(const ast_matchers::MatchFinder::MatchResult &Result,
-                        const CXXMemberCallExpr *Call);
+                         const CXXMemberCallExpr *Call);
 };
 
 } // namespace clang::tidy::modernize

@@ -18,17 +18,15 @@ namespace clang::tidy::modernize {
 
 void UseSpanFirstLastCheck::registerMatchers(MatchFinder *Finder) {
   // Match span::subspan calls
-  const auto HasSpanType = hasType(hasUnqualifiedDesugaredType(
-      recordType(hasDeclaration(classTemplateSpecializationDecl(
-          hasName("::std::span"))))));
+  const auto HasSpanType =
+      hasType(hasUnqualifiedDesugaredType(recordType(hasDeclaration(
+          classTemplateSpecializationDecl(hasName("::std::span"))))));
 
-  Finder->addMatcher(
-      cxxMemberCallExpr(
-          callee(memberExpr(hasDeclaration(
-              cxxMethodDecl(hasName("subspan"))))),
-          on(expr(HasSpanType)))
-          .bind("subspan"),
-      this);
+  Finder->addMatcher(cxxMemberCallExpr(callee(memberExpr(hasDeclaration(
+                                           cxxMethodDecl(hasName("subspan"))))),
+                                       on(expr(HasSpanType)))
+                         .bind("subspan"),
+                     this);
 }
 
 void UseSpanFirstLastCheck::check(const MatchFinder::MatchResult &Result) {
@@ -52,7 +50,7 @@ void UseSpanFirstLastCheck::handleSubspanCall(
   bool IsZeroOffset = false;
 
   // Check if offset is zero through any implicit casts
-  const Expr* OffsetE = Offset->IgnoreImpCasts();
+  const Expr *OffsetE = Offset->IgnoreImpCasts();
   if (const auto *IL = dyn_cast<IntegerLiteral>(OffsetE)) {
     IsZeroOffset = IL->getValue() == 0;
   }
@@ -64,7 +62,8 @@ void UseSpanFirstLastCheck::handleSubspanCall(
     auto CountStr = Lexer::getSourceText(
         CharSourceRange::getTokenRange(Count->getSourceRange()),
         Context.getSourceManager(), Context.getLangOpts());
-    const auto *Base = cast<CXXMemberCallExpr>(Call)->getImplicitObjectArgument();
+    const auto *Base =
+        cast<CXXMemberCallExpr>(Call)->getImplicitObjectArgument();
     auto BaseStr = Lexer::getSourceText(
         CharSourceRange::getTokenRange(Base->getSourceRange()),
         Context.getSourceManager(), Context.getLangOpts());
@@ -74,22 +73,24 @@ void UseSpanFirstLastCheck::handleSubspanCall(
     auto OffsetStr = Lexer::getSourceText(
         CharSourceRange::getTokenRange(Offset->getSourceRange()),
         Context.getSourceManager(), Context.getLangOpts());
-    
-    const auto *Base = cast<CXXMemberCallExpr>(Call)->getImplicitObjectArgument();
+
+    const auto *Base =
+        cast<CXXMemberCallExpr>(Call)->getImplicitObjectArgument();
     auto BaseStr = Lexer::getSourceText(
         CharSourceRange::getTokenRange(Base->getSourceRange()),
         Context.getSourceManager(), Context.getLangOpts());
-    
-    Replacement = BaseStr.str() + ".last(" + BaseStr.str() + ".size() - " + OffsetStr.str() + ")";
+
+    Replacement = BaseStr.str() + ".last(" + BaseStr.str() + ".size() - " +
+                  OffsetStr.str() + ")";
   }
 
   if (!Replacement.empty()) {
     if (IsZeroOffset && Count) {
-        diag(Call->getBeginLoc(), "prefer span::first() over subspan()")
-            << FixItHint::CreateReplacement(Call->getSourceRange(), Replacement);
+      diag(Call->getBeginLoc(), "prefer span::first() over subspan()")
+          << FixItHint::CreateReplacement(Call->getSourceRange(), Replacement);
     } else {
-        diag(Call->getBeginLoc(), "prefer span::last() over subspan()")
-            << FixItHint::CreateReplacement(Call->getSourceRange(), Replacement);
+      diag(Call->getBeginLoc(), "prefer span::last() over subspan()")
+          << FixItHint::CreateReplacement(Call->getSourceRange(), Replacement);
     }
   }
 }
