@@ -763,6 +763,10 @@ Bug Fixes to C++ Support
 - Fixed a bug where bounds of partially expanded pack indexing expressions were checked too early. (#GH116105)
 - Fixed an assertion failure caused by using ``consteval`` in condition in consumed analyses. (#GH117385)
 
+- Emit an error when the same identifier appears with both internal and
+  external linkage in a translation unit Fixes:
+  (`#54215 <https://github.com/llvm/llvm-project/issues/54215>`_)
+
 Bug Fixes to AST Handling
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
