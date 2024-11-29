@@ -442,8 +442,8 @@ Modified Compiler Flags
   behavior. It is implied by ``-Wnontrivial-memaccess``
 
 - The ``-Og`` optimization flag now sets ``-fextend-lifetimes``, a new compiler
-  flag, resulting in slightly reduced optimization compared to ``-O1`` in
-  exchange for improved variable visibility.
+  flag which trades a small amount of optimization in exchange for improved
+  variable visibility.
 
 Removed Compiler Flags
 -------------------------
