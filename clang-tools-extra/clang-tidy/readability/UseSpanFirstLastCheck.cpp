@@ -17,6 +17,8 @@ using namespace clang::ast_matchers;
 namespace clang::tidy::readability {
 
 void UseSpanFirstLastCheck::registerMatchers(MatchFinder *Finder) {
+  if (!getLangOpts().CPlusPlus20)
+    return;
   // Match span::subspan calls
   const auto HasSpanType =
       hasType(hasUnqualifiedDesugaredType(recordType(hasDeclaration(

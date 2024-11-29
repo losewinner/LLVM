@@ -1,4 +1,6 @@
-// RUN: %check_clang_tidy %s readability-use-span-first-last %t
+// RUN: %check_clang_tidy -std=c++20 %s readability-use-span-first-last %t
+
+
 
 namespace std {
 template <typename T>
