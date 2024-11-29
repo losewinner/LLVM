@@ -123,7 +123,8 @@ public:
     CheckFactories.registerCheck<UseUncaughtExceptionsCheck>(
         "modernize-use-uncaught-exceptions");
     CheckFactories.registerCheck<UseUsingCheck>("modernize-use-using");
-    CheckFactories.registerCheck<UseSpanFirstLastCheck>("modernize-use-span-first-last");
+    CheckFactories.registerCheck<UseSpanFirstLastCheck>(
+        "modernize-use-span-first-last");
 
   }
 };
