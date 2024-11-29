@@ -13,7 +13,7 @@
 
 namespace clang::tidy::readability {
 
-/// Suggests using clearer std::span member functions first()/last() instead of 
+/// Suggests using clearer std::span member functions first()/last() instead of
 /// equivalent subspan() calls where applicable.
 ///
 /// For example:
