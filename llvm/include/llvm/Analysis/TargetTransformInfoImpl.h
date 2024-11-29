@@ -581,11 +581,13 @@ public:
 
   unsigned getMaxInterleaveFactor(ElementCount VF) const { return 1; }
 
-  InstructionCost getArithmeticInstrCost(
-      unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
-      TTI::OperandValueInfo Opd1Info, TTI::OperandValueInfo Opd2Info,
-      ArrayRef<const Value *> Args,
-      const Instruction *CxtI = nullptr) const {
+  InstructionCost getArithmeticInstrCost(unsigned Opcode, Type *Ty,
+                                         TTI::TargetCostKind CostKind,
+                                         TTI::OperandValueInfo Opd1Info,
+                                         TTI::OperandValueInfo Opd2Info,
+                                         ArrayRef<const Value *> Args,
+                                         const Instruction *CxtI = nullptr,
+                                         ArrayRef<Value *> Scalars = {}) const {
     // Widenable conditions will eventually lower into constants, so some
     // operations with them will be trivially optimized away.
     auto IsWidenableCondition = [](const Value *V) {

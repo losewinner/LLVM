@@ -3376,8 +3376,8 @@ InstructionCost AArch64TTIImpl::getScalarizationOverhead(
 InstructionCost AArch64TTIImpl::getArithmeticInstrCost(
     unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
     TTI::OperandValueInfo Op1Info, TTI::OperandValueInfo Op2Info,
-    ArrayRef<const Value *> Args,
-    const Instruction *CxtI) {
+    ArrayRef<const Value *> Args, const Instruction *CxtI,
+    ArrayRef<Value *> Scalars) {
 
   // The code-generator is currently not able to handle scalable vectors
   // of <vscale x 1 x eltty> yet, so return an invalid cost to avoid selecting
@@ -3442,8 +3442,8 @@ InstructionCost AArch64TTIImpl::getArithmeticInstrCost(
     if (!VT.isVector() && VT.getSizeInBits() > 64)
       return getCallInstrCost(/*Function*/ nullptr, Ty, {Ty, Ty}, CostKind);
 
-    InstructionCost Cost = BaseT::getArithmeticInstrCost(
-        Opcode, Ty, CostKind, Op1Info, Op2Info);
+    InstructionCost Cost =
+        BaseT::getArithmeticInstrCost(Opcode, Ty, CostKind, Op1Info, Op2Info);
     if (Ty->isVectorTy()) {
       if (TLI->isOperationLegalOrCustom(ISD, LT.second) && ST->hasSVE()) {
         // SDIV/UDIV operations are lowered using SVE, then we can have less
@@ -3472,29 +3472,41 @@ InstructionCost AArch64TTIImpl::getArithmeticInstrCost(
           Cost *= 4;
         return Cost;
       } else {
-        // If one of the operands is a uniform constant then the cost for each
-        // element is Cost for insertion, extraction and division.
-        // Insertion cost = 2, Extraction Cost = 2, Division = cost for the
-        // operation with scalar type
-        if ((Op1Info.isConstant() && Op1Info.isUniform()) ||
-            (Op2Info.isConstant() && Op2Info.isUniform())) {
-          if (auto *VTy = dyn_cast<FixedVectorType>(Ty)) {
+        if (auto *VTy = dyn_cast<FixedVectorType>(Ty)) {
+          if ((Op1Info.isConstant() && Op1Info.isUniform()) ||
+              (Op2Info.isConstant() && Op2Info.isUniform())) {
             InstructionCost DivCost = BaseT::getArithmeticInstrCost(
                 Opcode, Ty->getScalarType(), CostKind, Op1Info, Op2Info);
-            return (4 + DivCost) * VTy->getNumElements();
+            // If #vector_elements = n then we need
+            // n inserts + 2n extracts + n divisions.
+            InstructionCost InsertExtractCost =
+                ST->getVectorInsertExtractBaseCost();
+            Cost = (3 * InsertExtractCost + DivCost) * VTy->getNumElements();
+          } else if (!Scalars.empty()) {
+            // If #vector_elements = n then we need
+            // n inserts + 2n extracts + n divisions.
+            InstructionCost InsertExtractCost =
+                ST->getVectorInsertExtractBaseCost();
+            Cost = (3 * InsertExtractCost) * VTy->getNumElements();
+            for (auto *V : Scalars) {
+              auto *I = cast<Instruction>(V);
+              Cost +=
+                  getArithmeticInstrCost(I->getOpcode(), I->getType(), CostKind,
+                                         TTI::getOperandInfo(I->getOperand(0)),
+                                         TTI::getOperandInfo(I->getOperand(1)));
+            }
+          } else {
+            // FIXME: The initial cost calculated should have considered extract
+            // cost twice. For now, we just add additional cost to avoid
+            // underestimating the total cost.
+            Cost += Cost;
           }
+        } else {
+          // We can't predict the cost of div/extract/insert without knowing the
+          // vector width.
+          Cost.setInvalid();
         }
-        // On AArch64, without SVE, vector divisions are expanded
-        // into scalar divisions of each pair of elements.
-        Cost += getArithmeticInstrCost(Instruction::ExtractElement, Ty,
-                                       CostKind, Op1Info, Op2Info);
-        Cost += getArithmeticInstrCost(Instruction::InsertElement, Ty, CostKind,
-                                       Op1Info, Op2Info);
       }
-
-      // TODO: if one of the arguments is scalar, then it's not necessary to
-      // double the cost of handling the vector elements.
-      Cost += Cost;
     }
     return Cost;
   }

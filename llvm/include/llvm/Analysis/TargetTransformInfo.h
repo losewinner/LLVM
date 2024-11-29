@@ -1297,13 +1297,16 @@ public:
   /// provide even more information.
   /// \p TLibInfo is used to search for platform specific vector library
   /// functions for instructions that might be converted to calls (e.g. frem).
+  /// \p Scalars refers to individual scalars/instructions being used for
+  /// vectorization.
   InstructionCost getArithmeticInstrCost(
       unsigned Opcode, Type *Ty,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       TTI::OperandValueInfo Opd1Info = {TTI::OK_AnyValue, TTI::OP_None},
       TTI::OperandValueInfo Opd2Info = {TTI::OK_AnyValue, TTI::OP_None},
       ArrayRef<const Value *> Args = {}, const Instruction *CxtI = nullptr,
-      const TargetLibraryInfo *TLibInfo = nullptr) const;
+      const TargetLibraryInfo *TLibInfo = nullptr,
+      ArrayRef<Value *> Scalars = {}) const;
 
   /// Returns the cost estimation for alternating opcode pattern that can be
   /// lowered to a single instruction on the target. In X86 this is for the
@@ -2099,7 +2102,8 @@ public:
   virtual InstructionCost getArithmeticInstrCost(
       unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
       OperandValueInfo Opd1Info, OperandValueInfo Opd2Info,
-      ArrayRef<const Value *> Args, const Instruction *CxtI = nullptr) = 0;
+      ArrayRef<const Value *> Args, const Instruction *CxtI = nullptr,
+      ArrayRef<Value *> Scalars = {}) = 0;
   virtual InstructionCost getAltInstrCost(
       VectorType *VecTy, unsigned Opcode0, unsigned Opcode1,
       const SmallBitVector &OpcodeMask,
@@ -2780,10 +2784,10 @@ public:
   InstructionCost getArithmeticInstrCost(
       unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
       OperandValueInfo Opd1Info, OperandValueInfo Opd2Info,
-      ArrayRef<const Value *> Args,
-      const Instruction *CxtI = nullptr) override {
+      ArrayRef<const Value *> Args, const Instruction *CxtI = nullptr,
+      ArrayRef<Value *> Scalars = {}) override {
     return Impl.getArithmeticInstrCost(Opcode, Ty, CostKind, Opd1Info, Opd2Info,
-                                       Args, CxtI);
+                                       Args, CxtI, Scalars);
   }
   InstructionCost getAltInstrCost(VectorType *VecTy, unsigned Opcode0,
                                   unsigned Opcode1,

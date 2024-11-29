@@ -245,8 +245,8 @@ unsigned X86TTIImpl::getMaxInterleaveFactor(ElementCount VF) {
 InstructionCost X86TTIImpl::getArithmeticInstrCost(
     unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
     TTI::OperandValueInfo Op1Info, TTI::OperandValueInfo Op2Info,
-    ArrayRef<const Value *> Args,
-    const Instruction *CxtI) {
+    ArrayRef<const Value *> Args, const Instruction *CxtI,
+    ArrayRef<Value *> Scalars) {
 
   // vXi8 multiplications are always promoted to vXi16.
   // Sub-128-bit types can be extended/packed more efficiently.
