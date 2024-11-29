@@ -1860,12 +1860,12 @@ bool MemCpyOptPass::isMemMoveMemSetDependency(MemMoveInst *M) {
   APInt Offset(DL.getIndexTypeSizeInBits(Source->getType()), 0);
   LocationSize MemMoveLocSize = SourceLoc.Size;
   if (Source->getPointerOperand() != M->getDest() ||
-      !MemMoveLocSize.hasValue() || Offset.isNegative() ||
-      !Source->accumulateConstantOffset(DL, Offset)) {
+      !MemMoveLocSize.hasValue() ||
+      !Source->accumulateConstantOffset(DL, Offset) || Offset.isNegative()) {
     return false;
   }
 
-  const uint64_t MemMoveSize = MemMoveLocSize.getValue();
+  uint64_t MemMoveSize = MemMoveLocSize.getValue();
   LocationSize TotalSize =
       LocationSize::precise(Offset.getZExtValue() + MemMoveSize);
   MemoryLocation CombinedSourceLoc(MemMoveSourceOp, TotalSize);
@@ -1874,17 +1874,20 @@ bool MemCpyOptPass::isMemMoveMemSetDependency(MemMoveInst *M) {
   // The first dominating clobbering MemoryAccess for the combined location
   // needs to be a memset.
   BatchAAResults BAA(*AA);
-  MemSetInst *MS = nullptr;
   MemoryAccess *FirstDef = MemMoveAccess->getDefiningAccess();
-  MemoryAccess *DestClobber = MSSA->getWalker()->getClobberingMemoryAccess(
-      FirstDef, CombinedDestLoc, BAA);
-  if (auto *Def = dyn_cast<MemoryDef>(DestClobber))
-    MS = dyn_cast_or_null<MemSetInst>(Def->getMemoryInst());
+  auto *DestClobber =
+      dyn_cast<MemoryDef>(MSSA->getWalker()->getClobberingMemoryAccess(
+          FirstDef, CombinedDestLoc, BAA));
+  if (!DestClobber)
+    return false;
+
+  auto *MS = dyn_cast_or_null<MemSetInst>(DestClobber->getMemoryInst());
   if (!MS)
     return false;
 
   // Memset length must be sufficiently large.
-  if (cast<ConstantInt>(MS->getLength())->getZExtValue() < MemMoveSize)
+  auto *MemSetLength = dyn_cast<ConstantInt>(MS->getLength());
+  if (!MemSetLength || MemSetLength->getZExtValue() < MemMoveSize)
     return false;
 
   // The destination buffer must have been memset'd.

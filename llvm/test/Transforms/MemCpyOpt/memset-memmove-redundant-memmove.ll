@@ -137,6 +137,24 @@ define i32 @partial_memset() {
   ret i32 %val
 }
 
+; Memset length not constant.
+define i32 @memset_length_not_constant(i64 %size) {
+; CHECK-LABEL: @memset_length_not_constant(
+; CHECK-NEXT:    [[ARRAY:%.*]] = alloca [26 x i32], align 16
+; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 16 [[ARRAY]], i8 0, i64 [[SIZE:%.*]], i1 false)
+; CHECK-NEXT:    [[ARRAY_IDX:%.*]] = getelementptr inbounds i8, ptr [[ARRAY]], i64 4
+; CHECK-NEXT:    call void @llvm.memmove.p0.p0.i64(ptr align 16 [[ARRAY]], ptr align 4 [[ARRAY_IDX]], i64 100, i1 false)
+; CHECK-NEXT:    [[VAL:%.*]] = load i32, ptr [[ARRAY]], align 16
+; CHECK-NEXT:    ret i32 [[VAL]]
+;
+  %array = alloca [26 x i32], align 16
+  call void @llvm.memset.p0.i64(ptr align 16 %array, i8 0, i64 %size, i1 false)
+  %array.idx = getelementptr inbounds i8, ptr %array, i64 4
+  call void @llvm.memmove.p0.p0.i64(ptr align 16 %array, ptr align 4 %array.idx, i64 100, i1 false)
+  %val = load i32, ptr %array, align 16
+  ret i32 %val
+}
+
 declare void @opaque(ptr)
 declare void @llvm.memset.p0.i64(ptr nocapture, i8, i64, i1)
 declare void @llvm.memmove.p0.p0.i64(ptr nocapture, ptr nocapture, i64, i1)
