@@ -145,6 +145,10 @@ New checks
 New check aliases
 ^^^^^^^^^^^^^^^^^
 
+- New check `modernize-use-span-first-last` has been added that suggests using
+  ``std::span::first()`` and ``std::span::last()`` member functions instead of
+  equivalent ``subspan()``.
+
 - New alias :doc:`cert-arr39-c <clang-tidy/checks/cert/arr39-c>` to
   :doc:`bugprone-sizeof-expression
   <clang-tidy/checks/bugprone/sizeof-expression>` was added.
