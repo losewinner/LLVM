@@ -10,10 +10,9 @@
 
 // <flat_map>
 
-// template<class InputIterator>
-//   flat_map(InputIterator first, InputIterator last, const key_compare& comp = key_compare())
+// flat_multimap(key_container_type key_cont, mapped_container_type mapped_cont);
 //
-// libc++ uses stable_sort to ensure that flat_map's behavior matches map's,
+// libc++ uses stable_sort to ensure that flat_multimap's behavior matches map's,
 // in terms of which duplicate items are kept.
 // This tests a conforming extension.
 
@@ -23,6 +22,7 @@
 #include <flat_map>
 #include <random>
 #include <map>
+#include <vector>
 
 #include "test_macros.h"
 
@@ -32,32 +32,35 @@ struct Mod256 {
 
 int main(int, char**) {
   std::mt19937 randomness;
-  std::pair<uint16_t, uint16_t> pairs[200];
-  for (auto& pair : pairs) {
-    pair = {uint16_t(randomness()), uint16_t(randomness())};
+  std::vector<uint16_t> values;
+  std::vector<std::pair<uint16_t, uint16_t>> pairs;
+  for (int i = 0; i < 200; ++i) {
+    uint16_t r = randomness();
+    values.push_back(r);
+    pairs.emplace_back(r, r);
   }
 
   {
-    std::map<uint16_t, uint16_t, Mod256> m(pairs, pairs + 200);
-    std::flat_map<uint16_t, uint16_t, Mod256> fm(pairs, pairs + 200);
+    std::multimap<uint16_t, uint16_t, Mod256> m(pairs.begin(), pairs.end());
+    std::flat_multimap<uint16_t, uint16_t, Mod256> fm(values, values);
     assert(fm.size() == m.size());
     LIBCPP_ASSERT(std::ranges::equal(fm, m));
   }
   {
-    std::map<uint16_t, uint16_t, Mod256> m(pairs, pairs + 200, std::allocator<int>());
-    std::flat_map<uint16_t, uint16_t, Mod256> fm(pairs, pairs + 200, std::allocator<int>());
+    std::multimap<uint16_t, uint16_t, Mod256> m(pairs.begin(), pairs.end());
+    std::flat_multimap<uint16_t, uint16_t, Mod256> fm(values, values, Mod256());
     assert(fm.size() == m.size());
     LIBCPP_ASSERT(std::ranges::equal(fm, m));
   }
   {
-    std::map<uint16_t, uint16_t, Mod256> m(pairs, pairs + 200, Mod256());
-    std::flat_map<uint16_t, uint16_t, Mod256> fm(pairs, pairs + 200, Mod256());
+    std::multimap<uint16_t, uint16_t, Mod256> m(pairs.begin(), pairs.end());
+    std::flat_multimap<uint16_t, uint16_t, Mod256> fm(values, values, std::allocator<int>());
     assert(fm.size() == m.size());
     LIBCPP_ASSERT(std::ranges::equal(fm, m));
   }
   {
-    std::map<uint16_t, uint16_t, Mod256> m(pairs, pairs + 200, Mod256(), std::allocator<int>());
-    std::flat_map<uint16_t, uint16_t, Mod256> fm(pairs, pairs + 200, Mod256(), std::allocator<int>());
+    std::multimap<uint16_t, uint16_t, Mod256> m(pairs.begin(), pairs.end());
+    std::flat_multimap<uint16_t, uint16_t, Mod256> fm(values, values, Mod256(), std::allocator<int>());
     assert(fm.size() == m.size());
     LIBCPP_ASSERT(std::ranges::equal(fm, m));
   }
