@@ -5838,17 +5838,8 @@ define void @foo(i32 %i0, i32 %i1) {
     checkCommonPredicates(ICmp, LLVMICmp);
     EXPECT_EQ(ICmp->isSigned(), LLVMICmp->isSigned());
     EXPECT_EQ(ICmp->isUnsigned(), LLVMICmp->isUnsigned());
-    EXPECT_EQ(
-        static_cast<llvm::CmpInst::Predicate>(ICmp->getSignedPredicate()),
-        static_cast<llvm::CmpInst::Predicate>(LLVMICmp->getSignedPredicate()));
-    EXPECT_EQ(ICmp->getSignedPredicate().hasSameSign(),
-              LLVMICmp->getSignedPredicate().hasSameSign());
-    EXPECT_EQ(
-        static_cast<llvm::CmpInst::Predicate>(ICmp->getUnsignedPredicate()),
-        static_cast<llvm::CmpInst::Predicate>(
-            LLVMICmp->getUnsignedPredicate()));
-    EXPECT_EQ(ICmp->getUnsignedPredicate().hasSameSign(),
-              LLVMICmp->getUnsignedPredicate().hasSameSign());
+    EXPECT_EQ(ICmp->getSignedPredicate(), LLVMICmp->getSignedPredicate());
+    EXPECT_EQ(ICmp->getUnsignedPredicate(), LLVMICmp->getUnsignedPredicate());
   }
   auto *NewCmp =
       sandboxir::CmpInst::create(llvm::CmpInst::ICMP_ULE, F.getArg(0),

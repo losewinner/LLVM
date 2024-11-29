@@ -3581,7 +3581,7 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, CmpInst::Predicate Pred) {
   return OS;
 }
 
-ICmpInst::Predicate CmpInst::getSignedPredicate(Predicate pred) {
+ICmpInst::Predicate ICmpInst::getSignedPredicate(Predicate pred) {
   switch (pred) {
     default: llvm_unreachable("Unknown icmp predicate!");
     case ICMP_EQ: case ICMP_NE:
@@ -3594,7 +3594,7 @@ ICmpInst::Predicate CmpInst::getSignedPredicate(Predicate pred) {
   }
 }
 
-ICmpInst::Predicate CmpInst::getUnsignedPredicate(Predicate pred) {
+ICmpInst::Predicate ICmpInst::getUnsignedPredicate(Predicate pred) {
   switch (pred) {
     default: llvm_unreachable("Unknown icmp predicate!");
     case ICMP_EQ: case ICMP_NE:
@@ -3841,7 +3841,7 @@ std::optional<bool> ICmpInst::compare(const KnownBits &LHS,
   }
 }
 
-CmpInst::Predicate CmpInst::getFlippedSignednessPredicate(Predicate pred) {
+CmpInst::Predicate ICmpInst::getFlippedSignednessPredicate(Predicate pred) {
   if (CmpInst::isEquality(pred))
     return pred;
   if (isSigned(pred))
@@ -3913,6 +3913,22 @@ bool CmpInst::isImpliedTrueByMatchingCmp(Predicate Pred1, Predicate Pred2) {
 
 bool CmpInst::isImpliedFalseByMatchingCmp(Predicate Pred1, Predicate Pred2) {
   return isImpliedTrueByMatchingCmp(Pred1, getInversePredicate(Pred2));
+}
+
+//===----------------------------------------------------------------------===//
+//                       CmpPredicate Implementation
+//===----------------------------------------------------------------------===//
+std::optional<CmpPredicate> CmpPredicate::getMatching(CmpPredicate A,
+                                                      CmpPredicate B) {
+  if (A.Pred == B.Pred)
+    return A.HasSameSign == B.HasSameSign ? A : CmpPredicate(A.Pred);
+  if (A.HasSameSign &&
+      A.Pred == ICmpInst::getFlippedSignednessPredicate(B.Pred))
+    return B.Pred;
+  if (B.HasSameSign &&
+      B.Pred == ICmpInst::getFlippedSignednessPredicate(A.Pred))
+    return A.Pred;
+  return {};
 }
 
 //===----------------------------------------------------------------------===//
