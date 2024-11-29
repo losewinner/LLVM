@@ -173,10 +173,10 @@ function(setup_abi_library abi_target linked_into input)
       else()
         set(merge_target "cxxabi_shared_for_merging")
       endif()
-      message(STATUS "LDIONNE: merge_target=${merge_target}")
       add_library(${abi_target} INTERFACE)
       _merge_static_library(${abi_target}
         "$<TARGET_PROPERTY:${merge_target},LIBRARY_OUTPUT_DIRECTORY>/${CMAKE_STATIC_LIBRARY_PREFIX}$<TARGET_PROPERTY:${merge_target},OUTPUT_NAME>${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      target_link_libraries(${abi_target} INTERFACE ${merge_target}) # Propagate usage requirements
       target_link_libraries(${abi_target} INTERFACE cxxabi-headers)
       add_dependencies(${abi_target} ${merge_target})
     else()
