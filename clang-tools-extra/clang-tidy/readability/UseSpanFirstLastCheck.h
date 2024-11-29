@@ -13,15 +13,19 @@
 
 namespace clang::tidy::readability {
 
-/// Converts std::span::subspan() calls to the more modern first()/last()
-/// methods where applicable.
+/// Suggests using clearer std::span member functions first()/last() instead of 
+/// equivalent subspan() calls where applicable.
 ///
 /// For example:
 /// \code
 ///   std::span<int> s = ...;
-///   auto sub = s.subspan(0, n);    // ->  auto sub = s.first(n);
-///   auto sub2 = s.subspan(n);      // ->  auto sub2 = s.last(s.size() - n);
+///   auto sub1 = s.subspan(0, n);           // ->  auto sub1 = s.first(n);
+///   auto sub2 = s.subspan(s.size() - n);   // ->  auto sub2 = s.last(n);
+///   auto sub3 = s.subspan(1, n);           // not changed
+///   auto sub4 = s.subspan(n);              // not changed
 /// \endcode
+///
+/// The check is only active in C++20 mode.
 class UseSpanFirstLastCheck : public ClangTidyCheck {
 public:
   UseSpanFirstLastCheck(StringRef Name, ClangTidyContext *Context)
