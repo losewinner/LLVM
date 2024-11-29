@@ -1,7 +1,7 @@
 .. title:: clang-tidy - readability-use-span-first-last
 
 readability-use-span-first-last
-=============================
+===============================
 
 Checks for uses of ``std::span::subspan()`` that can be replaced with clearer
 ``first()`` or ``last()`` member functions. These dedicated methods were added 
