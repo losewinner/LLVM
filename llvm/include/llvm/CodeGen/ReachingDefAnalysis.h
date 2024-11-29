@@ -114,8 +114,11 @@ class ReachingDefAnalysis : public MachineFunctionPass {
 private:
   MachineFunction *MF = nullptr;
   const TargetRegisterInfo *TRI = nullptr;
+  const TargetInstrInfo *TII = nullptr;
   LoopTraversal::TraversalOrder TraversedMBBOrder;
   unsigned NumRegUnits = 0;
+  unsigned NumStackObjects = 0;
+  int ObjectIndexBegin = 0;
   /// Instruction that defined each register, relative to the beginning of the
   /// current basic block.  When a LiveRegsDefInfo is used to represent a
   /// live-out register, this value is relative to the end of the basic block,
@@ -138,6 +141,13 @@ private:
   DenseMap<MachineInstr *, int> InstIds;
 
   MBBReachingDefsInfo MBBReachingDefs;
+  using MBBFrameObjsReachingDefsInfo =
+      std::vector<std::vector<std::vector<int>>>;
+  // MBBFrameObjsReachingDefs[i][j] is a list of instruction indicies (relative
+  // to begining of MBB) that define frame index (j +
+  // MF->getFrameInfo().getObjectIndexBegin()) in MBB i. This is used in
+  // answering reaching defenition queries.
+  MBBFrameObjsReachingDefsInfo MBBFrameObjsReachingDefs;
 
   /// Default values are 'nothing happened a long time ago'.
   const int ReachingDefDefaultVal = -(1 << 21);
@@ -158,6 +168,7 @@ public:
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
+  void printAllReachingDefs(MachineFunction &MF);
   bool runOnMachineFunction(MachineFunction &MF) override;
 
   MachineFunctionProperties getRequiredProperties() const override {
@@ -176,12 +187,13 @@ public:
   void traverse();
 
   /// Provides the instruction id of the closest reaching def instruction of
-  /// PhysReg that reaches MI, relative to the begining of MI's basic block.
-  int getReachingDef(MachineInstr *MI, MCRegister PhysReg) const;
+  /// Reg that reaches MI, relative to the begining of MI's basic block.
+  // Note that Reg may represent a stack slot.
+  int getReachingDef(MachineInstr *MI, MCRegister Reg) const;
 
-  /// Return whether A and B use the same def of PhysReg.
+  /// Return whether A and B use the same def of Reg.
   bool hasSameReachingDef(MachineInstr *A, MachineInstr *B,
-                          MCRegister PhysReg) const;
+                          MCRegister Reg) const;
 
   /// Return whether the reaching def for MI also is live out of its parent
   /// block.
@@ -309,9 +321,9 @@ private:
   MachineInstr *getInstFromId(MachineBasicBlock *MBB, int InstId) const;
 
   /// Provides the instruction of the closest reaching def instruction of
-  /// PhysReg that reaches MI, relative to the begining of MI's basic block.
-  MachineInstr *getReachingLocalMIDef(MachineInstr *MI,
-                                      MCRegister PhysReg) const;
+  /// Reg that reaches MI, relative to the begining of MI's basic block.
+  // Note that Reg may represent a stack slot.
+  MachineInstr *getReachingLocalMIDef(MachineInstr *MI, MCRegister Reg) const;
 };
 
 } // namespace llvm
