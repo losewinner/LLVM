@@ -135,6 +135,9 @@ set(MLIR_ENABLE_VULKAN_RUNNER 0 CACHE BOOL "Enable building the MLIR Vulkan runn
 set(MLIR_ENABLE_NVPTXCOMPILER 0 CACHE BOOL
     "Statically link the nvptxlibrary instead of calling ptxas as a subprocess \
     for compiling PTX to cubin")
+set(MLIR_ENABLE_NVPTXCOMPILER_NVFATBIN 0 CACHE BOOL
+    "Statically link the nvfatbin library instead of calling fatbinary as a subprocess \
+    for compiling PTX to fatbin")
 
 set(MLIR_ENABLE_PDL_IN_PATTERNMATCH 1 CACHE BOOL "Enable PDL in PatternMatch")
 
