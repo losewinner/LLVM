@@ -23548,6 +23548,9 @@ then lanes 3, 4, 5, 6 and 7 of the vector loaded from ``%ptrA``
 share addresses with lanes 0, 1, 2, 3, 4 and 5 from the vector stored to at
 ``%ptrB``.
 
+The intrinsic will return poison if ``%ptrA`` and ``%ptrB`` are within
+VF * ``%elementSize`` of each other and ``%ptrA`` + VF * ``%elementSize`` wraps.
+
 
 Examples:
 """""""""
