@@ -1855,7 +1855,7 @@ bool MemCpyOptPass::isMemMoveMemSetDependency(MemMoveInst *M) {
   auto *MemMoveSourceOp = M->getSource();
   auto *Source = dyn_cast<GEPOperator>(MemMoveSourceOp);
   if (!Source)
-      return false;
+    return false;
 
   APInt Offset(DL.getIndexTypeSizeInBits(Source->getType()), 0);
   LocationSize MemMoveLocSize = SourceLoc.Size;
