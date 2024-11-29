@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef INCREASING_ALLOCATOR_H
-#define INCREASING_ALLOCATOR_H
+#ifndef TEST_SUPPORT_INCREASING_ALLOCATOR_H
+#define TEST_SUPPORT_INCREASING_ALLOCATOR_H
 
 #include <cstddef>
 #include <memory>
@@ -15,6 +15,13 @@
 #include "test_macros.h"
 
 #if TEST_STD_VER >= 23
+
+// increasing_allocator is a custom allocator that maintains an incrementing minimum allocation size,
+// requiring that each call to allocate_at_least allocate at least this minimum size, which may exceed
+// the requested amount. This unique design makes increasing_allocator particularly useful for testing
+// the shrink_to_fit functionality in std::vector, vector<bool>, and std::basic_string, ensuring that
+// shrink_to_fit does not increase the capacity of the allocated memory.
+
 template <typename T>
 struct increasing_allocator {
   using value_type         = T;
@@ -40,4 +47,4 @@ bool operator==(increasing_allocator<T>, increasing_allocator<U>) {
 }
 #endif // TEST_STD_VER >= 23
 
-#endif // INCREASING_ALLOCATOR_H
+#endif // TEST_SUPPORT_INCREASING_ALLOCATOR_H
