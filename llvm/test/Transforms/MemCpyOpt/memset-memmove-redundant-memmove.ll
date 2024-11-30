@@ -155,6 +155,26 @@ define i32 @memset_length_not_constant(i64 %size) {
   ret i32 %val
 }
 
+; Memmove buffer not memset'd, different buffers.
+define i32 @memset_memmove_dest_buffers_not_alias() {
+; CHECK-LABEL: @memset_memmove_dest_buffers_not_alias(
+; CHECK-NEXT:    [[ARRAY:%.*]] = alloca [26 x i32], align 16
+; CHECK-NEXT:    [[ARRAY2:%.*]] = alloca [26 x i32], align 16
+; CHECK-NEXT:    call void @llvm.memset.p0.i64(ptr align 16 [[ARRAY]], i8 0, i64 104, i1 false)
+; CHECK-NEXT:    [[ARRAY2_IDX:%.*]] = getelementptr inbounds i8, ptr [[ARRAY2]], i64 4
+; CHECK-NEXT:    call void @llvm.memmove.p0.p0.i64(ptr align 16 [[ARRAY2]], ptr align 4 [[ARRAY2_IDX]], i64 100, i1 false)
+; CHECK-NEXT:    [[VAL:%.*]] = load i32, ptr [[ARRAY2]], align 16
+; CHECK-NEXT:    ret i32 [[VAL]]
+;
+  %array = alloca [26 x i32], align 16
+  %array2 = alloca [26 x i32], align 16
+  call void @llvm.memset.p0.i64(ptr align 16 %array, i8 0, i64 104, i1 false)
+  %array2.idx = getelementptr inbounds i8, ptr %array2, i64 4
+  call void @llvm.memmove.p0.p0.i64(ptr align 16 %array2, ptr align 4 %array2.idx, i64 100, i1 false)
+  %val = load i32, ptr %array2, align 16
+  ret i32 %val
+}
+
 declare void @opaque(ptr)
 declare void @llvm.memset.p0.i64(ptr nocapture, i8, i64, i1)
 declare void @llvm.memmove.p0.p0.i64(ptr nocapture, ptr nocapture, i64, i1)

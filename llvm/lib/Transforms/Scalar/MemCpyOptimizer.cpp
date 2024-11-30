@@ -1868,16 +1868,14 @@ bool MemCpyOptPass::isMemMoveMemSetDependency(MemMoveInst *M) {
   uint64_t MemMoveSize = MemMoveLocSize.getValue();
   LocationSize TotalSize =
       LocationSize::precise(Offset.getZExtValue() + MemMoveSize);
-  MemoryLocation CombinedSourceLoc(MemMoveSourceOp, TotalSize);
-  MemoryLocation CombinedDestLoc(M->getDest(), TotalSize);
+  MemoryLocation CombinedLoc(M->getDest(), TotalSize);
 
   // The first dominating clobbering MemoryAccess for the combined location
   // needs to be a memset.
   BatchAAResults BAA(*AA);
   MemoryAccess *FirstDef = MemMoveAccess->getDefiningAccess();
-  auto *DestClobber =
-      dyn_cast<MemoryDef>(MSSA->getWalker()->getClobberingMemoryAccess(
-          FirstDef, CombinedDestLoc, BAA));
+  auto *DestClobber = dyn_cast<MemoryDef>(
+      MSSA->getWalker()->getClobberingMemoryAccess(FirstDef, CombinedLoc, BAA));
   if (!DestClobber)
     return false;
 
