@@ -18,27 +18,43 @@
 namespace llvm {
 /// An abstraction over a floating-point predicate, and a pack of an integer
 /// predicate with samesign information. Some functions in ICmpInst construct
-/// and return this type in place of a Predicate. It is also implictly
-/// constructed with a Predicate, dropping samesign information.
+/// and return this type in place of a Predicate.
 class CmpPredicate {
   CmpInst::Predicate Pred;
   bool HasSameSign;
 
 public:
+  // Constructed implictly with a either Predicate and samesign information, or
+  // just a Predicate, dropping samesign information.
   CmpPredicate(CmpInst::Predicate Pred, bool HasSameSign = false)
       : Pred(Pred), HasSameSign(HasSameSign) {
     assert(!HasSameSign || CmpInst::isIntPredicate(Pred));
   }
 
+  // Implictly converts to the underlying Predicate, dropping samesign
+  // information.
   operator CmpInst::Predicate() const { return Pred; }
 
+  // Query samesign information, for optimizations.
   bool hasSameSign() const { return HasSameSign; }
 
+  // Compares two CmpPredicates taking samesign into account and returns the
+  // canonicalized CmpPredicate if they match. An alternative to operator==.
+  //
+  // For example,
+  //   samesign ult + samesign ult -> samesign ult
+  //   samesign ult + ult -> ult
+  //   samesign ult + slt -> slt
+  //   ult + ult -> ult
+  //   ult + slt -> std::nullopt
   static std::optional<CmpPredicate> getMatching(CmpPredicate A,
                                                  CmpPredicate B);
 
+  // An operator== on the underlying Predicate.
   bool operator==(CmpInst::Predicate P) const { return Pred == P; }
 
+  // There is no operator== defined on CmpPredicate. Use getMatching instead to
+  // get the canonicalized matching CmpPredicate.
   bool operator==(CmpPredicate) const = delete;
 };
 } // namespace llvm

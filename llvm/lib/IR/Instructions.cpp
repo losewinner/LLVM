@@ -3918,6 +3918,7 @@ bool CmpInst::isImpliedFalseByMatchingCmp(Predicate Pred1, Predicate Pred2) {
 //===----------------------------------------------------------------------===//
 //                       CmpPredicate Implementation
 //===----------------------------------------------------------------------===//
+
 std::optional<CmpPredicate> CmpPredicate::getMatching(CmpPredicate A,
                                                       CmpPredicate B) {
   if (A.Pred == B.Pred)
