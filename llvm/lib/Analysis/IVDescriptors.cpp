@@ -1417,7 +1417,7 @@ bool InductionDescriptor::isInductionPHI(
     return false;
 
   // Check that the PHI is consecutive.
-  const SCEV *PhiScev = Expr ? Expr : SE->getSCEV(Phi);
+  const SCEV *PhiScev = Expr ? Expr : SE->getSCEV(Phi).getPointer();
   const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(PhiScev);
 
   if (!AR) {
