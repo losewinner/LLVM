@@ -12,6 +12,7 @@
 
 #include <__config>
 #include <__type_traits/conditional.h>
+#include <__type_traits/is_base_of.h>
 #include <__type_traits/is_const.h>
 #include <__type_traits/is_reference.h>
 #include <__type_traits/remove_reference.h>
@@ -37,6 +38,13 @@ template <class _Tp, class _Up>
 [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto
 forward_like(_LIBCPP_LIFETIMEBOUND _Up&& __ux) noexcept -> _ForwardLike<_Tp, _Up> {
   return static_cast<_ForwardLike<_Tp, _Up>>(__ux);
+}
+
+template <class _Tp, class _As, class _Up>
+[[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr _ForwardLike<_Tp, _As>
+__forward_as(_LIBCPP_LIFETIMEBOUND _Up&& __val) noexcept {
+  static_assert(is_base_of_v<_As, remove_reference_t<_Up>>);
+  return static_cast<_ForwardLike<_Tp, _As>>(__val);
 }
 
 #endif // _LIBCPP_STD_VER >= 23
