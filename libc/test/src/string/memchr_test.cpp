@@ -21,7 +21,7 @@ TEST(LlvmLibcMemChrTest, FindsCharacterAfterNullTerminator) {
   const size_t size = 5;
   const unsigned char src[size] = {'a', '\0', 'b', 'c', '\0'};
   // Should return 'b', 'c', '\0' even when after null terminator.
-  ASSERT_STREQ(call_memchr(src, 'b', size), "bc");
+  ASSERT_STREQ(call_memchr(src, 'b', size), "b");
 }
 
 TEST(LlvmLibcMemChrTest, FindsCharacterInNonNullTerminatedCollection) {
