@@ -10,16 +10,23 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/ParentMap.h"
 #include "clang/AST/StmtCXX.h"
+#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/Analysis/ConstructionContext.h"
+#include "clang/Analysis/ProgramPoint.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/ExplodedGraph.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ExprEngine.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState_Fwd.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/RangedConstraintManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SVals.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/SymbolManager.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
 #include <optional>
@@ -1199,4 +1206,26 @@ void ExprEngine::VisitLambdaExpr(const LambdaExpr *LE, ExplodedNode *Pred,
 
   // FIXME: Move all post/pre visits to ::Visit().
   getCheckerManager().runCheckersForPostStmt(Dst, Tmp, LE, *this);
+}
+
+void ExprEngine::VisitAttributedStmt(const AttributedStmt *A,
+                                     ExplodedNode *Pred, ExplodedNodeSet &Dst) {
+  ExplodedNodeSet CheckerPreStmt;
+  getCheckerManager().runCheckersForPreStmt(CheckerPreStmt, Pred, A, *this);
+
+  ExplodedNodeSet EvalSet;
+  StmtNodeBuilder Bldr(CheckerPreStmt, EvalSet, *currBldrCtx);
+
+  for (const auto *attr : A->getAttrs()) {
+    CXXAssumeAttr const *AssumeAttr = llvm::dyn_cast<CXXAssumeAttr>(attr);
+    if (!AssumeAttr) {
+      continue;
+    }
+    Expr *AssumeExpr = AssumeAttr->getAssumption();
+    for (ExplodedNode *N : CheckerPreStmt) {
+      Visit(AssumeExpr, N, EvalSet);
+    }
+  }
+
+  getCheckerManager().runCheckersForPostStmt(Dst, EvalSet, A, *this);
 }

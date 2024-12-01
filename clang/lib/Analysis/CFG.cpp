@@ -431,9 +431,10 @@ namespace {
 class reverse_children {
   llvm::SmallVector<Stmt *, 12> childrenBuf;
   ArrayRef<Stmt *> children;
+  ASTContext *astContext;
 
 public:
-  reverse_children(Stmt *S);
+  reverse_children(Stmt *S, ASTContext *astContext = nullptr);
 
   using iterator = ArrayRef<Stmt *>::reverse_iterator;
 
@@ -443,7 +444,8 @@ public:
 
 } // namespace
 
-reverse_children::reverse_children(Stmt *S) {
+reverse_children::reverse_children(Stmt *S, ASTContext *AstC)
+    : astContext(AstC) {
   if (CallExpr *CE = dyn_cast<CallExpr>(S)) {
     children = CE->getRawSubExprs();
     return;
@@ -454,6 +456,39 @@ reverse_children::reverse_children(Stmt *S) {
       InitListExpr *IE = cast<InitListExpr>(S);
       children = llvm::ArrayRef(reinterpret_cast<Stmt **>(IE->getInits()),
                                 IE->getNumInits());
+      return;
+    }
+    case Stmt::AttributedStmtClass: {
+      assert(S->getStmtClass() == Stmt::AttributedStmtClass);
+      assert(this->astContext &&
+             "Attributes need the ast context to determine side-effects");
+      AttributedStmt *AS = cast<AttributedStmt>(S);
+      assert(attrStmt);
+
+      // for an attributed stmt, the "children()" returns only the NullStmt
+      // (;) but semantically the "children" are supposed to be the
+      // expressions _within_ i.e. the two square brackets i.e. [[ HERE ]]
+      // so we add the subexpressions first, _then_ add the "children"
+      for (const Attr *Attr : AS->getAttrs()) {
+        // Only handles [[ assume(<assumption>) ]] right now
+        CXXAssumeAttr const *AssumeAttr = llvm::dyn_cast<CXXAssumeAttr>(Attr);
+        if (!AssumeAttr) {
+          continue;
+        }
+        Expr *AssumeExpr = AssumeAttr->getAssumption();
+        // If we skip adding the assumption expression to CFG,
+        // it doesn't get "branch"-ed by symbol analysis engine
+        // presumably because it's literally not in the CFG
+
+        if (AssumeExpr->HasSideEffects(*astContext)) {
+          continue;
+        }
+        childrenBuf.push_back(AssumeExpr);
+      }
+      // children() for an CXXAssumeAttr is NullStmt(;)
+      // for others, it will have existing behavior
+      llvm::append_range(childrenBuf, AS->children());
+      children = childrenBuf;
       return;
     }
     default:
@@ -2431,7 +2466,7 @@ CFGBlock *CFGBuilder::VisitChildren(Stmt *S) {
 
   // Visit the children in their reverse order so that they appear in
   // left-to-right (natural) order in the CFG.
-  reverse_children RChildren(S);
+  reverse_children RChildren(S, Context);
   for (Stmt *Child : RChildren) {
     if (Child)
       if (CFGBlock *R = Visit(Child))
@@ -2482,6 +2517,14 @@ static bool isFallthroughStatement(const AttributedStmt *A) {
   return isFallthrough;
 }
 
+static bool isCXXAssumeAttr(const AttributedStmt *A) {
+  bool hasAssumeAttr = hasSpecificAttr<CXXAssumeAttr>(A->getAttrs());
+
+  assert((!hasAssumeAttr || isa<NullStmt>(A->getSubStmt())) &&
+         "expected [[assume]] not to have children");
+  return hasAssumeAttr;
+}
+
 CFGBlock *CFGBuilder::VisitAttributedStmt(AttributedStmt *A,
                                           AddStmtChoice asc) {
   // AttributedStmts for [[likely]] can have arbitrary statements as children,
@@ -2493,6 +2536,11 @@ CFGBlock *CFGBuilder::VisitAttributedStmt(AttributedStmt *A,
   // also no children, and omit the others. None of the other current StmtAttrs
   // have semantic meaning for the CFG.
   if (isFallthroughStatement(A) && asc.alwaysAdd(*this, A)) {
+    autoCreateBlock();
+    appendStmt(Block, A);
+  }
+
+  if (isCXXAssumeAttr(A) && asc.alwaysAdd(*this, A)) {
     autoCreateBlock();
     appendStmt(Block, A);
   }
