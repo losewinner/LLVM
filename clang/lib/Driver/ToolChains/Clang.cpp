@@ -7654,6 +7654,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fretain_comments_from_system_headers))
     CmdArgs.push_back("-fretain-comments-from-system-headers");
 
+  Args.addOptInFlag(CmdArgs, options::OPT_fextend_this_ptr,
+                    options::OPT_fno_extend_this_ptr);
+  Args.addOptInFlag(CmdArgs, options::OPT_fextend_lifetimes,
+                    options::OPT_fno_extend_lifetimes);
+
   // Forward -fcomment-block-commands to -cc1.
   Args.AddAllArgs(CmdArgs, options::OPT_fcomment_block_commands);
   // Forward -fparse-all-comments to -cc1.

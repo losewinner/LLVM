@@ -4298,6 +4298,18 @@ def stack_usage_file : Separate<["-"], "stack-usage-file">,
   Visibility<[CC1Option]>,
   HelpText<"Filename (or -) to write stack usage output to">,
   MarshallingInfoString<CodeGenOpts<"StackUsageOutput">>;
+defm extend_this_ptr : BoolFOption<"extend-this-ptr",
+  CodeGenOpts<"ExtendThisPtr">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Extend the lifetime of the 'this' pointer to improve visibility "
+          "in optimized debugging">,
+  NegFlag<SetFalse>>;
+defm extend_lifetimes : BoolFOption<"extend-lifetimes",
+  CodeGenOpts<"ExtendLifetimes">, DefaultFalse,
+  PosFlag<SetTrue, [], [ClangOption, CC1Option],
+          "Extend the lifetimes of local variables and parameters to improve "
+          "visibility in optimized debugging">,
+  NegFlag<SetFalse>>;
 
 defm unique_basic_block_section_names : BoolFOption<"unique-basic-block-section-names",
   CodeGenOpts<"UniqueBasicBlockSectionNames">, DefaultFalse,
