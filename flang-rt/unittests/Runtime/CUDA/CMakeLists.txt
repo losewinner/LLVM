@@ -6,18 +6,15 @@
 #
 #===------------------------------------------------------------------------===#
 
-if (FLANG_CUF_RUNTIME)
-
-add_flang_unittest(FlangCufRuntimeTests
+add_flangrt_unittest(FlangCufRuntimeTests
+  Allocatable.cpp
   AllocatorCUF.cpp
 )
 
 target_link_libraries(FlangCufRuntimeTests
   PRIVATE
   CufRuntime_cuda_${CUDAToolkit_VERSION_MAJOR}
-  FortranRuntime
+  flang_rt
 )
 
 target_include_directories(FlangCufRuntimeTests PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
-
-endif()
