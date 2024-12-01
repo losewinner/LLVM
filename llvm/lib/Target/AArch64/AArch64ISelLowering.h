@@ -1348,6 +1348,10 @@ private:
   unsigned getMinimumJumpTableEntries() const override;
 
   bool softPromoteHalfType() const override { return true; }
+
+  virtual bool hasMultiplePredicateRegisters(EVT VT) const override {
+    return VT.isVector();
+  }
 };
 
 namespace AArch64 {
