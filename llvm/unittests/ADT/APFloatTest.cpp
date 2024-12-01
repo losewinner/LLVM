@@ -822,7 +822,7 @@ TEST(APFloatTest, Denormal) {
 TEST(APFloatTest, IsSmallestNormalized) {
   for (unsigned I = 0; I != APFloat::S_MaxSemantics + 1; ++I) {
     const fltSemantics &Semantics =
-        APFloat::EnumToSemantics(static_cast<APFloat::Semantics>(I));
+        APFloat::getSemantics(static_cast<APFloat::Semantics>(I));
 
     // For Float8E8M0FNU format, the below cases are tested
     // through Float8E8M0FNUSmallest and Float8E8M0FNUNext tests.
@@ -2276,7 +2276,7 @@ TEST(APFloatTest, copySign) {
   // For floating-point formats with unsigned 0, copySign() to a zero is a noop
   for (APFloat::Semantics S :
        {APFloat::S_Float8E4M3FNUZ, APFloat::S_Float8E4M3B11FNUZ}) {
-    const llvm::fltSemantics &Sem = APFloat::EnumToSemantics(S);
+    const llvm::fltSemantics &Sem = APFloat::getSemantics(S);
     EXPECT_TRUE(APFloat::getZero(Sem).bitwiseIsEqual(
         APFloat::copySign(APFloat::getZero(Sem), APFloat(-1.0))));
     EXPECT_TRUE(APFloat::getNaN(Sem, true).bitwiseIsEqual(
@@ -2406,7 +2406,7 @@ TEST(APFloatTest, Float8UZConvert) {
   for (APFloat::Semantics S :
        {APFloat::S_Float8E5M2FNUZ, APFloat::S_Float8E4M3FNUZ,
         APFloat::S_Float8E4M3B11FNUZ}) {
-    const llvm::fltSemantics &Sem = APFloat::EnumToSemantics(S);
+    const llvm::fltSemantics &Sem = APFloat::getSemantics(S);
     SCOPED_TRACE("Semantics = " + std::to_string(S));
     for (auto [toTest, expectedRes] : toNaNTests) {
       llvm::SmallString<16> value;
@@ -2561,7 +2561,7 @@ TEST(APFloatTest, isInfinity) {
 
   for (unsigned I = 0; I != APFloat::S_MaxSemantics + 1; ++I) {
     const fltSemantics &Semantics =
-        APFloat::EnumToSemantics(static_cast<APFloat::Semantics>(I));
+        APFloat::getSemantics(static_cast<APFloat::Semantics>(I));
     if (APFloat::semanticsHasInf(Semantics)) {
       EXPECT_TRUE(APFloat::getInf(Semantics).isInfinity());
     }
@@ -2579,7 +2579,7 @@ TEST(APFloatTest, isNaN) {
 
   for (unsigned I = 0; I != APFloat::S_MaxSemantics + 1; ++I) {
     const fltSemantics &Semantics =
-        APFloat::EnumToSemantics(static_cast<APFloat::Semantics>(I));
+        APFloat::getSemantics(static_cast<APFloat::Semantics>(I));
     if (APFloat::semanticsHasNaN(Semantics)) {
       EXPECT_TRUE(APFloat::getNaN(Semantics).isNaN());
     }
@@ -5348,7 +5348,7 @@ TEST(APFloatTest, Float8ExhaustivePair) {
   for (APFloat::Semantics Sem :
        {APFloat::S_Float8E4M3FN, APFloat::S_Float8E5M2FNUZ,
         APFloat::S_Float8E4M3FNUZ, APFloat::S_Float8E4M3B11FNUZ}) {
-    const llvm::fltSemantics &S = APFloat::EnumToSemantics(Sem);
+    const llvm::fltSemantics &S = APFloat::getSemantics(Sem);
     for (int i = 0; i < 256; i++) {
       for (int j = 0; j < 256; j++) {
         SCOPED_TRACE("sem=" + std::to_string(Sem) + ",i=" + std::to_string(i) +
@@ -5427,7 +5427,7 @@ TEST(APFloatTest, Float8ExhaustivePair) {
 TEST(APFloatTest, Float8E8M0FNUExhaustivePair) {
   // Test each pair of 8-bit values for Float8E8M0FNU format
   APFloat::Semantics Sem = APFloat::S_Float8E8M0FNU;
-  const llvm::fltSemantics &S = APFloat::EnumToSemantics(Sem);
+  const llvm::fltSemantics &S = APFloat::getSemantics(Sem);
   for (int i = 0; i < 256; i++) {
     for (int j = 0; j < 256; j++) {
       SCOPED_TRACE("sem=" + std::to_string(Sem) + ",i=" + std::to_string(i) +
@@ -5526,7 +5526,7 @@ TEST(APFloatTest, Float6ExhaustivePair) {
   // Test each pair of 6-bit floats with non-standard semantics
   for (APFloat::Semantics Sem :
        {APFloat::S_Float6E3M2FN, APFloat::S_Float6E2M3FN}) {
-    const llvm::fltSemantics &S = APFloat::EnumToSemantics(Sem);
+    const llvm::fltSemantics &S = APFloat::getSemantics(Sem);
     for (int i = 1; i < 64; i++) {
       for (int j = 1; j < 64; j++) {
         SCOPED_TRACE("sem=" + std::to_string(Sem) + ",i=" + std::to_string(i) +
@@ -5609,7 +5609,7 @@ TEST(APFloatTest, Float6ExhaustivePair) {
 TEST(APFloatTest, Float4ExhaustivePair) {
   // Test each pair of 4-bit floats with non-standard semantics
   for (APFloat::Semantics Sem : {APFloat::S_Float4E2M1FN}) {
-    const llvm::fltSemantics &S = APFloat::EnumToSemantics(Sem);
+    const llvm::fltSemantics &S = APFloat::getSemantics(Sem);
     for (int i = 0; i < 16; i++) {
       for (int j = 0; j < 16; j++) {
         SCOPED_TRACE("sem=" + std::to_string(Sem) + ",i=" + std::to_string(i) +
@@ -6137,7 +6137,7 @@ TEST(APFloatTest, UnsignedZeroArithmeticSpecial) {
   // The IEEE round towards negative rule doesn't apply
   for (APFloat::Semantics S :
        {APFloat::S_Float8E4M3FNUZ, APFloat::S_Float8E4M3B11FNUZ}) {
-    const llvm::fltSemantics &Sem = APFloat::EnumToSemantics(S);
+    const llvm::fltSemantics &Sem = APFloat::getSemantics(S);
     APFloat test = APFloat::getSmallest(Sem);
     APFloat rhs = test;
     EXPECT_EQ(test.subtract(rhs, APFloat::rmTowardNegative), APFloat::opOK);
@@ -6293,7 +6293,7 @@ TEST(APFloatTest, Float8UnsignedZeroExhaustive) {
 TEST(APFloatTest, Float8E4M3FNUZNext) {
   for (APFloat::Semantics S :
        {APFloat::S_Float8E4M3FNUZ, APFloat::S_Float8E4M3B11FNUZ}) {
-    const llvm::fltSemantics &Sem = APFloat::EnumToSemantics(S);
+    const llvm::fltSemantics &Sem = APFloat::getSemantics(S);
     APFloat test(Sem, APFloat::uninitialized);
     APFloat expected(Sem, APFloat::uninitialized);
 
@@ -6348,7 +6348,7 @@ TEST(APFloatTest, Float8E4M3FNUZNext) {
 TEST(APFloatTest, Float8E4M3FNUZChangeSign) {
   for (APFloat::Semantics S :
        {APFloat::S_Float8E4M3FNUZ, APFloat::S_Float8E4M3B11FNUZ}) {
-    const llvm::fltSemantics &Sem = APFloat::EnumToSemantics(S);
+    const llvm::fltSemantics &Sem = APFloat::getSemantics(S);
     APFloat test = APFloat(Sem, "1.0");
     APFloat expected = APFloat(Sem, "-1.0");
     test.changeSign();
@@ -6551,14 +6551,14 @@ TEST(APFloatTest, F8ToString) {
     SCOPED_TRACE("Semantics=" + std::to_string(S));
     for (int i = 0; i < 256; i++) {
       SCOPED_TRACE("i=" + std::to_string(i));
-      APFloat test(APFloat::EnumToSemantics(S), APInt(8, i));
+      APFloat test(APFloat::getSemantics(S), APInt(8, i));
       llvm::SmallString<128> str;
       test.toString(str);
 
       if (test.isNaN()) {
         EXPECT_EQ(str, "NaN");
       } else {
-        APFloat test2(APFloat::EnumToSemantics(S), str);
+        APFloat test2(APFloat::getSemantics(S), str);
         EXPECT_TRUE(test.bitwiseIsEqual(test2));
       }
     }
@@ -6574,7 +6574,7 @@ TEST(APFloatTest, BitsToF8ToBits) {
     for (int i = 0; i < 256; i++) {
       SCOPED_TRACE("i=" + std::to_string(i));
       APInt bits_in = APInt(8, i);
-      APFloat test(APFloat::EnumToSemantics(S), bits_in);
+      APFloat test(APFloat::getSemantics(S), bits_in);
       APInt bits_out = test.bitcastToAPInt();
       EXPECT_EQ(bits_in, bits_out);
     }
@@ -6587,7 +6587,7 @@ TEST(APFloatTest, F8ToBitsToF8) {
         APFloat::S_Float8E5M2FNUZ, APFloat::S_Float8E4M3FNUZ,
         APFloat::S_Float8E4M3B11FNUZ}) {
     SCOPED_TRACE("Semantics=" + std::to_string(S));
-    auto &Sem = APFloat::EnumToSemantics(S);
+    auto &Sem = APFloat::getSemantics(S);
     for (bool negative : {false, true}) {
       SCOPED_TRACE("negative=" + std::to_string(negative));
       APFloat test = APFloat::getZero(Sem, /*Negative=*/negative);
@@ -7314,7 +7314,7 @@ TEST(APFloatTest, FloatTF32ToFloat) {
 TEST(APFloatTest, getExactLog2) {
   for (unsigned I = 0; I != APFloat::S_MaxSemantics + 1; ++I) {
     auto SemEnum = static_cast<APFloat::Semantics>(I);
-    const fltSemantics &Semantics = APFloat::EnumToSemantics(SemEnum);
+    const fltSemantics &Semantics = APFloat::getSemantics(SemEnum);
 
     // For the Float8E8M0FNU format, the below cases along
     // with some more corner cases are tested through

@@ -101,6 +101,8 @@ enum class fltNanEncoding {
 
 /* Represents floating point arithmetic semantics.  */
 struct fltSemantics {
+  APFloat::Semantics name;
+
   /* The largest E such that 2^E is representable; this matches the
      definition of IEEE 754.  */
   APFloatBase::ExponentType maxExponent;
@@ -135,75 +137,54 @@ struct fltSemantics {
   }
 };
 
-static constexpr fltSemantics semIEEEhalf = {15, -14, 11, 16};
-static constexpr fltSemantics semBFloat = {127, -126, 8, 16};
-static constexpr fltSemantics semIEEEsingle = {127, -126, 24, 32};
-static constexpr fltSemantics semIEEEdouble = {1023, -1022, 53, 64};
-static constexpr fltSemantics semIEEEquad = {16383, -16382, 113, 128};
-static constexpr fltSemantics semFloat8E5M2 = {15, -14, 3, 8};
+static constexpr fltSemantics semIEEEhalf = {
+    APFloatBase::S_IEEEhalf, 15, -14, 11, 16};
+static constexpr fltSemantics semBFloat = {
+    APFloatBase::S_BFloat, 127, -126, 8, 16};
+static constexpr fltSemantics semIEEEsingle = {
+    APFloatBase::S_IEEEsingle, 127, -126, 24, 32};
+static constexpr fltSemantics semIEEEdouble = {
+    APFloatBase::S_IEEEdouble, 1023, -1022, 53, 64};
+static constexpr fltSemantics semIEEEquad = {
+    APFloatBase::S_IEEEquad, 16383, -16382, 113, 128};
+static constexpr fltSemantics semFloat8E5M2 = {
+    APFloatBase::S_Float8E5M2, 15, -14, 3, 8};
 static constexpr fltSemantics semFloat8E5M2FNUZ = {
-    15, -15, 3, 8, fltNonfiniteBehavior::NanOnly, fltNanEncoding::NegativeZero};
-static constexpr fltSemantics semFloat8E4M3 = {7, -6, 4, 8};
+    APFloatBase::S_Float8E5M2FNUZ, 15, -15, 3, 8, fltNonfiniteBehavior::NanOnly,
+    fltNanEncoding::NegativeZero};
+static constexpr fltSemantics semFloat8E4M3 = {
+    APFloatBase::S_Float8E4M3, 7, -6, 4, 8};
 static constexpr fltSemantics semFloat8E4M3FN = {
-    8, -6, 4, 8, fltNonfiniteBehavior::NanOnly, fltNanEncoding::AllOnes};
+    APFloatBase::S_Float8E4M3FN, 8, -6, 4, 8, fltNonfiniteBehavior::NanOnly,
+    fltNanEncoding::AllOnes};
 static constexpr fltSemantics semFloat8E4M3FNUZ = {
-    7, -7, 4, 8, fltNonfiniteBehavior::NanOnly, fltNanEncoding::NegativeZero};
+    APFloatBase::S_Float8E4M3FNUZ, 7, -7, 4, 8, fltNonfiniteBehavior::NanOnly,
+    fltNanEncoding::NegativeZero};
 static constexpr fltSemantics semFloat8E4M3B11FNUZ = {
-    4, -10, 4, 8, fltNonfiniteBehavior::NanOnly, fltNanEncoding::NegativeZero};
-static constexpr fltSemantics semFloat8E3M4 = {3, -2, 5, 8};
-static constexpr fltSemantics semFloatTF32 = {127, -126, 11, 19};
+    APFloatBase::S_Float8E4M3B11FNUZ, 4, -10, 4, 8, fltNonfiniteBehavior::NanOnly,
+    fltNanEncoding::NegativeZero};
+static constexpr fltSemantics semFloat8E3M4 = {
+    APFloatBase::S_Float8E3M4, 3, -2, 5, 8};
+static constexpr fltSemantics semFloatTF32 = {
+    APFloatBase::S_FloatTF32, 127, -126, 11, 19};
 static constexpr fltSemantics semFloat8E8M0FNU = {
-    127,   -127, 1, 8, fltNonfiniteBehavior::NanOnly, fltNanEncoding::AllOnes,
-    false, false};
-
+    APFloatBase::S_Float8E8M0FNU, 127, -127, 1, 8, fltNonfiniteBehavior::NanOnly,
+    fltNanEncoding::AllOnes, false, false};
 static constexpr fltSemantics semFloat6E3M2FN = {
-    4, -2, 3, 6, fltNonfiniteBehavior::FiniteOnly};
+    APFloatBase::S_Float6E3M2FN, 4, -2, 3, 6, fltNonfiniteBehavior::FiniteOnly};
 static constexpr fltSemantics semFloat6E2M3FN = {
-    2, 0, 4, 6, fltNonfiniteBehavior::FiniteOnly};
+    APFloatBase::S_Float6E2M3FN, 2, 0, 4, 6, fltNonfiniteBehavior::FiniteOnly};
 static constexpr fltSemantics semFloat4E2M1FN = {
-    2, 0, 2, 4, fltNonfiniteBehavior::FiniteOnly};
-static constexpr fltSemantics semX87DoubleExtended = {16383, -16382, 64, 80};
-static constexpr fltSemantics semBogus = {0, 0, 0, 0};
+    APFloatBase::S_Float4E2M1FN, 2, 0, 2, 4, fltNonfiniteBehavior::FiniteOnly};
+static constexpr fltSemantics semX87DoubleExtended = {
+    APFloatBase::S_x87DoubleExtended, 16383, -16382, 64, 80};
+static constexpr fltSemantics semBogus = {APFloatBase::S_Bogus, 0, 0, 0, 0};
+static constexpr fltSemantics semPPCDoubleDouble = {APFloatBase::S_PPCDoubleDouble, -1, 0, 0, 128};
 
-/* The IBM double-double semantics. Such a number consists of a pair of IEEE
-   64-bit doubles (Hi, Lo), where |Hi| > |Lo|, and if normal,
-   (double)(Hi + Lo) == Hi. The numeric value it's modeling is Hi + Lo.
-   Therefore it has two 53-bit mantissa parts that aren't necessarily adjacent
-   to each other, and two 11-bit exponents.
-
-   Note: we need to make the value different from semBogus as otherwise
-   an unsafe optimization may collapse both values to a single address,
-   and we heavily rely on them having distinct addresses.             */
-static constexpr fltSemantics semPPCDoubleDouble = {-1, 0, 0, 128};
-
-/* These are legacy semantics for the fallback, inaccrurate implementation of
-   IBM double-double, if the accurate semPPCDoubleDouble doesn't handle the
-   operation. It's equivalent to having an IEEE number with consecutive 106
-   bits of mantissa and 11 bits of exponent.
-
-   It's not equivalent to IBM double-double. For example, a legit IBM
-   double-double, 1 + epsilon:
-
-     1 + epsilon = 1 + (1 >> 1076)
-
-   is not representable by a consecutive 106 bits of mantissa.
-
-   Currently, these semantics are used in the following way:
-
-     semPPCDoubleDouble -> (IEEEdouble, IEEEdouble) ->
-     (64-bit APInt, 64-bit APInt) -> (128-bit APInt) ->
-     semPPCDoubleDoubleLegacy -> IEEE operations
-
-   We use bitcastToAPInt() to get the bit representation (in APInt) of the
-   underlying IEEEdouble, then use the APInt constructor to construct the
-   legacy IEEE float.
-
-   TODO: Implement all operations in semPPCDoubleDouble, and delete these
-   semantics.  */
-static constexpr fltSemantics semPPCDoubleDoubleLegacy = {1023, -1022 + 53,
+static constexpr fltSemantics semPPCDoubleDoubleLegacy = {APFloatBase::S_PPCDoubleDoubleLegacy, 1023, -1022 + 53,
                                                           53 + 53, 128};
 
-const llvm::fltSemantics &APFloatBase::EnumToSemantics(Semantics S) {
+const llvm::fltSemantics &APFloatBase::getSemantics(Semantics S) {
   switch (S) {
   case S_IEEEhalf:
     return IEEEhalf();
@@ -217,6 +198,8 @@ const llvm::fltSemantics &APFloatBase::EnumToSemantics(Semantics S) {
     return IEEEquad();
   case S_PPCDoubleDouble:
     return PPCDoubleDouble();
+  case S_PPCDoubleDoubleLegacy:
+    return semPPCDoubleDoubleLegacy;
   case S_Float8E5M2:
     return Float8E5M2();
   case S_Float8E5M2FNUZ:
@@ -243,52 +226,15 @@ const llvm::fltSemantics &APFloatBase::EnumToSemantics(Semantics S) {
     return Float4E2M1FN();
   case S_x87DoubleExtended:
     return x87DoubleExtended();
+  case S_Bogus:
+    return Bogus();
   }
   llvm_unreachable("Unrecognised floating semantics");
 }
 
 APFloatBase::Semantics
 APFloatBase::SemanticsToEnum(const llvm::fltSemantics &Sem) {
-  if (&Sem == &llvm::APFloat::IEEEhalf())
-    return S_IEEEhalf;
-  else if (&Sem == &llvm::APFloat::BFloat())
-    return S_BFloat;
-  else if (&Sem == &llvm::APFloat::IEEEsingle())
-    return S_IEEEsingle;
-  else if (&Sem == &llvm::APFloat::IEEEdouble())
-    return S_IEEEdouble;
-  else if (&Sem == &llvm::APFloat::IEEEquad())
-    return S_IEEEquad;
-  else if (&Sem == &llvm::APFloat::PPCDoubleDouble())
-    return S_PPCDoubleDouble;
-  else if (&Sem == &llvm::APFloat::Float8E5M2())
-    return S_Float8E5M2;
-  else if (&Sem == &llvm::APFloat::Float8E5M2FNUZ())
-    return S_Float8E5M2FNUZ;
-  else if (&Sem == &llvm::APFloat::Float8E4M3())
-    return S_Float8E4M3;
-  else if (&Sem == &llvm::APFloat::Float8E4M3FN())
-    return S_Float8E4M3FN;
-  else if (&Sem == &llvm::APFloat::Float8E4M3FNUZ())
-    return S_Float8E4M3FNUZ;
-  else if (&Sem == &llvm::APFloat::Float8E4M3B11FNUZ())
-    return S_Float8E4M3B11FNUZ;
-  else if (&Sem == &llvm::APFloat::Float8E3M4())
-    return S_Float8E3M4;
-  else if (&Sem == &llvm::APFloat::FloatTF32())
-    return S_FloatTF32;
-  else if (&Sem == &llvm::APFloat::Float8E8M0FNU())
-    return S_Float8E8M0FNU;
-  else if (&Sem == &llvm::APFloat::Float6E3M2FN())
-    return S_Float6E3M2FN;
-  else if (&Sem == &llvm::APFloat::Float6E2M3FN())
-    return S_Float6E2M3FN;
-  else if (&Sem == &llvm::APFloat::Float4E2M1FN())
-    return S_Float4E2M1FN;
-  else if (&Sem == &llvm::APFloat::x87DoubleExtended())
-    return S_x87DoubleExtended;
-  else
-    llvm_unreachable("Unknown floating semantics");
+  return Sem.name;
 }
 
 const fltSemantics &APFloatBase::IEEEhalf() { return semIEEEhalf; }
@@ -3038,7 +2984,7 @@ IEEEFloat::roundSignificandWithExponent(const integerPart *decSigParts,
                                         unsigned sigPartCount, int exp,
                                         roundingMode rounding_mode) {
   unsigned int parts, pow5PartCount;
-  fltSemantics calcSemantics = { 32767, -32767, 0, 0 };
+  fltSemantics calcSemantics = { APFloatBase::S_MaxSemantics, 32767, -32767, 0, 0 };
   integerPart pow5Parts[maxPowerOfFiveParts];
   bool isNearest;
 

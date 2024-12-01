@@ -282,7 +282,7 @@ let Class = PropertyTypeCase<APValue, "Float"> in {
     let Read = [{ node.getFloat().bitcastToAPInt() }];
   }
   def : Creator<[{
-    const llvm::fltSemantics &floatSema = llvm::APFloatBase::EnumToSemantics(
+    const llvm::fltSemantics &floatSema = llvm::APFloatBase::getSemantics(
         static_cast<llvm::APFloatBase::Semantics>(semantics));
     return APValue(llvm::APFloat(floatSema, value));
   }]>;
@@ -324,7 +324,7 @@ let Class = PropertyTypeCase<APValue, "ComplexFloat"> in {
     let Read = [{ node.getComplexFloatImag().bitcastToAPInt() }];
   }
   def : Creator<[{
-    const llvm::fltSemantics &sema = llvm::APFloatBase::EnumToSemantics(
+    const llvm::fltSemantics &sema = llvm::APFloatBase::getSemantics(
         static_cast<llvm::APFloatBase::Semantics>(semantics));
     return APValue(llvm::APFloat(sema, real),
                    llvm::APFloat(sema, imag));

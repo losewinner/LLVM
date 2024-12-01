@@ -1672,7 +1672,7 @@ public:
 
   /// Return the APFloat semantics this literal uses.
   const llvm::fltSemantics &getSemantics() const {
-    return llvm::APFloatBase::EnumToSemantics(
+    return llvm::APFloatBase::getSemantics(
         static_cast<llvm::APFloatBase::Semantics>(
             FloatingLiteralBits.Semantics));
   }

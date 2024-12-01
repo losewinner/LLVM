@@ -155,6 +155,15 @@ struct APFloatBase {
     S_IEEEsingle,
     S_IEEEdouble,
     S_IEEEquad,
+    // The IBM double-double semantics. Such a number consists of a pair of
+    // IEEE 64-bit doubles (Hi, Lo), where |Hi| > |Lo|, and if normal,
+    // (double)(Hi + Lo) == Hi. The numeric value it's modeling is Hi + Lo.
+    // Therefore it has two 53-bit mantissa parts that aren't necessarily
+    // adjacent to each other, and two 11-bit exponents.
+    //
+    // Note: we need to make the value different from semBogus as otherwise
+    // an unsafe optimization may collapse both values to a single address,
+    // and we heavily rely on them having distinct addresses.
     S_PPCDoubleDouble,
     // 8-bit floating point number following IEEE-754 conventions with bit
     // layout S1E5M2 as described in https://arxiv.org/abs/2209.05433.
@@ -214,13 +223,41 @@ struct APFloatBase {
     // types, there are no infinity or NaN values. The format is detailed in
     // https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf
     S_Float4E2M1FN,
-
+    // TODO: Documentation is missing.
     S_x87DoubleExtended,
-    S_MaxSemantics = S_x87DoubleExtended,
+    // These are legacy semantics for the fallback, inaccrurate implementation
+    // of IBM double-double, if the accurate semPPCDoubleDouble doesn't handle
+    // the operation. It's equivalent to having an IEEE number with consecutive
+    // 106 bits of mantissa and 11 bits of exponent.
+    //
+    // It's not equivalent to IBM double-double. For example, a legit IBM
+    // double-double, 1 + epsilon:
+    //
+    // 1 + epsilon = 1 + (1 >> 1076)
+    //
+    // is not representable by a consecutive 106 bits of mantissa.
+    //
+    // Currently, these semantics are used in the following way:
+    //
+    //   semPPCDoubleDouble -> (IEEEdouble, IEEEdouble) ->
+    //   (64-bit APInt, 64-bit APInt) -> (128-bit APInt) ->
+    //   semPPCDoubleDoubleLegacy -> IEEE operations
+    //
+    // We use bitcastToAPInt() to get the bit representation (in APInt) of the
+    // underlying IEEEdouble, then use the APInt constructor to construct the
+    // legacy IEEE float.
+    //
+    // TODO: Implement all operations in semPPCDoubleDouble, and delete these
+    // semantics.
+    S_PPCDoubleDoubleLegacy,
+    // A Pseudo fltsemantic used to construct APFloats that cannot conflict
+    // with anything real.
+    S_Bogus,
+    S_MaxSemantics = S_Bogus,
   };
 
-  static const llvm::fltSemantics &EnumToSemantics(Semantics S);
   static Semantics SemanticsToEnum(const llvm::fltSemantics &Sem);
+  static const llvm::fltSemantics &getSemantics(Semantics S);
 
   static const fltSemantics &IEEEhalf() LLVM_READNONE;
   static const fltSemantics &BFloat() LLVM_READNONE;
