@@ -96,15 +96,20 @@ private:
   bool selectFirstBitHigh(Register ResVReg, const SPIRVType *ResType,
                           MachineInstr &I, bool IsSigned) const;
 
-  bool selectFirstBitHigh16(Register ResVReg, const SPIRVType *ResType,
-                            MachineInstr &I, bool IsSigned) const;
+  bool selectFirstBitLow(Register ResVReg, const SPIRVType *ResType,
+                         MachineInstr &I) const;
 
-  bool selectFirstBitHigh32(Register ResVReg, const SPIRVType *ResType,
-                            MachineInstr &I, Register SrcReg,
-                            bool IsSigned) const;
+  bool selectFirstBitSet16(Register ResVReg, const SPIRVType *ResType,
+                           MachineInstr &I, unsigned ExtendOpcode,
+                           unsigned BitSetOpcode) const;
 
-  bool selectFirstBitHigh64(Register ResVReg, const SPIRVType *ResType,
-                            MachineInstr &I, bool IsSigned) const;
+  bool selectFirstBitSet32(Register ResVReg, const SPIRVType *ResType,
+                           MachineInstr &I, Register SrcReg,
+                           unsigned Opcode) const;
+
+  bool selectFirstBitSet64(Register ResVReg, const SPIRVType *ResType,
+                           MachineInstr &I, unsigned BitSetOpcode,
+                           bool SwapPrimarySide) const;
 
   bool selectGlobalValue(Register ResVReg, MachineInstr &I,
                          const MachineInstr *Init = nullptr) const;
@@ -2885,6 +2890,8 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
     return selectFirstBitHigh(ResVReg, ResType, I, /*IsSigned=*/false);
   case Intrinsic::spv_firstbitshigh: // There is no CL equivalent of FindSMsb
     return selectFirstBitHigh(ResVReg, ResType, I, /*IsSigned=*/true);
+  case Intrinsic::spv_firstbitlow: // There is no CL equivlent of FindILsb
+    return selectFirstBitLow(ResVReg, ResType, I);
   case Intrinsic::spv_group_memory_barrier_with_group_sync: {
     bool Result = true;
     auto MemSemConstant =
@@ -3129,24 +3136,22 @@ Register SPIRVInstructionSelector::buildPointerToResource(
   return AcReg;
 }
 
-bool SPIRVInstructionSelector::selectFirstBitHigh16(Register ResVReg,
-                                                    const SPIRVType *ResType,
-                                                    MachineInstr &I,
-                                                    bool IsSigned) const {
-  unsigned Opcode = IsSigned ? SPIRV::OpSConvert : SPIRV::OpUConvert;
-  // zero or sign extend
+bool SPIRVInstructionSelector::selectFirstBitSet16(
+    Register ResVReg, const SPIRVType *ResType, MachineInstr &I,
+    unsigned ExtendOpcode, unsigned BitSetOpcode) const {
   Register ExtReg = MRI->createVirtualRegister(GR.getRegClass(ResType));
-  bool Result =
-      selectOpWithSrcs(ExtReg, ResType, I, {I.getOperand(2).getReg()}, Opcode);
-  return Result && selectFirstBitHigh32(ResVReg, ResType, I, ExtReg, IsSigned);
+  bool Result = selectOpWithSrcs(ExtReg, ResType, I, {I.getOperand(2).getReg()},
+                                 ExtendOpcode);
+
+  return Result &&
+         selectFirstBitSet32(ResVReg, ResType, I, ExtReg, BitSetOpcode);
 }
 
-bool SPIRVInstructionSelector::selectFirstBitHigh32(Register ResVReg,
-                                                    const SPIRVType *ResType,
-                                                    MachineInstr &I,
-                                                    Register SrcReg,
-                                                    bool IsSigned) const {
-  unsigned Opcode = IsSigned ? GL::FindSMsb : GL::FindUMsb;
+bool SPIRVInstructionSelector::selectFirstBitSet32(Register ResVReg,
+                                                   const SPIRVType *ResType,
+                                                   MachineInstr &I,
+                                                   Register SrcReg,
+                                                   unsigned Opcode) const {
   return BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(SPIRV::OpExtInst))
       .addDef(ResVReg)
       .addUse(GR.getSPIRVTypeID(ResType))
@@ -3156,109 +3161,140 @@ bool SPIRVInstructionSelector::selectFirstBitHigh32(Register ResVReg,
       .constrainAllUses(TII, TRI, RBI);
 }
 
-bool SPIRVInstructionSelector::selectFirstBitHigh64(Register ResVReg,
-                                                    const SPIRVType *ResType,
-                                                    MachineInstr &I,
-                                                    bool IsSigned) const {
+bool SPIRVInstructionSelector::selectFirstBitSet64(Register ResVReg,
+                                                   const SPIRVType *ResType,
+                                                   MachineInstr &I,
+                                                   unsigned BitSetOpcode,
+                                                   bool SwapPrimarySide) const {
   Register OpReg = I.getOperand(2).getReg();
-  // 1. split our int64 into 2 pieces using a bitcast
-  unsigned count = GR.getScalarOrVectorComponentCount(ResType);
-  SPIRVType *baseType = GR.retrieveScalarOrVectorIntType(ResType);
+
+  // 1. Split int64 into 2 pieces using a bitcast
+  unsigned ComponentCount = GR.getScalarOrVectorComponentCount(ResType);
+  SPIRVType *BaseType = GR.retrieveScalarOrVectorIntType(ResType);
   MachineIRBuilder MIRBuilder(I);
-  SPIRVType *postCastT =
-      GR.getOrCreateSPIRVVectorType(baseType, 2 * count, MIRBuilder);
-  Register bitcastReg = MRI->createVirtualRegister(GR.getRegClass(postCastT));
+  SPIRVType *PostCastType =
+      GR.getOrCreateSPIRVVectorType(BaseType, 2 * ComponentCount, MIRBuilder);
+  Register BitcastReg =
+      MRI->createVirtualRegister(GR.getRegClass(PostCastType));
   bool Result =
-      selectOpWithSrcs(bitcastReg, postCastT, I, {OpReg}, SPIRV::OpBitcast);
+      selectOpWithSrcs(BitcastReg, PostCastType, I, {OpReg}, SPIRV::OpBitcast);
 
-  // 2. call firstbithigh
-  Register FBHReg = MRI->createVirtualRegister(GR.getRegClass(postCastT));
-  Result &= selectFirstBitHigh32(FBHReg, postCastT, I, bitcastReg, IsSigned);
+  // 2. Find the first set bit from the primary side for all the pieces in #1
+  Register FBSReg = MRI->createVirtualRegister(GR.getRegClass(PostCastType));
+  Result = Result && selectFirstBitSet32(FBSReg, PostCastType, I, BitcastReg,
+                                         BitSetOpcode);
 
-  // 3. split result vector into high bits and low bits
+  // 3. Split result vector into high bits and low bits
   Register HighReg = MRI->createVirtualRegister(GR.getRegClass(ResType));
   Register LowReg = MRI->createVirtualRegister(GR.getRegClass(ResType));
 
   bool ZeroAsNull = STI.isOpenCLEnv();
-  bool isScalarRes = ResType->getOpcode() != SPIRV::OpTypeVector;
-  if (isScalarRes) {
+  bool IsScalarRes = ResType->getOpcode() != SPIRV::OpTypeVector;
+  if (IsScalarRes) {
     // if scalar do a vector extract
-    Result &= selectOpWithSrcs(
-        HighReg, ResType, I,
-        {FBHReg, GR.getOrCreateConstInt(0, I, ResType, TII, ZeroAsNull)},
-        SPIRV::OpVectorExtractDynamic);
-    Result &= selectOpWithSrcs(
-        LowReg, ResType, I,
-        {FBHReg, GR.getOrCreateConstInt(1, I, ResType, TII, ZeroAsNull)},
-        SPIRV::OpVectorExtractDynamic);
-  } else { // vector case do a shufflevector
+    Result = Result &&
+             selectOpWithSrcs(HighReg, ResType, I,
+                              {FBSReg, GR.getOrCreateConstInt(0, I, ResType,
+                                                              TII, ZeroAsNull)},
+                              SPIRV::OpVectorExtractDynamic);
+    Result = Result &&
+             selectOpWithSrcs(LowReg, ResType, I,
+                              {FBSReg, GR.getOrCreateConstInt(1, I, ResType,
+                                                              TII, ZeroAsNull)},
+                              SPIRV::OpVectorExtractDynamic);
+  } else {
+    // if vector do a shufflevector
     auto MIB = BuildMI(*I.getParent(), I, I.getDebugLoc(),
                        TII.get(SPIRV::OpVectorShuffle))
                    .addDef(HighReg)
                    .addUse(GR.getSPIRVTypeID(ResType))
-                   .addUse(FBHReg)
-                   .addUse(FBHReg);
-    // ^^ this vector will not be selected from; could be empty
-    unsigned j;
-    for (j = 0; j < count * 2; j += 2) {
-      MIB.addImm(j);
-    }
-    Result &= MIB.constrainAllUses(TII, TRI, RBI);
+                   .addUse(FBSReg)
+                   // Per the spec, repeat the vector if only one vec is needed
+                   .addUse(FBSReg);
 
-    // get low bits
+    // high bits are stored in even indexes. Extract them from FBSReg
+    for (unsigned J = 0; J < ComponentCount * 2; J += 2) {
+      MIB.addImm(J);
+    }
+    Result = Result && MIB.constrainAllUses(TII, TRI, RBI);
+
     MIB = BuildMI(*I.getParent(), I, I.getDebugLoc(),
                   TII.get(SPIRV::OpVectorShuffle))
               .addDef(LowReg)
               .addUse(GR.getSPIRVTypeID(ResType))
-              .addUse(FBHReg)
-              .addUse(FBHReg);
-    // ^^ this vector will not be selected from; could be empty
-    for (j = 1; j < count * 2; j += 2) {
-      MIB.addImm(j);
+              .addUse(FBSReg)
+              // Per the spec, repeat the vector if only one vec is needed
+              .addUse(FBSReg);
+
+    // low bits are stored in odd indexes. Extract them from FBSReg
+    for (unsigned J = 1; J < ComponentCount * 2; J += 2) {
+      MIB.addImm(J);
     }
-    Result &= MIB.constrainAllUses(TII, TRI, RBI);
+    Result = Result && MIB.constrainAllUses(TII, TRI, RBI);
   }
 
-  // 4. check if result of each top 32 bits is == -1
+  // 4. Check the result. When primary bits == -1 use secondary, otherwise use
+  // primary
   SPIRVType *BoolType = GR.getOrCreateSPIRVBoolType(I, TII);
   Register NegOneReg;
   Register Reg0;
   Register Reg32;
-  unsigned selectOp;
-  unsigned addOp;
-  if (isScalarRes) {
+  unsigned SelectOp;
+  unsigned AddOp;
+
+  if (IsScalarRes) {
     NegOneReg =
         GR.getOrCreateConstInt((unsigned)-1, I, ResType, TII, ZeroAsNull);
     Reg0 = GR.getOrCreateConstInt(0, I, ResType, TII, ZeroAsNull);
     Reg32 = GR.getOrCreateConstInt(32, I, ResType, TII, ZeroAsNull);
-    selectOp = SPIRV::OpSelectSISCond;
-    addOp = SPIRV::OpIAddS;
+    SelectOp = SPIRV::OpSelectSISCond;
+    AddOp = SPIRV::OpIAddS;
   } else {
-    BoolType = GR.getOrCreateSPIRVVectorType(BoolType, count, MIRBuilder);
+    BoolType =
+        GR.getOrCreateSPIRVVectorType(BoolType, ComponentCount, MIRBuilder);
     NegOneReg =
         GR.getOrCreateConstVector((unsigned)-1, I, ResType, TII, ZeroAsNull);
     Reg0 = GR.getOrCreateConstVector(0, I, ResType, TII, ZeroAsNull);
     Reg32 = GR.getOrCreateConstVector(32, I, ResType, TII, ZeroAsNull);
-    selectOp = SPIRV::OpSelectVIVCond;
-    addOp = SPIRV::OpIAddV;
+    SelectOp = SPIRV::OpSelectVIVCond;
+    AddOp = SPIRV::OpIAddV;
   }
 
-  // check if the high bits are == -1; true if -1
+  Register PrimaryReg;
+  Register SecondaryReg;
+  Register PrimaryShiftReg;
+  Register SecondaryShiftReg;
+  if (SwapPrimarySide) {
+    PrimaryReg = LowReg;
+    SecondaryReg = HighReg;
+    PrimaryShiftReg = Reg0;
+    SecondaryShiftReg = Reg32;
+  } else {
+    PrimaryReg = HighReg;
+    SecondaryReg = LowReg;
+    PrimaryShiftReg = Reg32;
+    SecondaryShiftReg = Reg0;
+  }
+
+  // Check if the primary bits are == -1
   Register BReg = MRI->createVirtualRegister(GR.getRegClass(BoolType));
-  Result &= selectOpWithSrcs(BReg, BoolType, I, {HighReg, NegOneReg},
-                             SPIRV::OpIEqual);
+  Result = Result && selectOpWithSrcs(BReg, BoolType, I,
+                                      {PrimaryReg, NegOneReg}, SPIRV::OpIEqual);
 
-  // Select low bits if true in BReg, otherwise high bits
+  // Select secondary bits if true in BReg, otherwise primary bits
   Register TmpReg = MRI->createVirtualRegister(GR.getRegClass(ResType));
-  Result &=
-      selectOpWithSrcs(TmpReg, ResType, I, {BReg, LowReg, HighReg}, selectOp);
+  Result =
+      Result && selectOpWithSrcs(TmpReg, ResType, I,
+                                 {BReg, SecondaryReg, PrimaryReg}, SelectOp);
 
-  // Add 32 for high bits, 0 for low bits
+  // 5. Add 32 when high bits are used, otherwise 0 for low bits
   Register ValReg = MRI->createVirtualRegister(GR.getRegClass(ResType));
-  Result &= selectOpWithSrcs(ValReg, ResType, I, {BReg, Reg0, Reg32}, selectOp);
+  Result = Result && selectOpWithSrcs(
+                         ValReg, ResType, I,
+                         {BReg, SecondaryShiftReg, PrimaryShiftReg}, SelectOp);
 
   return Result &&
-         selectOpWithSrcs(ResVReg, ResType, I, {ValReg, TmpReg}, addOp);
+         selectOpWithSrcs(ResVReg, ResType, I, {ValReg, TmpReg}, AddOp);
 }
 
 bool SPIRVInstructionSelector::selectFirstBitHigh(Register ResVReg,
@@ -3268,17 +3304,46 @@ bool SPIRVInstructionSelector::selectFirstBitHigh(Register ResVReg,
   // FindUMsb and FindSMsb intrinsics only support 32 bit integers
   Register OpReg = I.getOperand(2).getReg();
   SPIRVType *OpType = GR.getSPIRVTypeForVReg(OpReg);
+  // zero or sign extend
+  unsigned ExtendOpcode = IsSigned ? SPIRV::OpSConvert : SPIRV::OpUConvert;
+  unsigned BitSetOpcode = IsSigned ? GL::FindSMsb : GL::FindUMsb;
 
   switch (GR.getScalarOrVectorBitWidth(OpType)) {
   case 16:
-    return selectFirstBitHigh16(ResVReg, ResType, I, IsSigned);
+    return selectFirstBitSet16(ResVReg, ResType, I, ExtendOpcode, BitSetOpcode);
   case 32:
-    return selectFirstBitHigh32(ResVReg, ResType, I, OpReg, IsSigned);
+    return selectFirstBitSet32(ResVReg, ResType, I, OpReg, BitSetOpcode);
   case 64:
-    return selectFirstBitHigh64(ResVReg, ResType, I, IsSigned);
+    return selectFirstBitSet64(ResVReg, ResType, I, BitSetOpcode,
+                               /*SwapPrimarySide=*/false);
   default:
     report_fatal_error(
         "spv_firstbituhigh and spv_firstbitshigh only support 16,32,64 bits.");
+  }
+}
+
+bool SPIRVInstructionSelector::selectFirstBitLow(Register ResVReg,
+                                                 const SPIRVType *ResType,
+                                                 MachineInstr &I) const {
+  // FindILsb intrinsic only supports 32 bit integers
+  Register OpReg = I.getOperand(2).getReg();
+  SPIRVType *OpType = GR.getSPIRVTypeForVReg(OpReg);
+  // OpUConvert treats the operand bits as an unsigned i16 and zero extends it
+  // to an unsigned i32. As this leaves all the least significant bits unchanged
+  // so the first set bit from the LSB side doesn't change.
+  unsigned ExtendOpcode = SPIRV::OpUConvert;
+  unsigned BitSetOpcode = GL::FindILsb;
+
+  switch (GR.getScalarOrVectorBitWidth(OpType)) {
+  case 16:
+    return selectFirstBitSet16(ResVReg, ResType, I, ExtendOpcode, BitSetOpcode);
+  case 32:
+    return selectFirstBitSet32(ResVReg, ResType, I, OpReg, BitSetOpcode);
+  case 64:
+    return selectFirstBitSet64(ResVReg, ResType, I, BitSetOpcode,
+                               /*SwapPrimarySide=*/true);
+  default:
+    report_fatal_error("spv_firstbitlow only supports 16,32,64 bits.");
   }
 }
 
