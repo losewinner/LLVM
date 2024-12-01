@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <vector>
 
 #include "lldb/Target/StackFrame.h"
@@ -100,14 +101,21 @@ protected:
 
   bool SetFrameAtIndex(uint32_t idx, lldb::StackFrameSP &frame_sp);
 
-  /// Realizes frames up to (and including) end_idx (which can be greater than  
-  /// the actual number of frames.)  
+  /// Realizes frames up to (and including) end_idx (which can be greater than
+  /// the actual number of frames.)
   /// Returns true if the function was interrupted, false otherwise.
-  bool GetFramesUpTo(uint32_t end_idx, 
-      InterruptionControl allow_interrupt = AllowInterruption);
+  /// Must be called with a shared_locked mutex.  This might unlock the
+  /// shared side if it needs to fetch more frames, but will reacquire the
+  /// shared lock on the way out.
+  bool GetFramesUpTo(uint32_t end_idx, InterruptionControl allow_interrupt,
+                     std::shared_lock<std::shared_mutex> &guard);
 
-  void GetOnlyConcreteFramesUpTo(uint32_t end_idx, Unwind &unwinder);
+  /// Does not hold the StackFrameList mutex.  Same comment as GetFramesUpTo.
+  void GetOnlyConcreteFramesUpTo(uint32_t end_idx, Unwind &unwinder,
+                                 std::shared_lock<std::shared_mutex> &guard);
 
+  // This gets called without the StackFrameList lock held, callers should
+  // hold the lock.
   void SynthesizeTailCallFrames(StackFrame &next_frame);
 
   bool GetAllFramesFetched() { return m_concrete_frames_fetched == UINT32_MAX; }
@@ -122,6 +130,9 @@ protected:
 
   void SetCurrentInlinedDepth(uint32_t new_depth);
 
+  /// Calls into the stack frame recognizers and stop info to set the most
+  /// relevant frame.  This can call out to arbitrary user code so it can't
+  /// hold the StackFrameList mutex.
   void SelectMostRelevantFrame();
 
   typedef std::vector<lldb::StackFrameSP> collection;
@@ -138,11 +149,16 @@ protected:
   // source of information.
   lldb::StackFrameListSP m_prev_frames_sp;
 
-  /// A mutex for this frame list.
-  // TODO: This mutex may not always be held when required. In particular, uses
-  // of the StackFrameList APIs in lldb_private::Thread look suspect. Consider
-  // passing around a lock_guard reference to enforce proper locking.
-  mutable std::recursive_mutex m_mutex;
+  /// A mutex for this frame list.  The only public API that requires the
+  /// unique lock is Clear.  All other clients take the shared lock, though
+  /// if we need more frames we may swap shared for unique to fulfill that
+  /// requirement.
+  mutable std::shared_mutex m_list_mutex;
+
+  // Setting the inlined depth should be protected against other attempts to
+  // change it, but since it doesn't mutate the list itself, we can limit the
+  // critical regions it produces by having a separate mutex.
+  mutable std::mutex m_inlined_depth_mutex;
 
   /// A cache of frames. This may need to be updated when the program counter
   /// changes.
@@ -171,6 +187,11 @@ protected:
   const bool m_show_inlined_frames;
 
 private:
+  uint32_t SetSelectedFrameNoLock(lldb_private::StackFrame *frame);
+  lldb::StackFrameSP
+  GetFrameAtIndexNoLock(uint32_t idx,
+                        std::shared_lock<std::shared_mutex> &guard);
+
   StackFrameList(const StackFrameList &) = delete;
   const StackFrameList &operator=(const StackFrameList &) = delete;
 };
