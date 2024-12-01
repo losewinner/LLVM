@@ -1077,7 +1077,7 @@ char *__dfso_getcwd(char *buf, size_t size, dfsan_label buf_label,
   return ret;
 }
 
-#if !defined(__OHOS__)
+#if !SANITIZER_MUSL
 // OpenHOS uses musl libc which doesn't have get_current_dir_name()
 SANITIZER_INTERFACE_ATTRIBUTE
 char *__dfsw_get_current_dir_name(dfsan_label *ret_label) {
