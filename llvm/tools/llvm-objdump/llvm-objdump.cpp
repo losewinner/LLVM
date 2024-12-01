@@ -1513,8 +1513,8 @@ collectLocalBranchTargets(ArrayRef<uint8_t> Bytes, MCInstrAnalysis *MIA,
     if (MIA) {
       if (Disassembled) {
         uint64_t Target;
-        bool TargetKnown = MIA->evaluateBranch(Inst, Index, Size, Target);
-        if (TargetKnown && (Target >= Start && Target < End) &&
+        bool BranchTargetKnown = MIA->evaluateBranch(Inst, Index, Size, Target);
+        if (BranchTargetKnown && (Target >= Start && Target < End) &&
             !Labels.count(Target)) {
           // On PowerPC and AIX, a function call is encoded as a branch to 0.
           // On other PowerPC platforms (ELF), a function call is encoded as
@@ -2324,8 +2324,9 @@ disassembleObject(ObjectFile &Obj, const ObjectFile &DbgObj,
             llvm::raw_ostream *TargetOS = &FOS;
             uint64_t Target;
             bool PrintTarget = DT->InstrAnalysis->evaluateBranch(
-                Inst, SectionAddr + Index, Size, Target);
-
+                                   Inst, SectionAddr + Index, Size, Target) ||
+                               DT->InstrAnalysis->evaluateInstruction(
+                                   Inst, SectionAddr + Index, Size, Target);
             if (!PrintTarget) {
               if (std::optional<uint64_t> MaybeTarget =
                       DT->InstrAnalysis->evaluateMemoryOperandAddress(
@@ -2354,25 +2355,36 @@ disassembleObject(ObjectFile &Obj, const ObjectFile &DbgObj,
               // N.B. Except for XCOFF, we don't walk the relocations in the
               // relocatable case yet.
               std::vector<const SectionSymbolsTy *> TargetSectionSymbols;
+              bool AbsoluteFirst = false;
               if (!Obj.isRelocatableObject()) {
                 auto It = llvm::partition_point(
                     SectionAddresses,
                     [=](const std::pair<uint64_t, SectionRef> &O) {
                       return O.first <= Target;
                     });
-                uint64_t TargetSecAddr = 0;
+                uint64_t TargetSecAddr = It == SectionAddresses.end() ? 0 : It->first;
+                bool FoundSymbols = false;
                 while (It != SectionAddresses.begin()) {
                   --It;
-                  if (TargetSecAddr == 0)
-                    TargetSecAddr = It->first;
-                  if (It->first != TargetSecAddr)
-                    break;
+                  if (It->first != TargetSecAddr) {
+                    if (FoundSymbols)
+                      break;
+                    else {
+                      TargetSecAddr = It->first;
+                      AbsoluteFirst = true;
+                    }
+                  }
                   TargetSectionSymbols.push_back(&AllSymbols[It->second]);
+                  if (!AllSymbols[It->second].empty())
+                    FoundSymbols = true;
                 }
               } else {
                 TargetSectionSymbols.push_back(&Symbols);
               }
-              TargetSectionSymbols.push_back(&AbsoluteSymbols);
+              if (AbsoluteFirst)
+                TargetSectionSymbols.insert(TargetSectionSymbols.begin(), &AbsoluteSymbols);
+              else
+                TargetSectionSymbols.push_back(&AbsoluteSymbols);
 
               // Find the last symbol in the first candidate section whose
               // offset is less than or equal to the target. If there are no
@@ -2398,7 +2410,7 @@ disassembleObject(ObjectFile &Obj, const ObjectFile &DbgObj,
                   break;
               }
 
-              // Branch targets are printed just after the instructions.
+              // Branch and instruction targets are printed just after the instructions.
               // Print the labels corresponding to the target if there's any.
               bool BBAddrMapLabelAvailable = BBAddrMapLabels.count(Target);
               bool LabelAvailable = AllLabels.count(Target);
