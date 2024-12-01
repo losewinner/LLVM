@@ -887,7 +887,7 @@ TEST(Interception, GetInstructionSize) {
     if (ND_SUCCESS(status)) {
       if (data[i].size > 0) {
         EXPECT_EQ(data[i].size, (size_t)instrux.Length) << dumpInstruction(i, data[i]);
-        if (instrux.OperandsCount == 2 && instrux.HasDisp && instrux.DispLength == 4) {
+        if (instrux.OperandsCount == 2 && instrux.HasDisp && instrux.DispLength == 4 && instrux.DispOffset < 4) {
           EXPECT_EQ(data[i].rel_offset, (size_t)instrux.DispOffset) << dumpInstruction(i, data[i]);
         } else {
           EXPECT_EQ(data[i].rel_offset, (size_t)0) << dumpInstruction(i, data[i]);
