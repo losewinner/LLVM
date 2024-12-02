@@ -5494,6 +5494,7 @@ ExprResult Sema::BuildCXXDefaultArgExpr(SourceLocation CallLoc,
 
   bool NestedDefaultChecking = isCheckingDefaultArgumentOrInitializer();
   bool NeedRebuild = needsRebuildOfDefaultArgOrInit();
+  bool HasRebuiltInit = false;
   std::optional<ExpressionEvaluationContextRecord::InitializationContext>
       InitializationContext =
           OutermostDeclarationWithDelayedImmediateInvocations();
@@ -5551,6 +5552,7 @@ ExprResult Sema::BuildCXXDefaultArgExpr(SourceLocation CallLoc,
       if (Res.isInvalid())
         return ExprError();
       Init = Res.get();
+      HasRebuiltInit = true;
     }
   }
 
@@ -5560,7 +5562,8 @@ ExprResult Sema::BuildCXXDefaultArgExpr(SourceLocation CallLoc,
     return ExprError();
 
   return CXXDefaultArgExpr::Create(Context, InitializationContext->Loc, Param,
-                                   Init, InitializationContext->Context);
+                                   InitializationContext->Context, Init,
+                                   HasRebuiltInit);
 }
 
 static FieldDecl *FindFieldDeclInstantiationPattern(const ASTContext &Ctx,
@@ -5602,6 +5605,7 @@ ExprResult Sema::BuildCXXDefaultInitExpr(SourceLocation Loc, FieldDecl *Field) {
 
   bool NestedDefaultChecking = isCheckingDefaultArgumentOrInitializer();
   bool NeedRebuild = needsRebuildOfDefaultArgOrInit();
+  bool HasRebuiltInit = false;
   EnterExpressionEvaluationContext EvalContext(
       *this, ExpressionEvaluationContext::PotentiallyEvaluated, Field);
 
@@ -5663,6 +5667,7 @@ ExprResult Sema::BuildCXXDefaultInitExpr(SourceLocation Loc, FieldDecl *Field) {
       return ExprError();
     }
     Init = Res.get();
+    HasRebuiltInit = true;
   }
 
   if (Field->getInClassInitializer()) {
@@ -5685,7 +5690,7 @@ ExprResult Sema::BuildCXXDefaultInitExpr(SourceLocation Loc, FieldDecl *Field) {
 
     return CXXDefaultInitExpr::Create(Context, InitializationContext->Loc,
                                       Field, InitializationContext->Context,
-                                      Init);
+                                      Init, HasRebuiltInit);
   }
 
   // DR1351:
