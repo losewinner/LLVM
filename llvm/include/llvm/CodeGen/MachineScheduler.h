@@ -123,6 +123,14 @@ class TargetInstrInfo;
 class TargetPassConfig;
 class TargetRegisterInfo;
 
+namespace MISchedPostRASched {
+enum Direction {
+  TopDown,
+  BottomUp,
+  Bidirectional,
+};
+} // end namespace MISchedPostRASched
+
 /// MachineSchedContext provides enough context from the MachineScheduler pass
 /// for the target to instantiate a scheduler.
 struct MachineSchedContext {
