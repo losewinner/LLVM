@@ -1819,3 +1819,54 @@ void VPlanTransforms::createInterleaveGroups(
       }
   }
 }
+
+void VPlanTransforms::handleUncountableEarlyExit(
+    VPlan &Plan, ScalarEvolution &SE, Loop *OrigLoop,
+    BasicBlock *UncountableExitingBlock, VPRecipeBuilder &RecipeBuilder) {
+  auto *LatchVPBB =
+      cast<VPBasicBlock>(Plan.getVectorLoopRegion()->getExiting());
+  VPBuilder Builder(LatchVPBB->getTerminator());
+  auto *MiddleVPBB = Plan.getMiddleBlock();
+  VPRegionBlock *LoopRegion = Plan.getVectorLoopRegion();
+  VPValue *EarlyExitTaken = nullptr;
+
+  // Process the uncountable exiting block. Update EarlyExitTaken, which tracks
+  // if any uncountable early exit has been taken. Also split the middle block
+  // and branch to the exit block for the early exit if it has been taken.
+  auto *ExitingTerm =
+      cast<BranchInst>(UncountableExitingBlock->getTerminator());
+  BasicBlock *TrueSucc = ExitingTerm->getSuccessor(0);
+  BasicBlock *FalseSucc = ExitingTerm->getSuccessor(1);
+  VPIRBasicBlock *VPExitBlock;
+  if (OrigLoop->getUniqueExitBlock()) {
+    VPExitBlock = cast<VPIRBasicBlock>(MiddleVPBB->getSuccessors()[0]);
+  } else {
+    VPExitBlock = VPIRBasicBlock::fromBasicBlock(
+        !OrigLoop->contains(TrueSucc) ? TrueSucc : FalseSucc);
+  }
+
+  VPValue *M = RecipeBuilder.getBlockInMask(
+      OrigLoop->contains(TrueSucc) ? TrueSucc : FalseSucc);
+  auto *N = Builder.createNot(M);
+  EarlyExitTaken = Builder.createNaryOp(VPInstruction::AnyOf, {N});
+
+  VPBasicBlock *NewMiddle = new VPBasicBlock("middle.split");
+  VPBlockUtils::disconnectBlocks(LoopRegion, MiddleVPBB);
+  VPBlockUtils::insertBlockAfter(NewMiddle, LoopRegion);
+  VPBlockUtils::connectBlocks(NewMiddle, VPExitBlock);
+  VPBlockUtils::connectBlocks(NewMiddle, MiddleVPBB);
+
+  VPBuilder MiddleBuilder(NewMiddle);
+  MiddleBuilder.createNaryOp(VPInstruction::BranchOnCond, {EarlyExitTaken});
+
+  // Replace the condition controlling the exit from the vector loop with one
+  // exiting if either the original condition of the vector latch is true or any
+  // early exit has been taken.
+  auto *Term = dyn_cast<VPInstruction>(LatchVPBB->getTerminator());
+  auto *IsLatchExiting = Builder.createICmp(
+      CmpInst::ICMP_EQ, Term->getOperand(0), Term->getOperand(1));
+  auto *AnyExiting =
+      Builder.createNaryOp(Instruction::Or, {EarlyExitTaken, IsLatchExiting});
+  Builder.createNaryOp(VPInstruction::BranchOnCond, AnyExiting);
+  Term->eraseFromParent();
+}

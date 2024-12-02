@@ -1375,6 +1375,17 @@ bool LoopVectorizationLegality::isFixedOrderRecurrence(
 }
 
 bool LoopVectorizationLegality::blockNeedsPredication(BasicBlock *BB) const {
+  // When vectorizing early exits, create predicates for the latch block. The
+  // early exiting block must be a direct predecessor of the latch at the
+  // moment.
+  BasicBlock *Latch = TheLoop->getLoopLatch();
+  if (hasUncountableEarlyExit()) {
+    assert(
+        getUncountableExitingBlocks().size() == 1 &&
+        is_contained(predecessors(Latch), getUncountableExitingBlocks()[0]) &&
+        "Uncountable exiting block must be a direct predecessor of latch");
+    return BB == Latch;
+  }
   return LoopAccessInfo::blockNeedsPredication(BB, TheLoop, DT);
 }
 
