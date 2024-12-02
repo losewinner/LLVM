@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Affine/IR/AffineMemoryOpInterfaces.h"
 #include "mlir/Dialect/Affine/Passes.h"
 
 #include "mlir/Dialect/Affine/Analysis/AffineStructures.h"
@@ -23,6 +24,8 @@
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
+#include "mlir/IR/Operation.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -177,13 +180,62 @@ gatherProducerConsumerMemrefs(unsigned srcId, unsigned dstId,
                                 producerConsumerMemrefs);
 }
 
+/// Checks the shapes of the loads and stores of each memref in
+/// the producer/consumer chains. If the load shapes are larger
+/// than the stores then we cannot fuse the loops. The loads
+/// would have a dependency on the values stored.
+static bool checkLoadStoreShapes(unsigned srcId, unsigned dstId,
+                                 DenseSet<Value> &producerConsumerMemrefs,
+                                 MemRefDependenceGraph *mdg) {
+  SmallVector<Operation *> storeOps;
+  SmallVector<Operation *> loadOps;
+
+  auto *srcNode = mdg->getNode(srcId);
+  auto *dstNode = mdg->getNode(dstId);
+
+  for (Value memref : producerConsumerMemrefs) {
+    srcNode->getStoreOpsForMemref(memref, &storeOps);
+    dstNode->getLoadOpsForMemref(memref, &loadOps);
+
+    for (Operation *storeOp : storeOps) {
+      Value storeValue =
+          cast<AffineWriteOpInterface>(storeOp).getValueToStore();
+      auto storeShapedType = dyn_cast<ShapedType>(storeValue.getType());
+
+      if (!storeShapedType)
+        continue;
+
+      for (Operation *loadOp : loadOps) {
+        Value loadValue = cast<AffineReadOpInterface>(loadOp).getValue();
+        auto loadShapedType = dyn_cast<ShapedType>(loadValue.getType());
+
+        if (!loadShapedType)
+          continue;
+
+        for (int i = 0; i < loadShapedType.getRank(); ++i) {
+          auto loadDim = loadShapedType.getDimSize(i);
+          auto storeDim = storeShapedType.getDimSize(i);
+
+          if (loadDim > storeDim)
+            return false;
+        }
+      }
+    }
+
+    storeOps.clear();
+    loadOps.clear();
+  }
+
+  return true;
+}
+
 /// A memref escapes in the context of the fusion pass if either:
 ///   1. it (or its alias) is a block argument, or
 ///   2. created by an op not known to guarantee alias freedom,
-///   3. it (or its alias) are used by ops other than affine dereferencing ops
-///   (e.g., by call op, memref load/store ops, alias creating ops, unknown ops,
-///   terminator ops, etc.); such ops do not deference the memref in an affine
-///   way.
+///   3. it (or its alias) are used by ops other than affine dereferencing
+///   ops (e.g., by call op, memref load/store ops, alias creating ops,
+///   unknown ops, terminator ops, etc.); such ops do not deference the
+///   memref in an affine way.
 static bool isEscapingMemref(Value memref, Block *block) {
   Operation *defOp = memref.getDefiningOp();
   // Check if 'memref' is a block argument.
@@ -858,8 +910,15 @@ public:
             }))
           continue;
 
-        // Gather memrefs in 'srcNode' that are written and escape out of the
-        // block (e.g., memref block arguments, returned memrefs,
+        if (!checkLoadStoreShapes(srcId, dstId, producerConsumerMemrefs, mdg)) {
+          LLVM_DEBUG(
+              llvm::dbgs()
+              << "Can't fuse: load dependent on a larger store region\n");
+          continue;
+        }
+
+        // Gather memrefs in 'srcNode' that are written and escape out of
+        // the block (e.g., memref block arguments, returned memrefs,
         // memrefs passed to function calls, etc.).
         DenseSet<Value> srcEscapingMemRefs;
         gatherEscapingMemrefs(srcNode->id, mdg, srcEscapingMemRefs);
