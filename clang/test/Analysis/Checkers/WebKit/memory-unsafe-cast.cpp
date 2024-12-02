@@ -247,3 +247,20 @@ class SomeArrayClass : public DeferrableRefCounted<SomeArrayClass> { };
 void test_this_to_template(SomeArrayClass *ptr) {
   ptr->deref();
 };
+
+template<typename WeakPtrFactoryType>
+class CanMakeWeakPtrBase {
+public:
+  void initializeWeakPtrFactory() const {
+    auto &this_to_T = static_cast<const WeakPtrFactoryType&>(*this);
+  }
+};
+
+template<typename T>
+using CanMakeWeakPtr = CanMakeWeakPtrBase<T>;
+
+class EventLoop : public CanMakeWeakPtr<EventLoop> { };
+
+void test_this_to_template_ref(EventLoop *ptr) {
+  ptr->initializeWeakPtrFactory();
+};

@@ -118,7 +118,9 @@ void MemoryUnsafeCastChecker::checkASTCodeBody(const Decl *D,
                 hasDeclaration(decl(cxxRecordDecl().bind(BaseNode))))))),
             hasType(hasUnqualifiedDesugaredType(recordType(hasDeclaration(
                 decl(cxxRecordDecl(isDerivedFrom(equalsBoundNode(BaseNode)))
-                         .bind(DerivedNode)))))));
+                     .bind(DerivedNode)))))),
+            unless(anyOf(hasSourceExpression(hasDescendant(cxxThisExpr())),
+                         hasType(templateTypeParmDecl()))));
 
   auto ExplicitCast = explicitCastExpr(anyOf(MatchExprPtr, MatchExprRefTypeDef,
                                              MatchExprPtrObjC))
