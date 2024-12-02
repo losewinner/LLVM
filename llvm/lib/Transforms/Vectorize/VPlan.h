@@ -3715,14 +3715,10 @@ class VPlan {
   friend class VPlanPrinter;
   friend class VPSlotTracker;
 
-  /// Hold the single entry to the Hierarchical CFG of the VPlan, i.e. the
-  /// preheader of the vector loop.
-  VPBasicBlock *Entry;
-
   /// VPBasicBlock corresponding to the original preheader. Used to place
   /// VPExpandSCEV recipes for expressions used during skeleton creation and the
   /// rest of VPlan execution.
-  VPBasicBlock *Preheader;
+  VPBasicBlock *Entry;
 
   /// VPIRBasicBlock wrapping the header of the original scalar loop.
   VPIRBasicBlock *ScalarHeader;
@@ -3768,35 +3764,35 @@ class VPlan {
   DenseMap<const SCEV *, VPValue *> SCEVToExpansion;
 
 public:
-  /// Construct a VPlan with original preheader \p Preheader, trip count \p TC,
-  /// \p Entry to the plan and with \p ScalarHeader wrapping the original header
-  /// of the scalar loop. At the moment, \p Preheader and \p Entry need to be
-  /// disconnected, as the bypass blocks between them are not yet modeled in
-  /// VPlan.
-  VPlan(VPBasicBlock *Preheader, VPValue *TC, VPBasicBlock *Entry,
-        VPIRBasicBlock *ScalarHeader)
-      : VPlan(Preheader, Entry, ScalarHeader) {
+  /// Construct a VPlan with \p Entry entering the plan, trip count \p TC and
+  /// with \p ScalarHeader wrapping the original header of the scalar loop.
+  VPlan(VPBasicBlock *Entry, VPValue *TC, VPIRBasicBlock *ScalarHeader)
+      : VPlan(Entry, ScalarHeader) {
     TripCount = TC;
   }
 
-  /// Construct a VPlan with original preheader \p Preheader, \p Entry to
-  /// the plan and with \p ScalarHeader wrapping the original header of the
-  /// scalar loop. At the moment, \p Preheader and \p Entry need to be
-  /// disconnected, as the bypass blocks between them are not yet modeled in
-  /// VPlan.
+  /// Constructor variants that take disconnected preheader and entry blocks,
+  /// connecting them as part of construction. Only used to reduce the need of
+  /// code changes during transition.
+  VPlan(VPBasicBlock *Preheader, VPValue *TC, VPBasicBlock *Entry,
+        VPIRBasicBlock *ScalarHeader);
   VPlan(VPBasicBlock *Preheader, VPBasicBlock *Entry,
-        VPIRBasicBlock *ScalarHeader)
-      : Entry(Entry), Preheader(Preheader), ScalarHeader(ScalarHeader) {
+        VPIRBasicBlock *ScalarHeader);
+
+  /// Construct a VPlan with \p Entry to the plan.
+  VPlan(VPBasicBlock *Entry, VPIRBasicBlock *ScalarHeader)
+      : Entry(Entry), ScalarHeader(ScalarHeader) {
     Entry->setPlan(this);
-    Preheader->setPlan(this);
-    assert(Preheader->getNumSuccessors() == 0 &&
-           Preheader->getNumPredecessors() == 0 &&
-           "preheader must be disconnected");
     assert(ScalarHeader->getNumSuccessors() == 0 &&
            "scalar header must be a leaf node");
   }
 
   ~VPlan();
+
+  void setEntry(VPBasicBlock *VPBB) {
+    Entry = VPBB;
+    VPBB->setPlan(this);
+  }
 
   /// Create initial VPlan, having an "entry" VPBasicBlock (wrapping
   /// original scalar pre-header ) which contains SCEV expansions that need
@@ -3831,12 +3827,8 @@ public:
   }
 
   /// Returns the VPRegionBlock of the vector loop.
-  VPRegionBlock *getVectorLoopRegion() {
-    return cast<VPRegionBlock>(getEntry()->getSingleSuccessor());
-  }
-  const VPRegionBlock *getVectorLoopRegion() const {
-    return cast<VPRegionBlock>(getEntry()->getSingleSuccessor());
-  }
+  VPRegionBlock *getVectorLoopRegion();
+  const VPRegionBlock *getVectorLoopRegion() const;
 
   /// Returns the 'middle' block of the plan, that is the block that selects
   /// whether to execute the scalar tail loop or the exit block from the loop
@@ -3986,12 +3978,14 @@ public:
   }
 
   /// \return The block corresponding to the original preheader.
-  VPBasicBlock *getPreheader() { return Preheader; }
-  const VPBasicBlock *getPreheader() const { return Preheader; }
+  VPBasicBlock *getPreheader() { return Entry; }
+  const VPBasicBlock *getPreheader() const { return Entry; }
 
   /// Clone the current VPlan, update all VPValues of the new VPlan and cloned
   /// recipes to refer to the clones, and return it.
   VPlan *duplicate();
+
+  VPBasicBlock *getScalarPreheader();
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -4135,10 +4129,6 @@ public:
                             unsigned PredIdx = -1u, unsigned SuccIdx = -1u) {
     assert((From->getParent() == To->getParent()) &&
            "Can't connect two block with different parents");
-    assert((SuccIdx != -1u || From->getNumSuccessors() < 2) &&
-           "Blocks can't have more than two successors.");
-    assert((PredIdx != -1u || To->getNumPredecessors() < 2) &&
-           "Blocks can't have more than two predecessors.");
     if (SuccIdx == -1u)
       From->appendSuccessor(To);
     else
