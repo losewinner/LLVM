@@ -34,16 +34,16 @@ void test() {
   std::span<int> s(arr, 5);
 
   auto sub1 = s.subspan(0, 3);
-  // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: prefer span::first() over subspan()
+  // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: prefer 'span::first()' over 'subspan()'
   // CHECK-FIXES: auto sub1 = s.first(3);
 
   auto sub2 = s.subspan(s.size() - 2);
-  // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: prefer span::last() over subspan()
+  // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: prefer 'span::last()' over 'subspan()'
   // CHECK-FIXES: auto sub2 = s.last(2);
 
   __SIZE_TYPE__ n = 2;
   auto sub3 = s.subspan(0, n);
-  // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: prefer span::first() over subspan()
+  // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: prefer 'span::first()' over 'subspan()'
   // CHECK-FIXES: auto sub3 = s.first(n);
 
   auto sub4 = s.subspan(1, 2);  // No warning

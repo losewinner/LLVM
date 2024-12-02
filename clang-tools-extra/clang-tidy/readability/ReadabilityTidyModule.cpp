@@ -171,10 +171,10 @@ public:
         "readability-uppercase-literal-suffix");
     CheckFactories.registerCheck<UseAnyOfAllOfCheck>(
         "readability-use-anyofallof");
-    CheckFactories.registerCheck<UseStdMinMaxCheck>(
-        "readability-use-std-min-max");
     CheckFactories.registerCheck<UseSpanFirstLastCheck>(
         "readability-use-span-first-last");
+    CheckFactories.registerCheck<UseStdMinMaxCheck>(
+        "readability-use-std-min-max");
   }
 };
 
