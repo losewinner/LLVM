@@ -27,6 +27,8 @@ protected:
       return false;
     if (BF.hasSDTMarker())
       return false;
+    if (!BF.isSafeToICF())
+      return false;
     return BinaryFunctionPass::shouldOptimize(BF);
   }
 
@@ -36,6 +38,15 @@ public:
 
   const char *getName() const override { return "identical-code-folding"; }
   Error runOnFunctions(BinaryContext &BC) override;
+
+private:
+  /// Analyze .text section and relocations and mark functions that are not
+  /// safe to fold.
+  Error markFunctionsUnsafeToFold(BinaryContext &BC);
+  /// Process relocations in the .data section to identify function
+  /// references.
+  Error processDataRelocations(BinaryContext &BC,
+                               const SectionRef &SecRefRelData);
 };
 
 } // namespace bolt

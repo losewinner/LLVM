@@ -65,9 +65,6 @@ static cl::opt<bool>
                          cl::desc("eliminate unreachable code"), cl::init(true),
                          cl::cat(BoltOptCategory));
 
-cl::opt<bool> ICF("icf", cl::desc("fold functions with identical code"),
-                  cl::cat(BoltOptCategory));
-
 static cl::opt<bool> JTFootprintReductionFlag(
     "jt-footprint-reduction",
     cl::desc("make jump tables size smaller at the cost of using more "
@@ -398,7 +395,7 @@ Error BinaryFunctionPassManager::runAllPasses(BinaryContext &BC) {
                          opts::StripRepRet);
 
   Manager.registerPass(std::make_unique<IdenticalCodeFolding>(PrintICF),
-                       opts::ICF);
+                       BC.getICFLevel() != BinaryContext::ICFLevel::None);
 
   Manager.registerPass(
       std::make_unique<SpecializeMemcpy1>(NeverPrint, opts::SpecializeMemcpy1),
@@ -423,7 +420,7 @@ Error BinaryFunctionPassManager::runAllPasses(BinaryContext &BC) {
   Manager.registerPass(std::make_unique<Inliner>(PrintInline));
 
   Manager.registerPass(std::make_unique<IdenticalCodeFolding>(PrintICF),
-                       opts::ICF);
+                       BC.getICFLevel() != BinaryContext::ICFLevel::None);
 
   Manager.registerPass(std::make_unique<PLTCall>(PrintPLT));
 

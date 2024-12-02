@@ -341,6 +341,61 @@ typedef std::unordered_map<BinaryFunction *, std::vector<BinaryFunction *>,
 namespace llvm {
 namespace bolt {
 
+Error IdenticalCodeFolding::processDataRelocations(
+    BinaryContext &BC, const SectionRef &SecRefRelData) {
+  for (const RelocationRef &Rel : SecRefRelData.relocations()) {
+    symbol_iterator SymbolIter = Rel.getSymbol();
+    const ObjectFile *OwningObj = Rel.getObject();
+    assert(SymbolIter != OwningObj->symbol_end() &&
+           "relocation Symbol expected");
+    const SymbolRef &Symbol = *SymbolIter;
+    const uint64_t SymbolAddress = cantFail(Symbol.getAddress());
+    const ELFObjectFileBase *ELFObj = dyn_cast<ELFObjectFileBase>(OwningObj);
+    if (!ELFObj)
+      return createFatalBOLTError(
+          Twine("BOLT-ERROR: Only ELFObjectFileBase is supported"));
+    const int64_t Addend = getRelocationAddend(ELFObj, Rel);
+    BinaryFunction *BF = BC.getBinaryFunctionAtAddress(SymbolAddress + Addend);
+    if (!BF)
+      continue;
+    BF->setUnsafeICF();
+  }
+  return Error::success();
+}
+
+Error IdenticalCodeFolding::markFunctionsUnsafeToFold(BinaryContext &BC) {
+  ErrorOr<BinarySection &> SecRelData = BC.getUniqueSectionByName(".rela.data");
+  if (SecRelData) {
+    SectionRef SecRefRelData = SecRelData->getSectionRef();
+    Error ErrorStatus = processDataRelocations(BC, SecRefRelData);
+    if (ErrorStatus)
+      return ErrorStatus;
+  }
+
+  ParallelUtilities::WorkFuncTy WorkFun = [&](BinaryFunction &BF) {
+    for (const BinaryBasicBlock *BB : BF.getLayout().blocks())
+      for (const MCInst &Inst : *BB)
+        BC.processInstructionForFuncReferences(Inst);
+  };
+  ParallelUtilities::PredicateTy SkipFunc =
+      [&](const BinaryFunction &BF) -> bool {
+    return BF.getState() != BinaryFunction::State::CFG;
+  };
+  ParallelUtilities::runOnEachFunction(
+      BC, ParallelUtilities::SchedulingPolicy::SP_INST_LINEAR, WorkFun,
+      SkipFunc, "markUnsafe", /*ForceSequential*/ false, 2);
+
+  LLVM_DEBUG({
+    for (auto &BFIter : BC.getBinaryFunctions()) {
+      if (BFIter.second.isSafeToICF())
+        continue;
+      dbgs() << "BOLT-DEBUG: skipping function " << BFIter.second.getOneName()
+             << '\n';
+    }
+  });
+  return Error::success();
+}
+
 Error IdenticalCodeFolding::runOnFunctions(BinaryContext &BC) {
   const size_t OriginalFunctionCount = BC.getBinaryFunctions().size();
   uint64_t NumFunctionsFolded = 0;
@@ -385,7 +440,7 @@ Error IdenticalCodeFolding::runOnFunctions(BinaryContext &BC) {
                                            "ICF breakdown", opts::TimeICF);
     for (auto &BFI : BC.getBinaryFunctions()) {
       BinaryFunction &BF = BFI.second;
-      if (!this->shouldOptimize(BF))
+      if (!shouldOptimize(BF))
         continue;
       CongruentBuckets[&BF].emplace(&BF);
     }
@@ -475,7 +530,9 @@ Error IdenticalCodeFolding::runOnFunctions(BinaryContext &BC) {
 
     LLVM_DEBUG(SinglePass.stopTimer());
   };
-
+  if (BC.getICFLevel() == BinaryContext::ICFLevel::Safe)
+    if (Error Err = markFunctionsUnsafeToFold(BC))
+      return Err;
   hashFunctions();
   createCongruentBuckets();
 
