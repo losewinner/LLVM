@@ -32,6 +32,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar/LowerConstantIntrinsics.h"
+#include "llvm/Transforms/Utils/LowerMathIntrinsics.h"
 #include "llvm/Transforms/Utils/LowerMemIntrinsics.h"
 
 using namespace llvm;
@@ -452,6 +453,11 @@ bool PreISelIntrinsicLowering::lowerIntrinsics(Module &M) const {
       break;
     case Intrinsic::objc_sync_exit:
       Changed |= lowerObjCCall(F, "objc_sync_exit");
+      break;
+    case Intrinsic::exp:
+      Changed |= forEachCall(F, [&](CallInst *CI) {
+        return lowerUnaryMathIntrinsicWithScalableVecArgAsLoop(M, CI);
+      });
       break;
     }
   }
