@@ -628,6 +628,8 @@ Improvements to Clang's diagnostics
 
 - Clang now diagnoses dangling references for C++20's parenthesized aggregate initialization (#101957).
 
+- Clang now suggests a fix-it to correct ``template`` in a template-template parameter with a missing ``<`` to ``typename``
+
 Improvements to Clang's time-trace
 ----------------------------------
 
