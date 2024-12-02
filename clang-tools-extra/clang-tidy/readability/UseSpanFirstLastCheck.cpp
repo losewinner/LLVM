@@ -89,23 +89,23 @@ void UseSpanFirstLastCheck::handleSubspanCall(
   std::string Replacement;
   if (Visitor.IsZeroOffset && Count) {
     // subspan(0, count) -> first(count)
-    auto CountStr = Lexer::getSourceText(
+    const StringRef CountStr = Lexer::getSourceText(
         CharSourceRange::getTokenRange(Count->getSourceRange()),
         Context.getSourceManager(), Context.getLangOpts());
     const auto *Base =
         cast<CXXMemberCallExpr>(Call)->getImplicitObjectArgument();
-    auto BaseStr = Lexer::getSourceText(
+    const StringRef BaseStr = Lexer::getSourceText(
         CharSourceRange::getTokenRange(Base->getSourceRange()),
         Context.getSourceManager(), Context.getLangOpts());
     Replacement = BaseStr.str() + ".first(" + CountStr.str() + ")";
   } else if (Visitor.IsSizeMinusN && Visitor.SizeMinusArg) {
     // subspan(size() - n) -> last(n)
-    auto ArgStr = Lexer::getSourceText(
+    const StringRef ArgStr = Lexer::getSourceText(
         CharSourceRange::getTokenRange(Visitor.SizeMinusArg->getSourceRange()),
         Context.getSourceManager(), Context.getLangOpts());
     const auto *Base =
         cast<CXXMemberCallExpr>(Call)->getImplicitObjectArgument();
-    auto BaseStr = Lexer::getSourceText(
+    const StringRef BaseStr = Lexer::getSourceText(
         CharSourceRange::getTokenRange(Base->getSourceRange()),
         Context.getSourceManager(), Context.getLangOpts());
     Replacement = BaseStr.str() + ".last(" + ArgStr.str() + ")";
