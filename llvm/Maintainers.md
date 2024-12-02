@@ -433,17 +433,17 @@ Some subprojects maintain their own list of per-component maintainers.
 
 [Flang maintainers](https://github.com/llvm/llvm-project/blob/main/flang/Maintainers.txt)
 
-[libc++ maintainers](https://github.com/llvm/llvm-project/blob/main/libcxx/Maintainers.rst)
+[libc++ maintainers](https://github.com/llvm/llvm-project/blob/main/libcxx/Maintainers.md)
 
-[libclc maintainers](https://github.com/llvm/llvm-project/blob/main/libclc/Maintainers.rst)
+[libclc maintainers](https://github.com/llvm/llvm-project/blob/main/libclc/Maintainers.md)
 
 [LLD maintainers](https://github.com/llvm/llvm-project/blob/main/lld/CODE_OWNERS.TXT)
 
 [LLDB maintainers](https://github.com/llvm/llvm-project/blob/main/lldb/Maintainers.rst)
 
-[LLVM OpenMP Library maintainers](https://github.com/llvm/llvm-project/blob/main/openmp/Maintainers.rst)
+[LLVM OpenMP Library maintainers](https://github.com/llvm/llvm-project/blob/main/openmp/Maintainers.md)
 
-[Polly maintainers](https://github.com/llvm/llvm-project/blob/main/polly/Maintainers.rst)
+[Polly maintainers](https://github.com/llvm/llvm-project/blob/main/polly/Maintainers.md)
 
 ## Inactive Maintainers
 
