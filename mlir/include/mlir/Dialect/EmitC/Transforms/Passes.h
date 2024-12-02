@@ -21,6 +21,9 @@ namespace emitc {
 /// Creates an instance of the C-style expressions forming pass.
 std::unique_ptr<Pass> createFormExpressionsPass();
 
+/// Enum to specify the language standard target for code generation.
+enum class LanguageTarget { c99, cpp11 };
+
 //===----------------------------------------------------------------------===//
 // Registration
 //===----------------------------------------------------------------------===//
