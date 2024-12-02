@@ -4150,7 +4150,7 @@ public:
 
   bool shouldIgnoreForPipelining(const MachineInstr *MI) const override {
     // Make the instructions for loop control be placed in stage 0.
-    // The predecessors of PredBranch are considered by the caller.
+    // The predecessors of LHS/RHS are considered by the caller.
     if (LHS && MI == LHS)
       return true;
     if (RHS && MI == RHS)
