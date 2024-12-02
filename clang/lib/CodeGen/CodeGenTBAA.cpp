@@ -425,7 +425,7 @@ CodeGenTBAA::CollectFields(uint64_t BaseOffset,
         continue;
       }
 
-      QualType FieldQTy = i->getType();
+      QualType FieldQTy = (*i)->getType();
       if (!CollectFields(Offset, FieldQTy, Fields,
                          MayAlias || TypeHasMayAlias(FieldQTy)))
         return false;
