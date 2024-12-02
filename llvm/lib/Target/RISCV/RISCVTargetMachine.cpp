@@ -129,6 +129,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeRISCVTarget() {
   initializeRISCVPostLegalizerCombinerPass(*PR);
   initializeKCFIPass(*PR);
   initializeRISCVDeadRegisterDefinitionsPass(*PR);
+  initializeRISCVLatePeepholeOptPass(*PR);
   initializeRISCVMakeCompressibleOptPass(*PR);
   initializeRISCVGatherScatterLoweringPass(*PR);
   initializeRISCVCodeGenPreparePass(*PR);
@@ -563,6 +564,7 @@ void RISCVPassConfig::addPreEmitPass() {
       EnableRISCVCopyPropagation)
     addPass(createMachineCopyPropagationPass(true));
   addPass(&BranchRelaxationPassID);
+  addPass(createRISCVLatePeepholeOptPass());
   addPass(createRISCVMakeCompressibleOptPass());
 }
 
