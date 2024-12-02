@@ -40,10 +40,42 @@ TEST(TypesTest, TargetExtType) {
   Type *A = TargetExtType::get(Context, "typea");
   Type *Aparam = TargetExtType::get(Context, "typea", {}, {0, 1});
   Type *Aparam2 = TargetExtType::get(Context, "typea", {}, {0, 1});
+
   // Opaque types with same parameters are identical...
   EXPECT_EQ(Aparam, Aparam2);
   // ... but just having the same name is not enough.
   EXPECT_NE(A, Aparam);
+
+  // ensure struct types in targest extension types
+  // only show the struct name, not the struct body
+  Type *Int32Type = Type::getInt32Ty(Context);
+  Type *FloatType = Type::getFloatTy(Context);
+  std::array<Type *, 2> Elements = {Int32Type, FloatType};
+
+  StructType *Struct = llvm::StructType::create(Context, Elements, "MyStruct",
+                                                /*isPacked=*/false);
+  SmallVector<char, 50> TETV;
+  llvm::raw_svector_ostream TETStream(TETV);
+  Type *TargetExtensionType =
+      TargetExtType::get(Context, "structTET", {Struct}, {0, 1});
+  TargetExtensionType->print(TETStream);
+
+  EXPECT_STREQ(TETStream.str().str().data(),
+               "target(\"structTET\", %MyStruct, 0, 1)");
+
+  // ensure that literal structs in the target extension type print the struct
+  // body
+  StructType *OtherStruct =
+      StructType::get(Context, Struct->elements(), /*isPacked=*/false);
+
+  Type *OtherTargetExtensionType =
+      TargetExtType::get(Context, "structTET", {OtherStruct}, {0, 1});
+  SmallVector<char, 50> OtherTETV;
+  llvm::raw_svector_ostream OtherTETStream(OtherTETV);
+  OtherTargetExtensionType->print(OtherTETStream);
+
+  EXPECT_STREQ(OtherTETStream.str().str().data(),
+               "target(\"structTET\", { i32, float }, 0, 1)");
 }
 
 TEST(TypedPointerType, PrintTest) {
