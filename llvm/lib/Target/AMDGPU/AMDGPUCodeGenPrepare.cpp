@@ -1193,35 +1193,19 @@ int AMDGPUCodeGenPrepareImpl::getDivNumBits(BinaryOperator &I, Value *Num,
                                             Value *Den, unsigned AtLeast,
                                             bool IsSigned) const {
   const DataLayout &DL = Mod->getDataLayout();
-  if (IsSigned) {
-    unsigned LHSSignBits = ComputeNumSignBits(Num, DL, 0, AC, &I);
-    if (LHSSignBits < AtLeast)
-      return -1;
+  unsigned LHSSignBits = ComputeNumSignBits(Num, DL, 0, AC, &I);
+  if (LHSSignBits < AtLeast)
+    return -1;
 
-    unsigned RHSSignBits = ComputeNumSignBits(Den, DL, 0, AC, &I);
-    if (RHSSignBits < AtLeast)
-      return -1;
+  unsigned RHSSignBits = ComputeNumSignBits(Den, DL, 0, AC, &I);
+  if (RHSSignBits < AtLeast)
+    return -1;
 
-    unsigned SignBits = std::min(LHSSignBits, RHSSignBits);
-    unsigned DivBits = Num->getType()->getScalarSizeInBits() - SignBits;
-    return DivBits + 1;
-  } else {
-    KnownBits Known = computeKnownBits(Num, DL, 0, AC, &I);
-    // We know all bits are used for division for Num or Den in range
-    // (SignedMax, UnsignedMax]
-    if (Known.isNegative() || !Known.isNonNegative())
-      return -1;
-    unsigned LHSSignBits = Known.countMinLeadingZeros();
-
-    Known = computeKnownBits(Den, DL, 0, AC, &I);
-    if (Known.isNegative() || !Known.isNonNegative())
-      return -1;
-    unsigned RHSSignBits = Known.countMinLeadingZeros();
-
-    unsigned SignBits = std::min(LHSSignBits, RHSSignBits);
-    unsigned DivBits = Num->getType()->getScalarSizeInBits() - SignBits;
-    return DivBits;
-  }
+  unsigned SignBits = std::min(LHSSignBits, RHSSignBits);
+  unsigned DivBits = Num->getType()->getScalarSizeInBits() - SignBits;
+  if (IsSigned)
+    ++DivBits;
+  return DivBits;
 }
 
 // The fractional part of a float is enough to accurately represent up to
@@ -2319,10 +2303,12 @@ PreservedAnalyses AMDGPUCodeGenPreparePass::run(Function &F,
   SIModeRegisterDefaults Mode(F, *Impl.ST);
   Impl.HasFP32DenormalFlush =
       Mode.FP32Denormals == DenormalMode::getPreserveSign();
+  if (!Impl.run(F))
+    return PreservedAnalyses::all();
   PreservedAnalyses PA = PreservedAnalyses::none();
   if (!Impl.FlowChanged)
     PA.preserveSet<CFGAnalyses>();
-  return Impl.run(F) ? PA : PreservedAnalyses::all();
+  return PA;
 }
 
 INITIALIZE_PASS_BEGIN(AMDGPUCodeGenPrepare, DEBUG_TYPE,
