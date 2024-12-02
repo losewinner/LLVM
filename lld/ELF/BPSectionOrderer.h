@@ -18,7 +18,7 @@
 #include "InputSection.h"
 #include "Relocations.h"
 #include "Symbols.h"
-#include "lld/Common/SectionOrderer.h"
+#include "lld/Common/BPSectionOrdererBase.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
@@ -31,11 +31,11 @@ namespace lld::elf {
 
 class InputSection;
 
-class ELFSymbol : public BPSymbol {
+class BPSymbolELF : public BPSymbol {
   const Symbol *sym;
 
 public:
-  explicit ELFSymbol(const Symbol *s) : sym(s) {}
+  explicit BPSymbolELF(const Symbol *s) : sym(s) {}
 
   llvm::StringRef getName() const override { return sym->getName(); }
 
@@ -66,18 +66,18 @@ public:
   const Symbol *getSymbol() const { return sym; }
 };
 
-class ELFSection : public BPSectionBase {
+class BPSectionELF : public BPSectionBase {
   const InputSectionBase *isec;
-  ELFSymbol *symbol;
-  std::vector<BPSymbol *> symbols;
+  BPSymbolELF *symbol;
+  llvm::SmallVector<BPSymbol *, 0> symbols;
 
 public:
-  explicit ELFSection(const InputSectionBase *sec, ELFSymbol *sym)
+  explicit BPSectionELF(const InputSectionBase *sec, BPSymbolELF *sym)
       : isec(sec), symbol(sym), symbols({sym}) {}
 
   const InputSectionBase *getSection() const { return isec; }
 
-  ELFSymbol *getSymbol() const { return symbol; }
+  BPSymbolELF *getSymbol() const { return symbol; }
   llvm::StringRef getName() const override { return isec->name; }
 
   uint64_t getSize() const override { return isec->getSize(); }
@@ -103,13 +103,13 @@ public:
 
     // Convert BPSectionBase map to InputSection map
     llvm::DenseMap<const InputSectionBase *, uint64_t> elfSectionToIdx;
-    for (const auto &[sec, idx] : sectionToIdx) {
-      if (auto *elfSec = llvm::dyn_cast<ELFSection>(sec))
+    for (const auto &[sec, idx] : sectionToIdx)
+      if (auto *elfSec = llvm::dyn_cast<BPSectionELF>(sec))
         elfSectionToIdx[elfSec->getSection()] = idx;
-    }
 
     // Calculate content hashes
-    for (size_t i = 0; i < isec->content().size(); i++) {
+    size_t size = isec->content().size();
+    for (size_t i = 0; i < size; i++) {
       auto window = isec->content().drop_front(i).take_front(windowSize);
       hashes.push_back(xxHash64(window));
     }

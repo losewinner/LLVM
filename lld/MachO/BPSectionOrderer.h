@@ -17,7 +17,7 @@
 #include "InputSection.h"
 #include "Relocations.h"
 #include "Symbols.h"
-#include "lld/Common/SectionOrderer.h"
+#include "lld/Common/BPSectionOrdererBase.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/TinyPtrVector.h"
@@ -26,11 +26,11 @@ namespace lld::macho {
 
 class InputSection;
 
-class MachoSymbol : public BPSymbol {
+class BPSymbolMacho : public BPSymbol {
   const Symbol *sym;
 
 public:
-  explicit MachoSymbol(const Symbol *s) : sym(s) {}
+  explicit BPSymbolMacho(const Symbol *s) : sym(s) {}
 
   llvm::StringRef getName() const override { return sym->getName(); }
 
@@ -55,12 +55,12 @@ public:
   const Symbol *getSymbol() const { return sym; }
 };
 
-class MachoSection : public BPSectionBase {
+class BPSectionMacho : public BPSectionBase {
   const InputSection *isec;
-  mutable std::vector<std::unique_ptr<MachoSymbol>> symbolCache;
+  mutable std::vector<std::unique_ptr<BPSymbolMacho>> symbolCache;
 
 public:
-  explicit MachoSection(const InputSection *sec) : isec(sec) {}
+  explicit BPSectionMacho(const InputSection *sec) : isec(sec) {}
 
   const InputSection *getSection() const { return isec; }
 
@@ -80,7 +80,7 @@ public:
     // Lazy initialization of symbol cache
     if (symbolCache.empty()) {
       for (const auto *sym : isec->symbols)
-        symbolCache.push_back(std::make_unique<MachoSymbol>(sym));
+        symbolCache.push_back(std::make_unique<BPSymbolMacho>(sym));
     }
     static std::vector<BPSymbol *> result;
     result.clear();
@@ -96,13 +96,13 @@ public:
 
     // Convert BPSectionBase map to InputSection map
     llvm::DenseMap<const InputSection *, uint64_t> machoSectionToIdx;
-    for (const auto &[sec, idx] : sectionToIdx) {
-      if (auto *machoSec = llvm::dyn_cast<MachoSection>(sec))
+    for (const auto &[sec, idx] : sectionToIdx)
+      if (auto *machoSec = llvm::dyn_cast<BPSectionMacho>(sec))
         machoSectionToIdx[machoSec->getInputSection()] = idx;
-    }
 
     // Calculate content hashes
-    for (size_t i = 0; i < isec->data.size(); i++) {
+    size_t dataSize = isec->data.size();
+    for (size_t i = 0; i < dataSize; i++) {
       auto window = isec->data.drop_front(i).take_front(windowSize);
       hashes.push_back(xxHash64(window));
     }

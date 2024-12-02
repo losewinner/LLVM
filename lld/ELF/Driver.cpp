@@ -1282,8 +1282,8 @@ static void readConfigs(Ctx &ctx, opt::InputArgList &args) {
       ctx.arg.functionOrderForCompression = true;
       ctx.arg.dataOrderForCompression = true;
     } else if (compressionSortStr != "none") {
-      ErrAlways(ctx) << "unknown value `" + compressionSortStr + "` for " +
-                            arg->getSpelling();
+      ErrAlways(ctx) << "unknown value '" << compressionSortStr << "' for "
+                     << arg->getSpelling();
     }
     if (ctx.arg.dataOrderForCompression ||
         ctx.arg.functionOrderForCompression) {

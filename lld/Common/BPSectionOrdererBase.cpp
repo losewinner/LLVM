@@ -1,4 +1,5 @@
-//===- SectionOrderer.cpp---------------------------------------*- C++ -*-===//
+//===- BPSectionOrdererBase.cpp---------------------------------------*- C++
+//-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lld/Common/SectionOrderer.h"
+#include "lld/Common/BPSectionOrdererBase.h"
 #include "lld/Common/ErrorHandler.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -100,7 +101,7 @@ static SmallVector<std::pair<unsigned, UtilityNodes>> getUnsForCompression(
 }
 
 llvm::DenseMap<const BPSectionBase *, size_t>
-SectionOrderer::reorderSectionsByBalancedPartitioning(
+BPSectionOrdererBase::reorderSectionsByBalancedPartitioning(
     size_t &highestAvailablePriority, llvm::StringRef profilePath,
     bool forFunctionCompression, bool forDataCompression,
     bool compressionSortStartupFunctions, bool verbose,
@@ -119,10 +120,9 @@ SectionOrderer::reorderSectionsByBalancedPartitioning(
     sectionToIdx.try_emplace(isec, sectionIdx);
     sections.push_back(isec);
 
-    for (auto *sym : isec->getSymbols()) {
+    for (auto *sym : isec->getSymbols())
       if (auto *d = sym->asDefinedSymbol())
         symbolToSectionIdxs[d->getName()].insert(sectionIdx);
-    }
   }
   StringMap<DenseSet<unsigned>> rootSymbolToSectionIdxs;
   for (auto &entry : symbolToSectionIdxs) {

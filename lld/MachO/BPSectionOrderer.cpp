@@ -29,20 +29,20 @@ DenseMap<const InputSection *, size_t> lld::macho::runBalancedPartitioning(
         auto *isec = subsec.isec;
         if (!isec || isec->data.empty() || !isec->data.data())
           continue;
-        sections.push_back(new MachoSection(isec));
+        sections.push_back(new BPSectionMacho(isec));
       }
     }
   }
 
   auto reorderedSections =
-      lld::SectionOrderer::reorderSectionsByBalancedPartitioning(
+      lld::BPSectionOrdererBase::reorderSectionsByBalancedPartitioning(
           highestAvailablePriority, profilePath, forFunctionCompression,
           forDataCompression, compressionSortStartupFunctions, verbose,
           sections);
 
   DenseMap<const InputSection *, size_t> result;
   for (const auto &[BPSectionBase, priority] : reorderedSections) {
-    if (auto *machoSection = dyn_cast<MachoSection>(BPSectionBase)) {
+    if (auto *machoSection = dyn_cast<BPSectionMacho>(BPSectionBase)) {
       result[machoSection->getSection()] = priority;
       delete machoSection;
     }

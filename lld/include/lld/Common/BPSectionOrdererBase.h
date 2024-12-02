@@ -1,4 +1,5 @@
-//===- SectionOrderer.h ---------------------------------------*- C++ -*-===//
+//===- BPSectionOrdererBase.h ---------------------------------------*- C++
+//-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLD_COMMON_SECTION_ORDERER_H
-#define LLD_COMMON_SECTION_ORDERER_H
+#ifndef LLD_COMMON_BP_SECTION_ORDERER_BASE_H
+#define LLD_COMMON_BP_SECTION_ORDERER_BASE_H
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
@@ -59,8 +60,10 @@ public:
                               .str());
   }
 };
-
-class SectionOrderer {
+/// Base class for Balanced Partitioning section ordering, providing common
+/// functionality for both ELF and MachO formats. This shared implementation
+/// reduces code duplication while handling function and data reordering.
+class BPSectionOrdererBase {
 public:
   static llvm::DenseMap<const BPSectionBase *, size_t>
   reorderSectionsByBalancedPartitioning(
