@@ -16,9 +16,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Transforms.h"
 #include "Internals.h"
+#include "Transforms.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/DynamicRecursiveASTVisitor.h"
 #include "clang/AST/ParentMap.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
@@ -31,33 +32,37 @@ using namespace trans;
 
 namespace {
 
-class RetainReleaseDeallocRemover :
-                       public RecursiveASTVisitor<RetainReleaseDeallocRemover> {
+class RetainReleaseDeallocRemover : public BodyTransform {
   Stmt *Body;
-  MigrationPass &Pass;
 
   ExprSet Removables;
   std::unique_ptr<ParentMap> StmtMap;
+  bool TraversingBody = false;
 
   Selector DelegateSel, FinalizeSel;
 
 public:
   RetainReleaseDeallocRemover(MigrationPass &pass)
-    : Body(nullptr), Pass(pass) {
+      : BodyTransform(pass), Body(nullptr) {
     DelegateSel =
         Pass.Ctx.Selectors.getNullarySelector(&Pass.Ctx.Idents.get("delegate"));
     FinalizeSel =
         Pass.Ctx.Selectors.getNullarySelector(&Pass.Ctx.Idents.get("finalize"));
   }
 
-  void transformBody(Stmt *body, Decl *ParentD) {
+  bool TraverseStmt(Stmt *body) override {
+    if (TraversingBody)
+      return BodyTransform::TraverseStmt(body);
+
+    llvm::SaveAndRestore Restore{TraversingBody, true};
     Body = body;
     collectRemovables(body, Removables);
     StmtMap.reset(new ParentMap(body));
-    TraverseStmt(body);
+    BodyTransform::TraverseStmt(body);
+    return true;
   }
 
-  bool VisitObjCMessageExpr(ObjCMessageExpr *E) {
+  bool VisitObjCMessageExpr(ObjCMessageExpr *E) override {
     switch (E->getMethodFamily()) {
     default:
       if (E->isInstanceMessage() && E->getSelector() == FinalizeSel)
@@ -448,12 +453,11 @@ private:
 
     return false;
   }
-
 };
 
 } // anonymous namespace
 
 void trans::removeRetainReleaseDeallocFinalize(MigrationPass &pass) {
-  BodyTransform<RetainReleaseDeallocRemover> trans(pass);
+  RetainReleaseDeallocRemover trans(pass);
   trans.TraverseDecl(pass.Ctx.getTranslationUnitDecl());
 }
