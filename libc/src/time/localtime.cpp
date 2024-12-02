@@ -1,4 +1,4 @@
-//===-- Implementation of ctime function ----------------------------------===//
+//===-- Implementation of localtime function ------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,24 +6,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ctime.h"
+#include "localtime.h"
 #include "src/__support/CPP/limits.h"
 #include "src/__support/common.h"
 #include "src/__support/macros/config.h"
 #include "time_utils.h"
-#include "timezone.h"
 
 namespace LIBC_NAMESPACE_DECL {
 
 using LIBC_NAMESPACE::time_utils::TimeConstants;
 
-LLVM_LIBC_FUNCTION(char *, ctime, (const time_t *t_ptr)) {
-  if (t_ptr == nullptr || *t_ptr > cpp::numeric_limits<int32_t>::max()) {
+LLVM_LIBC_FUNCTION(struct tm *, localtime, (const time_t *t_ptr)) {
+  if (t_ptr == nullptr) {
     return nullptr;
   }
-  static char buffer[TimeConstants::ASCTIME_BUFFER_SIZE];
-  return time_utils::asctime(time_utils::localtime(t_ptr), buffer,
-                             TimeConstants::ASCTIME_MAX_BYTES);
+
+  return time_utils::localtime(t_ptr);
 }
 
 } // namespace LIBC_NAMESPACE_DECL
