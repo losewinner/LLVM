@@ -136,7 +136,8 @@ define i32 @volatile() {
 ; CHECK-NEXT:    store volatile i32 1, ptr [[B]], align 4
 ; CHECK-NEXT:    call void @callee(ptr [[A]])
 ; CHECK-NEXT:    [[L1:%.*]] = load volatile i32, ptr [[A]], align 4
-; CHECK-NEXT:    [[R:%.*]] = add i32 [[L1]], 1
+; CHECK-NEXT:    [[L2:%.*]] = load i32, ptr [[B]], align 4
+; CHECK-NEXT:    [[R:%.*]] = add i32 [[L1]], [[L2]]
 ; CHECK-NEXT:    ret i32 [[R]]
 ;
   %a = alloca {i32, i32}
