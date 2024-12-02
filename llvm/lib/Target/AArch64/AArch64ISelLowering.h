@@ -983,6 +983,8 @@ public:
   bool
   shouldExpandPartialReductionIntrinsic(const IntrinsicInst *I) const override;
 
+  bool isPartialReductionInputSigned(SDValue &Input) const override;
+
   bool shouldExpandCttzElements(EVT VT) const override;
 
   bool shouldExpandVectorMatch(EVT VT, unsigned SearchSize) const override;
