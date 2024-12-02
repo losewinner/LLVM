@@ -75,6 +75,8 @@ static bool isSupportedAArch64(uint64_t Type) {
   case ELF::R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
   case ELF::R_AARCH64_TLSLE_ADD_TPREL_HI12:
   case ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12_NC:
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0:
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0_NC:
   case ELF::R_AARCH64_LD64_GOT_LO12_NC:
   case ELF::R_AARCH64_TLSDESC_LD64_LO12:
   case ELF::R_AARCH64_TLSDESC_ADD_LO12:
@@ -183,6 +185,8 @@ static size_t getSizeForTypeAArch64(uint64_t Type) {
   case ELF::R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
   case ELF::R_AARCH64_TLSLE_ADD_TPREL_HI12:
   case ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12_NC:
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0:
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0_NC:
   case ELF::R_AARCH64_LD64_GOT_LO12_NC:
   case ELF::R_AARCH64_TLSDESC_LD64_LO12:
   case ELF::R_AARCH64_TLSDESC_ADD_LO12:
@@ -480,6 +484,12 @@ static uint64_t extractValueAArch64(uint64_t Type, uint64_t Contents,
     Contents &= ~0xffffffffffc003ffU;
     return Contents >> (10 - 0);
   }
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0:
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0_NC: {
+    // 16 bits immediate goes in [20:5] bits
+    Contents &= ~0xffffffffffe0001fU;
+    return Contents >> 5;
+  }
   case ELF::R_AARCH64_LDST128_ABS_LO12_NC: {
     // Immediate goes in bits 21:10 of ADD instruction, taken
     // from bits 11:4 of Symbol address
@@ -651,6 +661,8 @@ static bool isTLSAArch64(uint64_t Type) {
   case ELF::R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
   case ELF::R_AARCH64_TLSLE_ADD_TPREL_HI12:
   case ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12_NC:
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0:
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0_NC:
   case ELF::R_AARCH64_TLSDESC_LD64_LO12:
   case ELF::R_AARCH64_TLSDESC_ADD_LO12:
   case ELF::R_AARCH64_TLSDESC_CALL:
@@ -716,6 +728,8 @@ static bool isPCRelativeAArch64(uint64_t Type) {
   case ELF::R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
   case ELF::R_AARCH64_TLSLE_ADD_TPREL_HI12:
   case ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12_NC:
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0:
+  case ELF::R_AARCH64_TLSLE_MOVW_TPREL_G0_NC:
   case ELF::R_AARCH64_LD64_GOT_LO12_NC:
   case ELF::R_AARCH64_TLSDESC_LD64_LO12:
   case ELF::R_AARCH64_TLSDESC_ADD_LO12:
