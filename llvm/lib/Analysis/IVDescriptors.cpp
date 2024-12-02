@@ -415,12 +415,9 @@ bool RecurrenceDescriptor::AddReductionVar(
     if (IsAPhi && Cur != Phi && !areAllUsesIn(Cur, VisitedInsts))
       return false;
 
-    if ((isIntMinMaxRecurrenceKind(Kind) || Kind == RecurKind::IAnyOf) &&
-        (isa<ICmpInst>(Cur) || isa<SelectInst>(Cur)))
-      ++NumCmpSelectPatternInst;
-    if ((isFPMinMaxRecurrenceKind(Kind) || Kind == RecurKind::FAnyOf) &&
-        (isa<FCmpInst>(Cur) || isa<SelectInst>(Cur)))
-      ++NumCmpSelectPatternInst;
+    if (isIntMinMaxRecurrenceKind(Kind) || isAnyOfRecurrenceKind(Kind))
+      if (match(Cur, m_Select(m_Cmp(), m_Value(), m_Value())))
+        ++NumCmpSelectPatternInst;
 
     // Check  whether we found a reduction operator.
     FoundReduxOp |= !IsAPhi && Cur != Start;
@@ -500,7 +497,7 @@ bool RecurrenceDescriptor::AddReductionVar(
   // This means we have seen one but not the other instruction of the
   // pattern or more than just a select and cmp. Zero implies that we saw a
   // llvm.min/max intrinsic, which is always OK.
-  if (isMinMaxRecurrenceKind(Kind) && NumCmpSelectPatternInst != 2 &&
+  if (isMinMaxRecurrenceKind(Kind) && NumCmpSelectPatternInst != 1 &&
       NumCmpSelectPatternInst != 0)
     return false;
 
@@ -889,8 +886,8 @@ bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
   }
   if (AddReductionVar(Phi, RecurKind::IAnyOf, TheLoop, FMF, RedDes, DB, AC, DT,
                       SE)) {
-    LLVM_DEBUG(dbgs() << "Found an integer conditional select reduction PHI."
-                      << *Phi << "\n");
+    LLVM_DEBUG(dbgs() << "Found an conditional select reduction PHI." << *Phi
+                      << "\n");
     return true;
   }
   if (AddReductionVar(Phi, RecurKind::FMul, TheLoop, FMF, RedDes, DB, AC, DT,
@@ -911,12 +908,6 @@ bool RecurrenceDescriptor::isReductionPHI(PHINode *Phi, Loop *TheLoop,
   if (AddReductionVar(Phi, RecurKind::FMin, TheLoop, FMF, RedDes, DB, AC, DT,
                       SE)) {
     LLVM_DEBUG(dbgs() << "Found a float MIN reduction PHI." << *Phi << "\n");
-    return true;
-  }
-  if (AddReductionVar(Phi, RecurKind::FAnyOf, TheLoop, FMF, RedDes, DB, AC, DT,
-                      SE)) {
-    LLVM_DEBUG(dbgs() << "Found a float conditional select reduction PHI."
-                      << " PHI." << *Phi << "\n");
     return true;
   }
   if (AddReductionVar(Phi, RecurKind::FMulAdd, TheLoop, FMF, RedDes, DB, AC, DT,
