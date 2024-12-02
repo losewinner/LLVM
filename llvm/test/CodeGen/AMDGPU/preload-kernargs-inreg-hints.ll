@@ -95,7 +95,7 @@ define amdgpu_kernel void @test_preload_hint_kernel_18(i32 %0, i64 %1, <2 x floa
 ; PRELOAD-16-NEXT:    ret void
 ;
 ; PRELOAD-20-LABEL: define {{[^@]+}}@test_preload_hint_kernel_18
-; PRELOAD-20-SAME: (i32 inreg [[TMP0:%.*]], i64 inreg [[TMP1:%.*]], <2 x float> inreg [[TMP2:%.*]], ptr inreg [[TMP3:%.*]], i32 inreg [[TMP4:%.*]], i32 inreg [[TMP5:%.*]], i32 inreg [[TMP6:%.*]], i32 inreg [[TMP7:%.*]], i32 inreg [[TMP8:%.*]], i32 inreg [[TMP9:%.*]], i32 inreg [[TMP10:%.*]], i32 inreg [[TMP11:%.*]], i32 inreg [[TMP12:%.*]], i32 inreg [[TMP13:%.*]], i32 inreg [[TMP14:%.*]], i32 inreg [[TMP15:%.*]], i32 [[TMP16:%.*]], i32 [[TMP17:%.*]]) #[[ATTR0]] {
+; PRELOAD-20-SAME: (i32 inreg [[TMP0:%.*]], i64 inreg [[TMP1:%.*]], <2 x float> inreg [[TMP2:%.*]], ptr inreg [[TMP3:%.*]], i32 inreg [[TMP4:%.*]], i32 inreg [[TMP5:%.*]], i32 inreg [[TMP6:%.*]], i32 inreg [[TMP7:%.*]], i32 inreg [[TMP8:%.*]], i32 inreg [[TMP9:%.*]], i32 inreg [[TMP10:%.*]], i32 inreg [[TMP11:%.*]], i32 inreg [[TMP12:%.*]], i32 inreg [[TMP13:%.*]], i32 inreg [[TMP14:%.*]], i32 inreg [[TMP15:%.*]], i32 inreg [[TMP16:%.*]], i32 inreg [[TMP17:%.*]]) #[[ATTR0]] {
 ; PRELOAD-20-NEXT:    ret void
 ;
   ret void
@@ -252,6 +252,57 @@ define amdgpu_kernel void @test_preload_hint_kernel_incompatible_attributes(ptr 
 ;
 ; PRELOAD-20-LABEL: define {{[^@]+}}@test_preload_hint_kernel_incompatible_attributes
 ; PRELOAD-20-SAME: (ptr addrspace(4) byref(i32) [[TMP0:%.*]], ptr nest [[TMP1:%.*]]) #[[ATTR4:[0-9]+]] {
+; PRELOAD-20-NEXT:    ret void
+;
+  ret void
+}
+
+define amdgpu_kernel void @test_preload_hint_kernel_array(i32 %0, [2 x i32] %1, i32 %2) {
+; NO-PRELOAD-LABEL: define {{[^@]+}}@test_preload_hint_kernel_array
+; NO-PRELOAD-SAME: (i32 [[TMP0:%.*]], [2 x i32] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
+; NO-PRELOAD-NEXT:    ret void
+;
+; PRELOAD-1-LABEL: define {{[^@]+}}@test_preload_hint_kernel_array
+; PRELOAD-1-SAME: (i32 inreg [[TMP0:%.*]], [2 x i32] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
+; PRELOAD-1-NEXT:    ret void
+;
+; PRELOAD-3-LABEL: define {{[^@]+}}@test_preload_hint_kernel_array
+; PRELOAD-3-SAME: (i32 inreg [[TMP0:%.*]], [2 x i32] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
+; PRELOAD-3-NEXT:    ret void
+;
+; PRELOAD-16-LABEL: define {{[^@]+}}@test_preload_hint_kernel_array
+; PRELOAD-16-SAME: (i32 inreg [[TMP0:%.*]], [2 x i32] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
+; PRELOAD-16-NEXT:    ret void
+;
+; PRELOAD-20-LABEL: define {{[^@]+}}@test_preload_hint_kernel_array
+; PRELOAD-20-SAME: (i32 inreg [[TMP0:%.*]], [2 x i32] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
+; PRELOAD-20-NEXT:    ret void
+;
+  ret void
+}
+
+%struct.A = type { [2 x i32] }
+%struct.B = type { i32, %struct.A*, i64 }
+
+define amdgpu_kernel void @test_preload_hint_kernel_struct(i32 %0, %struct.B %1, i32 %2) {
+; NO-PRELOAD-LABEL: define {{[^@]+}}@test_preload_hint_kernel_struct
+; NO-PRELOAD-SAME: (i32 [[TMP0:%.*]], [[STRUCT_B:%.*]] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
+; NO-PRELOAD-NEXT:    ret void
+;
+; PRELOAD-1-LABEL: define {{[^@]+}}@test_preload_hint_kernel_struct
+; PRELOAD-1-SAME: (i32 inreg [[TMP0:%.*]], [[STRUCT_B:%.*]] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
+; PRELOAD-1-NEXT:    ret void
+;
+; PRELOAD-3-LABEL: define {{[^@]+}}@test_preload_hint_kernel_struct
+; PRELOAD-3-SAME: (i32 inreg [[TMP0:%.*]], [[STRUCT_B:%.*]] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
+; PRELOAD-3-NEXT:    ret void
+;
+; PRELOAD-16-LABEL: define {{[^@]+}}@test_preload_hint_kernel_struct
+; PRELOAD-16-SAME: (i32 inreg [[TMP0:%.*]], [[STRUCT_B:%.*]] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
+; PRELOAD-16-NEXT:    ret void
+;
+; PRELOAD-20-LABEL: define {{[^@]+}}@test_preload_hint_kernel_struct
+; PRELOAD-20-SAME: (i32 inreg [[TMP0:%.*]], [[STRUCT_B:%.*]] [[TMP1:%.*]], i32 [[TMP2:%.*]]) #[[ATTR4]] {
 ; PRELOAD-20-NEXT:    ret void
 ;
   ret void
