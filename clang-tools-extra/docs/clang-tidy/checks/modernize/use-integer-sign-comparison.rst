@@ -7,7 +7,7 @@ Replace comparisons between signed and unsigned integers with their safe
 C++20 ``std::cmp_*`` alternative, if available.
 
 The check provides a replacement only for C++20 or later, otherwise
-it highlights the problem and expects a user fixes it manually.
+it highlights the problem and expects the user to fix it manually.
 
 Examples of fixes created by the check:
 
@@ -24,7 +24,7 @@ becomes
   #include <utility>
 
   uint func(int a, uint b) {
-    return (std::cmp_equal(a, b));
+    return std::cmp_equal(a, b);
   }
 
 Options

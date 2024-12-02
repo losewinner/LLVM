@@ -16,12 +16,15 @@ using namespace clang::ast_matchers::internal;
 
 namespace clang::tidy::modernize {
 static BindableMatcher<clang::Stmt>
-intCastExpression(bool IsSigned, const std::string &CastBindName) {
+intCastExpression(bool IsSigned,
+                  const std::string &CastBindName = std::string()) {
   auto IntTypeExpr = expr(hasType(hasCanonicalType(qualType(
       isInteger(), IsSigned ? isSignedInteger() : unless(isSignedInteger())))));
 
   const auto ImplicitCastExpr =
-      implicitCastExpr(hasSourceExpression(IntTypeExpr)).bind(CastBindName);
+      CastBindName.empty() ? implicitCastExpr(hasSourceExpression(IntTypeExpr))
+                           : implicitCastExpr(hasSourceExpression(IntTypeExpr))
+                                 .bind(CastBindName);
 
   const auto CStyleCastExpr = cStyleCastExpr(has(ImplicitCastExpr));
   const auto StaticCastExpr = cxxStaticCastExpr(has(ImplicitCastExpr));
@@ -64,8 +67,7 @@ void UseIntegerSignComparisonCheck::storeOptions(
 
 void UseIntegerSignComparisonCheck::registerMatchers(MatchFinder *Finder) {
   const auto SignedIntCastExpr = intCastExpression(true, "sIntCastExpression");
-  const auto UnSignedIntCastExpr =
-      intCastExpression(false, "uIntCastExpression");
+  const auto UnSignedIntCastExpr = intCastExpression(false);
 
   // Flag all operators "==", "<=", ">=", "<", ">", "!="
   // that are used between signed/unsigned
@@ -87,10 +89,7 @@ void UseIntegerSignComparisonCheck::check(
     const MatchFinder::MatchResult &Result) {
   const auto *SignedCastExpression =
       Result.Nodes.getNodeAs<ImplicitCastExpr>("sIntCastExpression");
-  const auto *UnSignedCastExpression =
-      Result.Nodes.getNodeAs<ImplicitCastExpr>("uIntCastExpression");
   assert(SignedCastExpression);
-  assert(UnSignedCastExpression);
 
   // Ignore the match if we know that the signed int value is not negative.
   Expr::EvalResult EVResult;
