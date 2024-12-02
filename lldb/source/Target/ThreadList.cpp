@@ -508,7 +508,7 @@ void ThreadList::DiscardThreadPlans() {
     (*pos)->DiscardThreadPlans(true);
 }
 
-bool ThreadList::WillResume() {
+bool ThreadList::WillResume(RunDirection *direction) {
   // Run through the threads and perform their momentary actions. But we only
   // do this for threads that are running, user suspended threads stay where
   // they are.
@@ -528,10 +528,11 @@ bool ThreadList::WillResume() {
   bool wants_solo_run = false;
 
   for (pos = m_threads.begin(); pos != end; ++pos) {
-    lldbassert((*pos)->GetCurrentPlan() &&
-               "thread should not have null thread plan");
-    if ((*pos)->GetResumeState() != eStateSuspended &&
-        (*pos)->GetCurrentPlan()->StopOthers()) {
+    ThreadPlan *current_plan = (*pos)->GetCurrentPlan();
+    lldbassert(current_plan && "thread should not have null thread plan");
+    if ((*pos)->GetResumeState() == eStateSuspended)
+      continue;
+    if (current_plan->StopOthers()) {
       if ((*pos)->IsOperatingSystemPluginThread() &&
           !(*pos)->GetBackingThread())
         continue;
@@ -552,21 +553,6 @@ bool ThreadList::WillResume() {
       LLDB_LOGF(log, "Turning off notification of new threads while single "
                      "stepping a thread.");
     m_process.StopNoticingNewThreads();
-  }
-
-  // Give all the threads that are likely to run a last chance to set up their
-  // state before we negotiate who is actually going to get a chance to run...
-  // Don't set to resume suspended threads, and if any thread wanted to stop
-  // others, only call setup on the threads that request StopOthers...
-
-  for (pos = m_threads.begin(); pos != end; ++pos) {
-    if ((*pos)->GetResumeState() != eStateSuspended &&
-        (!wants_solo_run || (*pos)->GetCurrentPlan()->StopOthers())) {
-      if ((*pos)->IsOperatingSystemPluginThread() &&
-          !(*pos)->GetBackingThread())
-        continue;
-      (*pos)->SetupForResume();
-    }
   }
 
   // Now go through the threads and see if any thread wants to run just itself.
@@ -608,18 +594,48 @@ bool ThreadList::WillResume() {
   }
 
   bool need_to_resume = true;
+  Log *log(GetLog(LLDBLog::Process | LLDBLog::Step));
 
   if (run_me_only_list.GetSize(false) == 0) {
+    *direction = m_process.GetBaseDirection();
+    // We've determined the direction so now we can determine which
+    // threads need to step over breakpoints.
+    for (pos = m_threads.begin(); pos != end; ++pos) {
+      if ((*pos)->GetResumeState() != eStateSuspended &&
+          (!wants_solo_run || (*pos)->GetCurrentPlan()->StopOthers())) {
+        if ((*pos)->IsOperatingSystemPluginThread() &&
+            !(*pos)->GetBackingThread())
+          continue;
+        if ((*pos)->StepOverBreakpointIfNeeded(*direction)) {
+          run_me_only_list.AddThread(*pos);
+          break;
+        }
+      }
+    }
+  } // else we'll set *direction to the direction of the chosen thread later
+  if (run_me_only_list.GetSize(false) == 0) {
+    // *direction has been set to m_process.GetBaseDirection().
     // Everybody runs as they wish:
     for (pos = m_threads.begin(); pos != end; ++pos) {
       ThreadSP thread_sp(*pos);
       StateType run_state;
-      if (thread_sp->GetResumeState() != eStateSuspended)
+      if (thread_sp->GetResumeState() != eStateSuspended) {
         run_state = thread_sp->GetCurrentPlan()->RunState();
-      else
+      } else {
         run_state = eStateSuspended;
+      }
       if (!thread_sp->ShouldResume(run_state))
         need_to_resume = false;
+    }
+    if (need_to_resume) {
+      for (pos = m_threads.begin(); pos != end; ++pos) {
+        ThreadSP thread_sp(*pos);
+        while (thread_sp->GetCurrentPlan()->GetDirection() != *direction) {
+          // This can't pop the base plan because its direction is
+          // m_process.GetBaseDirection() i.e. *direction.
+          thread_sp->PopPlan();
+        }
+      }
     }
   } else {
     ThreadSP thread_to_run;
@@ -646,6 +662,8 @@ bool ThreadList::WillResume() {
       } else
         thread_sp->ShouldResume(eStateSuspended);
     }
+    *direction = thread_to_run->GetCurrentPlan()->GetDirection();
+    thread_to_run->StepOverBreakpointIfNeeded(*direction);
   }
 
   return need_to_resume;

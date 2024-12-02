@@ -652,7 +652,7 @@ class MatchRemoteOutputEntry(GdbRemoteEntryBase):
         if not accumulated_output:
             raise Exception("accumulated_output cannot be none")
         if not context:
-            raise Exception("context cannot be none")
+            raise Exception("context cannot be nvalione")
 
         # Validate that we haven't already matched.
         if self._matched:
@@ -856,13 +856,14 @@ class Server(object):
     class ChecksumMismatch(Exception):
         pass
 
-    def __init__(self, sock, proc=None):
+    def __init__(self, sock, proc=None, validate_checksums=True):
         self._accumulated_output = b""
         self._receive_buffer = b""
         self._normal_queue = []
         self._output_queue = []
         self._sock = sock
         self._proc = proc
+        self._validate_checksums = validate_checksums
 
     def send_raw(self, frame):
         self._sock.sendall(frame)
@@ -931,12 +932,12 @@ class Server(object):
     def get_raw_normal_packet(self):
         return self._read(self._normal_queue)
 
-    @staticmethod
-    def _get_payload(frame):
+    def _get_payload(self, frame):
         payload = frame[1:-3]
-        checksum = int(frame[-2:], 16)
-        if checksum != Server._checksum(payload):
-            raise ChecksumMismatch
+        if self._validate_checksums:
+            checksum = int(frame[-2:], 16)
+            if checksum != Server._checksum(payload):
+                raise ChecksumMismatch
         return payload
 
     def get_normal_packet(self):

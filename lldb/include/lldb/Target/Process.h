@@ -1104,9 +1104,15 @@ public:
   /// \see Thread:Resume()
   /// \see Thread:Step()
   /// \see Thread:Suspend()
-  virtual Status DoResume() {
-    return Status::FromErrorStringWithFormatv(
-        "error: {0} does not support resuming processes", GetPluginName());
+  virtual Status DoResume(lldb::RunDirection direction) {
+    if (direction == lldb::RunDirection::eRunForward) {
+      return Status::FromErrorStringWithFormatv(
+          "error: {0} does not support resuming processes", GetPluginName());
+    } else {
+      return Status::FromErrorStringWithFormatv(
+          "error: {0} does not support reverse execution of processes",
+          GetPluginName());
+    }
   }
 
   /// Called after resuming a process.
@@ -2676,6 +2682,9 @@ void PruneThreadPlans();
                             const AddressRange &range, size_t alignment,
                             Status &error);
 
+  lldb::RunDirection GetBaseDirection() const { return m_base_direction; }
+  void SetRunDirection(lldb::RunDirection direction);
+
 protected:
   friend class Trace;
 
@@ -3075,6 +3084,7 @@ protected:
   ThreadList
       m_extended_thread_list; ///< Constituent for extended threads that may be
                               /// generated, cleared on natural stops
+  lldb::RunDirection m_base_direction; ///< ThreadPlanBase run direction
   uint32_t m_extended_thread_stop_id; ///< The natural stop id when
                                       ///extended_thread_list was last updated
   QueueList
