@@ -56,7 +56,7 @@ private:
 #ifdef _LIBCPP_DEBUG_RANDOMIZE_UNSPECIFIED_STABILITY_SEED
     return _LIBCPP_DEBUG_RANDOMIZE_UNSPECIFIED_STABILITY_SEED;
 #else
-    static char __x;
+    static const char __x = '\0';
     return reinterpret_cast<uintptr_t>(&__x);
 #endif
   }
