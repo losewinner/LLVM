@@ -279,17 +279,16 @@ public:
     // sizeof(Block) then aligning up. The amount advanced is the amount of
     // additional inner size required.
     //
-    // The minimum advancment is sizeof(Block), since the resulting position
-    // may happen to be aligned. What is the maximum? Advancing by
-    // sizeof(Block) leaves the result still aligned to max_align_t. So the
-    // most additional advancement required would be if the point is exactly
-    // alignof(max_align_t) past alignment. The remaining size to the next
-    // alignment would then be alignment - alignof(max_align_t). So the total
-    // maximum advancement required is sizeof(Block) + alignment -
-    // alignof(max_align_t).
+    // The minimum advancment is sizeof(Block), since the resulting position may
+    // happen to be aligned. What is the maximum? Advancing by sizeof(Block)
+    // leaves the result still aligned to alignof(Block). So the most additional
+    // advancement required would be if the point is exactly alignof(Block) past
+    // alignment. The remaining size to the next alignment would then be
+    // alignment - alignof(Block). So the total maximum advancement required is
+    // sizeof(Block) + alignment - alignof(Block).
     if (add_overflow(size, sizeof(Block), size))
       return 0;
-    if (add_overflow(size, alignment - alignof(max_align_t), size))
+    if (add_overflow(size, alignment - alignof(Block), size))
       return 0;
     return size;
   }
