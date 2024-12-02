@@ -443,6 +443,10 @@ Modified Compiler Flags
   ``memset`` and similar functions for which it is a documented undefined
   behavior. It is implied by ``-Wnontrivial-memaccess``
 
+- Added ``-fmodules-reduced-bmi`` flags corresponding to
+  ``-fexperimental-modules-reduced-bmi`` flag and emit warning for not emitting
+  reduced BMI.
+
 Removed Compiler Flags
 -------------------------
 
