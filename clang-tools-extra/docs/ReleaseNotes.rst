@@ -142,12 +142,14 @@ New checks
   Finds cases when an uninstantiated virtual member function in a template class 
   causes cross-compiler incompatibility.
 
+- New :doc:`readability-use-span-first-last
+  <clang-tidy/checks/readability/readability-use-span-first-last>` check.
+
+  Suggests using ``std::span::first()`` and ``std::span::last()`` member functions instead of
+  equivalent ``subspan()``.
+
 New check aliases
 ^^^^^^^^^^^^^^^^^
-
-- New check `readability-use-span-first-last` has been added that suggests using
-  ``std::span::first()`` and ``std::span::last()`` member functions instead of
-  equivalent ``subspan()``.
 
 - New alias :doc:`cert-arr39-c <clang-tidy/checks/cert/arr39-c>` to
   :doc:`bugprone-sizeof-expression

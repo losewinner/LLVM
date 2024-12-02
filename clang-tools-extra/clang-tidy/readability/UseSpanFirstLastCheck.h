@@ -13,8 +13,8 @@
 
 namespace clang::tidy::readability {
 
-/// Suggests using clearer std::span member functions first()/last() instead of
-/// equivalent subspan() calls where applicable.
+/// Suggests using clearer 'std::span' member functions 'first()'/'last()'
+/// instead of equivalent 'subspan()' calls where applicable.
 ///
 /// For example:
 /// \code
@@ -33,9 +33,9 @@ public:
 
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
-  bool isLanguageVersionSupported(const LangOptions &LangOpts) const override { 
-	   return LangOpts.CPlusPlus20; 
-	}
+  bool isLanguageVersionSupported(const LangOptions &LangOpts) const override {
+    return LangOpts.CPlusPlus20;
+  }
 
 private:
   void handleSubspanCall(const ast_matchers::MatchFinder::MatchResult &Result,

@@ -48,4 +48,24 @@ void test() {
 
   auto sub4 = s.subspan(1, 2);  // No warning
   auto sub5 = s.subspan(2);     // No warning
+
+
+#define ZERO 0
+#define TWO 2
+#define SIZE_MINUS(s, n) s.size() - n
+#define MAKE_SUBSPAN(obj, n) obj.subspan(0, n)
+#define MAKE_LAST_N(obj, n) obj.subspan(obj.size() - n)
+
+  auto sub6 = s.subspan(SIZE_MINUS(s, 2));
+  // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: prefer 'span::last()' over 'subspan()'
+  // CHECK-FIXES: auto sub6 = s.last(2);
+
+  auto sub7 = MAKE_SUBSPAN(s, 3);
+  // CHECK-MESSAGES: :[[@LINE-1]]:28: warning: prefer 'span::first()' over 'subspan()'
+  // CHECK-FIXES: auto sub7 = s.first(3);
+
+  auto sub8 = MAKE_LAST_N(s, 2);
+  // CHECK-MESSAGES: :[[@LINE-1]]:27: warning: prefer 'span::last()' over 'subspan()'
+  // CHECK-FIXES: auto sub8 = s.last(2);
+
 }
