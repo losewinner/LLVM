@@ -47,8 +47,10 @@ protected:
 
   void initializeBOLT() {
     Relocation::Arch = ObjFile->makeTriple().getArch();
+    std::shared_ptr<orc::SymbolStringPool> ssp =
+        std::make_shared<orc::SymbolStringPool>();
     BC = cantFail(BinaryContext::createBinaryContext(
-        ObjFile->makeTriple(), ObjFile->getFileName(), nullptr, true,
+        ObjFile->makeTriple(), ssp, ObjFile->getFileName(), nullptr, true,
         DWARFContext::create(*ObjFile.get()), {llvm::outs(), llvm::errs()}));
     ASSERT_FALSE(!BC);
   }
