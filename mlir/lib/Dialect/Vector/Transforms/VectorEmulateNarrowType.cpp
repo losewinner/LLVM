@@ -46,6 +46,9 @@ using namespace mlir;
 #define DBGSNL() (llvm::dbgs() << "\n")
 #define LDBG(X) LLVM_DEBUG(DBGS() << X << "\n")
 
+using VectorValue = TypedValue<VectorType>;
+using MemRefValue = TypedValue<MemRefType>;
+
 /// Returns a compressed mask for the emulated vector. For example, when
 /// emulating an eight-element `i8` vector with `i32` (i.e. when the source
 /// elements span two dest elements), this method compresses `vector<8xi1>`
@@ -255,8 +258,8 @@ static Value staticallyInsertSubvector(OpBuilder &rewriter, Location loc,
 /// function emits multiple `vector.extract` and `vector.insert` ops, so only
 /// use it when `offset` cannot be folded into a constant value.
 static Value dynamicallyExtractSubVector(OpBuilder &rewriter, Location loc,
-                                         TypedValue<VectorType> source,
-                                         Value dest, OpFoldResult offset,
+                                         VectorValue source, Value dest,
+                                         OpFoldResult offset,
                                          int64_t numElementsToExtract) {
   for (int i = 0; i < numElementsToExtract; ++i) {
     Value extractLoc =
@@ -273,8 +276,8 @@ static Value dynamicallyExtractSubVector(OpBuilder &rewriter, Location loc,
 
 /// Inserts a 1-D subvector into a 1-D `dest` vector at index `destOffsetVar`.
 static Value dynamicallyInsertSubVector(RewriterBase &rewriter, Location loc,
-                                        TypedValue<VectorType> source,
-                                        Value dest, OpFoldResult destOffsetVar,
+                                        VectorValue source, Value dest,
+                                        OpFoldResult destOffsetVar,
                                         size_t length) {
   assert(length > 0 && "length must be greater than 0");
   Value destOffsetVal =
@@ -295,11 +298,12 @@ static Value dynamicallyInsertSubVector(RewriterBase &rewriter, Location loc,
 /// specifically, use `emulatedElemType` for loading a vector of `origElemType`.
 /// The load location is given by `base` and `linearizedIndices`, and the
 /// load size is given by `numEmulatedElementsToLoad`.
-static TypedValue<VectorType>
-emulatedVectorLoad(OpBuilder &rewriter, Location loc, Value base,
-                   OpFoldResult linearizedIndices,
-                   int64_t numEmultedElementsToLoad, Type origElemType,
-                   Type emulatedElemType) {
+static VectorValue emulatedVectorLoad(OpBuilder &rewriter, Location loc,
+                                      Value base,
+                                      OpFoldResult linearizedIndices,
+                                      int64_t numEmultedElementsToLoad,
+                                      Type origElemType,
+                                      Type emulatedElemType) {
   auto scale = emulatedElemType.getIntOrFloatBitWidth() /
                origElemType.getIntOrFloatBitWidth();
   auto newLoad = rewriter.create<vector::LoadOp>(
@@ -312,9 +316,9 @@ emulatedVectorLoad(OpBuilder &rewriter, Location loc, Value base,
 
 /// Atomically store a subbyte-sized value to memory, with a mask.
 static void atomicStore(OpBuilder &builder, Location loc,
-                        TypedValue<MemRefType> emulatedMemref,
-                        Value linearizedIndex, TypedValue<VectorType> value,
-                        Value mask, int64_t) {
+                        MemRefValue emulatedMemref, Value linearizedIndex,
+                        VectorValue value, Value mask,
+                        int64_t numSrcElemsPerDest) {
   auto atomicOp = builder.create<memref::GenericAtomicRMWOp>(
       loc, emulatedMemref, ValueRange{linearizedIndex});
   Value origValue = atomicOp.getCurrentValue();
@@ -338,9 +342,9 @@ static void atomicStore(OpBuilder &builder, Location loc,
 
 /// Generate a non-atomic read-modify-write sequence for subbyte storing.
 static void rmwStore(OpBuilder &rewriter, Location loc,
-                     TypedValue<MemRefType> emulatedMemref,
-                     Value linearizedIndex, TypedValue<VectorType> value,
-                     Value mask, int64_t numSrcElemsPerDest) {
+                     MemRefValue emulatedMemref, Value linearizedIndex,
+                     VectorValue value, Value mask,
+                     int64_t numSrcElemsPerDest) {
   auto emulatedIOType =
       VectorType::get({1}, emulatedMemref.getType().getElementType());
   auto elemLoad = rewriter.create<vector::LoadOp>(
@@ -363,7 +367,7 @@ static_assert(std::is_same_v<decltype(atomicStore), decltype(rmwStore)> &&
 
 // Extract a slice of a vector, and insert it into a byte vector.
 static Value extractSliceIntoByte(ConversionPatternRewriter &rewriter,
-                                  Location loc, TypedValue<VectorType> vector,
+                                  Location loc, VectorValue vector,
                                   int64_t sliceOffset, int64_t sliceNumElements,
                                   int64_t byteOffset) {
   auto vectorElementType = vector.getType().getElementType();
@@ -404,7 +408,7 @@ struct ConvertVectorStore final : OpConversionPattern<vector::StoreOp> {
 
     auto loc = op.getLoc();
     auto convertedType = cast<MemRefType>(adaptor.getBase().getType());
-    auto valueToStore = cast<TypedValue<VectorType>>(op.getValueToStore());
+    auto valueToStore = cast<VectorValue>(op.getValueToStore());
     auto oldElementType = valueToStore.getType().getElementType();
     auto newElementType = convertedType.getElementType();
     int srcBits = oldElementType.getIntOrFloatBitWidth();
@@ -455,7 +459,7 @@ struct ConvertVectorStore final : OpConversionPattern<vector::StoreOp> {
       return failure();
     }
 
-    auto emulatedMemref = cast<TypedValue<MemRefType>>(adaptor.getBase());
+    auto emulatedMemref = cast<MemRefValue>(adaptor.getBase());
 
     // Shortcut: conditions when subbyte store at the front is not needed:
     // 1. The source vector size is multiple of byte size
@@ -504,8 +508,8 @@ struct ConvertVectorStore final : OpConversionPattern<vector::StoreOp> {
                                frontSubWidthStoreElem, *foldedNumFrontPadElems);
 
       subEmulatedWidthStore(rewriter, loc, emulatedMemref, currentDestIndex,
-                            cast<TypedValue<VectorType>>(value),
-                            frontMask.getResult(), numSrcElemsPerDest);
+                            cast<VectorValue>(value), frontMask.getResult(),
+                            numSrcElemsPerDest);
 
       currentDestIndex = rewriter.create<arith::AddIOp>(
           loc, rewriter.getIndexType(), currentDestIndex, constantOne);
@@ -546,9 +550,9 @@ struct ConvertVectorStore final : OpConversionPattern<vector::StoreOp> {
     // but their length is smaller than the emulated width.
     auto remainingElements = origElements - currentSourceIndex;
     if (remainingElements != 0) {
-      auto subWidthStorePart = extractSliceIntoByte(
-          rewriter, loc, cast<TypedValue<VectorType>>(valueToStore),
-          currentSourceIndex, remainingElements, 0);
+      auto subWidthStorePart =
+          extractSliceIntoByte(rewriter, loc, cast<VectorValue>(valueToStore),
+                               currentSourceIndex, remainingElements, 0);
 
       // Generate back mask
       auto maskValues = SmallVector<bool>(numSrcElemsPerDest, 0);
@@ -557,7 +561,7 @@ struct ConvertVectorStore final : OpConversionPattern<vector::StoreOp> {
           loc, DenseElementsAttr::get(subWidthStoreMaskType, maskValues));
 
       subEmulatedWidthStore(rewriter, loc, emulatedMemref, currentDestIndex,
-                            cast<TypedValue<VectorType>>(subWidthStorePart),
+                            cast<VectorValue>(subWidthStorePart),
                             backMask.getResult(), numSrcElemsPerDest);
     }
 
@@ -778,7 +782,7 @@ struct ConvertVectorLoad final : OpConversionPattern<vector::LoadOp> {
       auto resultVector = rewriter.create<arith::ConstantOp>(
           loc, op.getType(), rewriter.getZeroAttr(op.getType()));
       result = dynamicallyExtractSubVector(
-          rewriter, loc, dyn_cast<TypedValue<VectorType>>(result), resultVector,
+          rewriter, loc, cast<VectorValue>(result), resultVector,
           linearizedInfo.intraDataOffset, origElements);
     } else if (isUnalignedEmulation) {
       result = staticallyExtractSubvector(
@@ -899,8 +903,8 @@ struct ConvertVectorMaskedLoad final
         loc, newBitcastType, rewriter.getZeroAttr(newBitcastType));
     if (!foldedIntraVectorOffset) {
       passthru = dynamicallyInsertSubVector(
-          rewriter, loc, dyn_cast<TypedValue<VectorType>>(passthru),
-          emptyVector, linearizedInfo.intraDataOffset, origElements);
+          rewriter, loc, cast<VectorValue>(passthru), emptyVector,
+          linearizedInfo.intraDataOffset, origElements);
     } else if (isUnalignedEmulation) {
       passthru = staticallyInsertSubvector(rewriter, loc, passthru, emptyVector,
                                            *foldedIntraVectorOffset);
@@ -927,7 +931,7 @@ struct ConvertVectorMaskedLoad final
         loc, newSelectMaskType, rewriter.getZeroAttr(newSelectMaskType));
     if (!foldedIntraVectorOffset) {
       mask = dynamicallyInsertSubVector(
-          rewriter, loc, dyn_cast<TypedValue<VectorType>>(mask), emptyMask,
+          rewriter, loc, cast<VectorValue>(mask), emptyMask,
           linearizedInfo.intraDataOffset, origElements);
     } else if (isUnalignedEmulation) {
       mask = staticallyInsertSubvector(rewriter, loc, op.getMask(), emptyMask,
@@ -938,8 +942,8 @@ struct ConvertVectorMaskedLoad final
         rewriter.create<arith::SelectOp>(loc, mask, bitCast, passthru);
     if (!foldedIntraVectorOffset) {
       result = dynamicallyExtractSubVector(
-          rewriter, loc, dyn_cast<TypedValue<VectorType>>(result),
-          op.getPassThru(), linearizedInfo.intraDataOffset, origElements);
+          rewriter, loc, cast<VectorValue>(result), op.getPassThru(),
+          linearizedInfo.intraDataOffset, origElements);
     } else if (isUnalignedEmulation) {
       result = staticallyExtractSubvector(
           rewriter, loc, result, *foldedIntraVectorOffset, origElements);
