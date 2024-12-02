@@ -996,11 +996,13 @@ CharSourceRange SourceManager::getExpansionRange(SourceLocation Loc) const {
 
 bool SourceManager::isMacroArgExpansion(SourceLocation Loc,
                                         SourceLocation *StartLoc) const {
-  if (!Loc.isMacroID()) return false;
+  if (!Loc.isMacroID())
+    return false;
 
   FileID FID = getFileID(Loc);
   const SrcMgr::ExpansionInfo &Expansion = getSLocEntry(FID).getExpansion();
-  if (!Expansion.isMacroArgExpansion()) return false;
+  if (!Expansion.isMacroArgExpansion())
+    return false;
 
   if (StartLoc)
     *StartLoc = Expansion.getExpansionLocStart();
@@ -1008,7 +1010,8 @@ bool SourceManager::isMacroArgExpansion(SourceLocation Loc,
 }
 
 bool SourceManager::isMacroBodyExpansion(SourceLocation Loc) const {
-  if (!Loc.isMacroID()) return false;
+  if (!Loc.isMacroID())
+    return false;
 
   FileID FID = getFileID(Loc);
   const SrcMgr::ExpansionInfo &Expansion = getSLocEntry(FID).getExpansion();
