@@ -978,6 +978,7 @@ clang-format
   ``Never``, and ``true`` to ``Always``.
 - Adds ``RemoveEmptyLinesInUnwrappedLines`` option.
 - Adds ``KeepFormFeed`` option and set it to ``true`` for ``GNU`` style.
+- Adds ``PenaltyBreakBeforeMemberAccess`` option.
 
 libclang
 --------
