@@ -1352,6 +1352,9 @@ void BarrierOp::getCanonicalizationPatterns(RewritePatternSet &results,
   results.add(eraseRedundantGpuBarrierOps);
 }
 
+void BarrierOp::build(mlir::OpBuilder &odsBuilder,
+                      mlir::OperationState &odsState) {}
+
 //===----------------------------------------------------------------------===//
 // GPUFuncOp
 //===----------------------------------------------------------------------===//
