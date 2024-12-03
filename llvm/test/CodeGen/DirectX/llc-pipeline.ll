@@ -11,10 +11,11 @@
 ; CHECK-NEXT:   DXIL Intrinsic Expansion
 ; CHECK-NEXT:   DXIL Data Scalarization
 ; CHECK-NEXT:   DXIL Array Flattener
+; CHECK-NEXT:   DXIL Resource analysis
 ; CHECK-NEXT:   FunctionPass Manager
+; CHECK-NEXT:     DXIL Resource Access
 ; CHECK-NEXT:     Dominator Tree Construction
 ; CHECK-NEXT:     Scalarize vector operations
-; CHECK-NEXT:   DXIL Resource analysis
 ; CHECK-NEXT:   DXIL Op Lowering
 ; CHECK-NEXT:   DXIL resource Information
 ; CHECK-NEXT:   DXIL Shader Flag Analysis
@@ -23,4 +24,3 @@
 ; CHECK-NEXT:   DXIL Prepare Module
 ; CHECK-NEXT:   DXIL Metadata Pretty Printer
 ; CHECK-NEXT:   Print Module IR
- 

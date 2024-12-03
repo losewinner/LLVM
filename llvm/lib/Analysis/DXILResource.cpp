@@ -744,6 +744,12 @@ DXILResourceMap::DXILResourceMap(
   }
 }
 
+bool DXILResourceMap::invalidate(Module &M, const PreservedAnalyses &PA,
+                                 ModuleAnalysisManager::Invalidator &Inv) {
+  auto PAC = PA.getChecker<DXILResourceAnalysis>();
+  return !(PAC.preserved() || PAC.preservedSet<AllAnalysesOn<Module>>());
+}
+
 void DXILResourceMap::print(raw_ostream &OS) const {
   for (unsigned I = 0, E = Resources.size(); I != E; ++I) {
     OS << "Binding " << I << ":\n";
