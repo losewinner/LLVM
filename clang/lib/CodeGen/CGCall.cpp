@@ -508,7 +508,7 @@ CodeGenTypes::arrangeObjCMessageSendSignature(const ObjCMethodDecl *MD,
   for (const auto *I : MD->parameters()) {
     argTys.push_back(Context.getCanonicalParamType(I->getType()));
     auto extParamInfo = FunctionProtoType::ExtParameterInfo().withIsNoEscape(
-        I->hasAttr<NoEscapeAttr>());
+        I->getType()->isAnyPointerType() && I->hasAttr<NoEscapeAttr>());
     extParamInfos.push_back(extParamInfo);
   }
 

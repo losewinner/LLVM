@@ -231,7 +231,12 @@ __attribute__((external_source_symbol(generated_declaration, defined_in="module"
 
 namespace TestNoEscape {
   void noescapeFunc(int *p0, __attribute__((noescape)) int *p1) {}
-  // CHECK: `-FunctionDecl{{.*}} noescapeFunc 'void (int *, __attribute__((noescape)) int *)'
+  // CHECK: |-FunctionDecl{{.*}} noescapeFunc 'void (int *, __attribute__((noescape)) int *)'
+  // CHECK-NEXT: ParmVarDecl
+  // CHECK-NEXT: ParmVarDecl
+  // CHECK-NEXT: NoEscapeAttr
+  void noescapeFunc2(int *p0, __attribute__((noescape)) int p1) {}
+  // CHECK: `-FunctionDecl{{.*}} noescapeFunc2 'void (int *, __attribute__((noescape)) int)'
   // CHECK-NEXT: ParmVarDecl
   // CHECK-NEXT: ParmVarDecl
   // CHECK-NEXT: NoEscapeAttr
