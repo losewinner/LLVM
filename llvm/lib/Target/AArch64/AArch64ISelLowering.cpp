@@ -7579,6 +7579,11 @@ static unsigned getIntrinsicID(const SDNode *N) {
       return IID;
     return Intrinsic::not_intrinsic;
   }
+  case ISD::INTRINSIC_W_CHAIN: {
+    unsigned IID = N->getConstantOperandVal(1);
+    if (IID < Intrinsic::num_intrinsics)
+      return IID;
+  }
   }
 }
 
@@ -8581,6 +8586,55 @@ static bool checkZExtBool(SDValue Arg, const SelectionDAG &DAG) {
   return ZExtBool;
 }
 
+bool shouldUseFormStridedPseudo(MachineInstr &MI) {
+  MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
+  bool UseFormStrided = false;
+  unsigned NumOperands =
+      MI.getOpcode() == AArch64::FORM_STRIDED_TUPLE_X2_PSEUDO ? 2 : 4;
+
+  // The FORM_STRIDED_TUPLE pseudo should only be used if the input operands
+  // are copy nodes where the source register is in a StridedOrContiguous
+  // class. For example:
+  //   %3:zpr2stridedorcontiguous = LD1B_2Z_IMM_PSEUDO ..
+  //   %4:zpr = COPY %3.zsub1:zpr2stridedorcontiguous
+  //   %5:zpr = COPY %3.zsub0:zpr2stridedorcontiguous
+  //   %6:zpr2stridedorcontiguous = LD1B_2Z_PSEUDO ..
+  //   %7:zpr = COPY %6.zsub1:zpr2stridedorcontiguous
+  //   %8:zpr = COPY %6.zsub0:zpr2stridedorcontiguous
+  //   %9:zpr2mul2 = FORM_STRIDED_TUPLE_X2_PSEUDO %5:zpr, %8:zpr
+
+  MCRegister SubReg = MCRegister::NoRegister;
+  for (unsigned I = 1; I < MI.getNumOperands(); ++I) {
+    MachineOperand &MO = MI.getOperand(I);
+    assert(MO.isReg() && "Unexpected operand to FORM_STRIDED_TUPLE");
+
+    MachineOperand *Def = MRI.getOneDef(MO.getReg());
+    if (!Def || !Def->isReg() || !Def->getParent()->isCopy()) {
+      UseFormStrided = false;
+      break;
+    }
+
+    MachineOperand CpyOp = Def->getParent()->getOperand(1);
+    MachineOperand *Ld = MRI.getOneDef(CpyOp.getReg());
+    unsigned OpSubReg = CpyOp.getSubReg();
+    if (SubReg == MCRegister::NoRegister)
+      SubReg = OpSubReg;
+    if (!Ld || !Ld->isReg() || OpSubReg != SubReg) {
+      UseFormStrided = false;
+      break;
+    }
+
+    const TargetRegisterClass *RegClass =
+        NumOperands == 2 ? &AArch64::ZPR2StridedOrContiguousRegClass
+                         : &AArch64::ZPR4StridedOrContiguousRegClass;
+
+    if (MRI.getRegClass(Ld->getReg()) == RegClass)
+      UseFormStrided = true;
+  }
+
+  return UseFormStrided;
+}
+
 void AArch64TargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
                                                           SDNode *Node) const {
   // Live-in physreg copies that are glued to SMSTART are applied as
@@ -8604,6 +8658,29 @@ void AArch64TargetLowering::AdjustInstrPostInstrSelection(MachineInstr &MI,
       MI.addOperand(MachineOperand::CreateReg(AArch64::VG, /*IsDef=*/true,
                                               /*IsImplicit=*/true));
     }
+  }
+
+  if (MI.getOpcode() == AArch64::FORM_STRIDED_TUPLE_X2_PSEUDO ||
+      MI.getOpcode() == AArch64::FORM_STRIDED_TUPLE_X4_PSEUDO) {
+    // If input values to the FORM_STRIDED_TUPLE pseudo aren't copies from a
+    // StridedOrContiguous class, fall back on REG_SEQUENCE node.
+    if (!shouldUseFormStridedPseudo(MI)) {
+      static const unsigned SubRegs[] = {AArch64::zsub0, AArch64::zsub1,
+                                         AArch64::zsub2, AArch64::zsub3};
+
+      const TargetInstrInfo *TII = Subtarget->getInstrInfo();
+      MachineInstrBuilder MIB = BuildMI(*MI.getParent(), MI, MI.getDebugLoc(),
+                                        TII->get(TargetOpcode::REG_SEQUENCE),
+                                        MI.getOperand(0).getReg());
+
+      for (unsigned I = 1; I < MI.getNumOperands(); ++I) {
+        MIB.add(MI.getOperand(I));
+        MIB.addImm(SubRegs[I - 1]);
+      }
+
+      MI.eraseFromParent();
+    }
+    return;
   }
 
   // Add an implicit use of 'VG' for ADDXri/SUBXri, which are instructions that

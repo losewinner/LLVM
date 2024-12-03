@@ -34,6 +34,20 @@ def tileslicerange0s4 : ComplexPattern<i32, 2, "SelectSMETileSlice<0,  4>", []>;
 
 def am_sme_indexed_b4 :ComplexPattern<iPTR, 2, "SelectAddrModeIndexedSVE<0,15>", [], [SDNPWantRoot]>;
 
+def FORM_STRIDED_TUPLE_X2_PSEUDO :
+  Pseudo<(outs ZPR2Mul2:$tup),
+         (ins ZPR:$zn0, ZPR:$zn1), []>, Sched<[]>{
+  let hasSideEffects = 0;
+  let hasPostISelHook = 1;
+}
+
+def FORM_STRIDED_TUPLE_X4_PSEUDO :
+  Pseudo<(outs ZPR4Mul4:$tup),
+         (ins ZPR:$zn0, ZPR:$zn1, ZPR:$zn2, ZPR:$zn3), []>, Sched<[]>{
+  let hasSideEffects = 0;
+  let hasPostISelHook = 1;
+}
+
 def SDTZALoadStore : SDTypeProfile<0, 3, [SDTCisInt<0>, SDTCisPtrTy<1>, SDTCisInt<2>]>;
 def AArch64SMELdr : SDNode<"AArch64ISD::SME_ZA_LDR", SDTZALoadStore,
                              [SDNPHasChain, SDNPSideEffect, SDNPMayLoad]>;
@@ -172,14 +186,14 @@ class SME2_ZA_TwoOp_VG2_Multi_Index_Pat<string name, SDPatternOperator intrinsic
                                         Operand imm_ty, ComplexPattern tileslice>
     : Pat<(intrinsic (i32 (tileslice MatrixIndexGPR32Op8_11:$base, index_ty:$offset)), vt:$Zn1, vt:$Zn2, vt:$Zm, (i32 imm_ty:$i)),
           (!cast<Instruction>(name # _PSEUDO) $base, $offset,
-                                              (REG_SEQUENCE ZPR2Mul2, vt:$Zn1, zsub0, vt:$Zn2, zsub1), zpr_ty:$Zm, imm_ty:$i)>;
+                                              (FORM_STRIDED_TUPLE_X2_PSEUDO vt:$Zn1,vt:$Zn2), zpr_ty:$Zm, imm_ty:$i)>;
 
 class SME2_ZA_TwoOp_VG4_Multi_Index_Pat<string name, SDPatternOperator intrinsic, Operand index_ty, ZPRRegOp zpr_ty, ValueType vt,
                                         Operand imm_ty, ComplexPattern tileslice>
     : Pat<(intrinsic (i32 (tileslice MatrixIndexGPR32Op8_11:$base, index_ty:$offset)),
                      vt:$Zn1, vt:$Zn2, vt:$Zn3, vt:$Zn4, vt:$Zm, (i32 imm_ty:$i)),
           (!cast<Instruction>(name # _PSEUDO) $base, $offset,
-                                              (REG_SEQUENCE ZPR4Mul4, vt:$Zn1, zsub0, vt:$Zn2, zsub1, vt:$Zn3, zsub2, vt:$Zn4, zsub3),
+                                              (FORM_STRIDED_TUPLE_X4_PSEUDO vt:$Zn1, vt:$Zn2, vt:$Zn3, vt:$Zn4),
                                               zpr_ty:$Zm, imm_ty:$i)>;
 
 class SME2_Sat_Shift_VG2_Pat<string name, SDPatternOperator intrinsic, ValueType out_vt, ValueType in_vt, Operand imm_ty>
