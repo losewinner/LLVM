@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallVector.h"
 
 #include <cstdint>
+#include <optional>
 
 using namespace clang::ast_matchers;
 
@@ -48,7 +49,7 @@ NarrowingConversionsCheck::NarrowingConversionsCheck(StringRef Name,
                                                      ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
       WarnOnIntegerNarrowingConversion(
-          Options.get("WarnOnIntegerNarrowingConversion", true)),
+          Options.get<bool>("WarnOnIntegerNarrowingConversion")),
       WarnOnIntegerToFloatingPointNarrowingConversion(
           Options.get("WarnOnIntegerToFloatingPointNarrowingConversion", true)),
       WarnOnFloatingPointNarrowingConversion(
@@ -61,8 +62,9 @@ NarrowingConversionsCheck::NarrowingConversionsCheck(StringRef Name,
 
 void NarrowingConversionsCheck::storeOptions(
     ClangTidyOptions::OptionMap &Opts) {
-  Options.store(Opts, "WarnOnIntegerNarrowingConversion",
-                WarnOnIntegerNarrowingConversion);
+  if (WarnOnIntegerNarrowingConversion.has_value())
+    Options.store(Opts, "WarnOnIntegerNarrowingConversion",
+                  WarnOnIntegerNarrowingConversion.value());
   Options.store(Opts, "WarnOnIntegerToFloatingPointNarrowingConversion",
                 WarnOnIntegerToFloatingPointNarrowingConversion);
   Options.store(Opts, "WarnOnFloatingPointNarrowingConversion",
@@ -392,9 +394,15 @@ void NarrowingConversionsCheck::handleIntegralCast(const ASTContext &Context,
                                                    SourceLocation SourceLoc,
                                                    const Expr &Lhs,
                                                    const Expr &Rhs) {
-  if (WarnOnIntegerNarrowingConversion) {
+  // From [conv.integral] since C++20
+  // The result is the unique value of the destination type that is congruent
+  // to the source integer modulo 2^N, where N is the width of the destination
+  // type.
+  const bool ActualWarnOnIntegerNarrowingConversion =
+      WarnOnIntegerNarrowingConversion.value_or(!getLangOpts().CPlusPlus20);
+  if (ActualWarnOnIntegerNarrowingConversion) {
     const BuiltinType *ToType = getBuiltinType(Lhs);
-    // From [conv.integral]p7.3.8:
+    // From [conv.integral] before C++20:
     // Conversions to unsigned integer is well defined so no warning is issued.
     // "The resulting value is the smallest unsigned value equal to the source
     // value modulo 2^n where n is the number of bits used to represent the

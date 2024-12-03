@@ -34,7 +34,9 @@ Options
 .. option:: WarnOnIntegerNarrowingConversion
 
     When `true`, the check will warn on narrowing integer conversion
-    (e.g. ``int`` to ``size_t``). `true` by default.
+    (e.g. ``int`` to ``size_t``).
+    Before C++20 `true` by default.
+    Since C++20 `false` by default.
 
 .. option:: WarnOnIntegerToFloatingPointNarrowingConversion
 
@@ -89,7 +91,9 @@ the range [-2^31, 2^31-1].
 
 You may have encountered messages like "narrowing conversion from 'unsigned int'
 to signed type 'int' is implementation-defined".
-The C/C++ standard does not mandate two's complement for signed integers, and so
-the compiler is free to define what the semantics are for converting an unsigned
-integer to signed integer. Clang's implementation uses the two's complement
-format.
+Before C++20, the C/C++ standard does not mandate two's complement for signed
+integers, and so the compiler is free to define what the semantics are for
+converting an unsigned integer to signed integer. Clang's implementation uses
+the two's complement format.
+Since C++20, the C++ standard defines the conversion between all kinds of
+integers.
