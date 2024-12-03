@@ -333,7 +333,7 @@ static bool readPointerToBuffer(const Context &Ctx, const Pointer &FromPtr,
 
         } else {
           if (const FieldDecl *FD = P.getField(); FD && FD->isBitField())
-            BitWidth = FD->getBitWidthValue(ASTCtx);
+            BitWidth = FD->getBitWidthValue();
           else if (T == PT_Bool && PackedBools)
             BitWidth = 1;
 
