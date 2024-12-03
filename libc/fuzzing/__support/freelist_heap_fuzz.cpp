@@ -100,13 +100,13 @@ optional<AllocType> choose<AllocType>(const uint8_t *&data, size_t &remainder) {
       *raw % static_cast<uint8_t>(AllocType::NUM_ALLOC_TYPES));
 }
 
-constexpr size_t heap_size = 64 * 1024;
+constexpr size_t HEAP_SIZE = 64 * 1024;
 
 optional<size_t> choose_size(const uint8_t *&data, size_t &remainder) {
   auto raw = choose<size_t>(data, remainder);
   if (!raw)
     return nullopt;
-  return *raw % heap_size;
+  return *raw % HEAP_SIZE;
 }
 
 optional<size_t> choose_alloc_idx(const AllocVec &allocs, const uint8_t *&data,
@@ -126,7 +126,7 @@ optional<size_t> choose_alloc_idx(const AllocVec &allocs, const uint8_t *&data,
   TYPE NAME = *maybe_##NAME
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t remainder) {
-  LIBC_NAMESPACE::FreeListHeapBuffer<heap_size> heap;
+  LIBC_NAMESPACE::FreeListHeapBuffer<HEAP_SIZE> heap;
   AllocVec allocs(heap);
 
   uint8_t canary = 0;

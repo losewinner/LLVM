@@ -42,7 +42,7 @@ using LIBC_NAMESPACE::cpp::span;
     void RunTest(FreeListHeap &allocator, [[maybe_unused]] size_t N);          \
   };                                                                           \
   TEST_F(LlvmLibcFreeListHeapTest##TestCase, TestCase) {                       \
-    alignas(Block) byte buf[BufferSize] = {byte(0)};                           \
+    byte buf[BufferSize] = {byte(0)};                                          \
     FreeListHeap allocator(buf);                                               \
     RunTest(allocator, BufferSize);                                            \
     RunTest(*freelist_heap, freelist_heap->region().size());                   \
@@ -51,24 +51,20 @@ using LIBC_NAMESPACE::cpp::span;
                                                    size_t N)
 
 TEST_FOR_EACH_ALLOCATOR(CanAllocate, 2048) {
-  constexpr size_t ALLOC_SIZE = 512;
-
-  void *ptr = allocator.allocate(ALLOC_SIZE);
+  void *ptr = allocator.allocate(512);
 
   ASSERT_NE(ptr, static_cast<void *>(nullptr));
 }
 
 TEST_FOR_EACH_ALLOCATOR(AllocationsDontOverlap, 2048) {
-  constexpr size_t ALLOC_SIZE = 512;
-
-  void *ptr1 = allocator.allocate(ALLOC_SIZE);
-  void *ptr2 = allocator.allocate(ALLOC_SIZE);
+  void *ptr1 = allocator.allocate(512);
+  void *ptr2 = allocator.allocate(512);
 
   ASSERT_NE(ptr1, static_cast<void *>(nullptr));
   ASSERT_NE(ptr2, static_cast<void *>(nullptr));
 
   uintptr_t ptr1_start = reinterpret_cast<uintptr_t>(ptr1);
-  uintptr_t ptr1_end = ptr1_start + ALLOC_SIZE;
+  uintptr_t ptr1_end = ptr1_start + 512;
   uintptr_t ptr2_start = reinterpret_cast<uintptr_t>(ptr2);
 
   EXPECT_GT(ptr2_start, ptr1_end);
@@ -77,11 +73,9 @@ TEST_FOR_EACH_ALLOCATOR(AllocationsDontOverlap, 2048) {
 TEST_FOR_EACH_ALLOCATOR(CanFreeAndRealloc, 2048) {
   // There's not really a nice way to test that free works, apart from to try
   // and get that value back again.
-  constexpr size_t ALLOC_SIZE = 512;
-
-  void *ptr1 = allocator.allocate(ALLOC_SIZE);
+  void *ptr1 = allocator.allocate(512);
   allocator.free(ptr1);
-  void *ptr2 = allocator.allocate(ALLOC_SIZE);
+  void *ptr2 = allocator.allocate(512);
 
   EXPECT_EQ(ptr1, ptr2);
 }
@@ -94,39 +88,36 @@ TEST_FOR_EACH_ALLOCATOR(ReturnsNullWhenAllocationTooLarge, 2048) {
 // here will likely actually return a nullptr since the same global allocator
 // is used for other test cases and we don't explicitly free them.
 TEST(LlvmLibcFreeListHeap, ReturnsNullWhenFull) {
-  constexpr size_t N = 2048;
-  alignas(Block) byte buf[N] = {byte(0)};
+  byte buf[2048];
 
   FreeListHeap allocator(buf);
 
-  // Use aligned_allocate so we don't need to worry about ensuring the `buf`
-  // being aligned to max_align_t.
-  EXPECT_NE(allocator.aligned_allocate(1, N - 2 * Block::BLOCK_OVERHEAD),
-            static_cast<void *>(nullptr));
+  bool went_null = false;
+  for (int i = 0; i < 2048; i++) {
+    if (!allocator.allocate(1)) {
+      went_null = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(went_null);
   EXPECT_EQ(allocator.allocate(1), static_cast<void *>(nullptr));
 }
 
 TEST_FOR_EACH_ALLOCATOR(ReturnedPointersAreAligned, 2048) {
   void *ptr1 = allocator.allocate(1);
 
-  // Should be aligned to native pointer alignment
   uintptr_t ptr1_start = reinterpret_cast<uintptr_t>(ptr1);
-  size_t alignment = alignof(void *);
-
-  EXPECT_EQ(ptr1_start % alignment, static_cast<size_t>(0));
+  EXPECT_EQ(ptr1_start % alignof(max_align_t), static_cast<size_t>(0));
 
   void *ptr2 = allocator.allocate(1);
   uintptr_t ptr2_start = reinterpret_cast<uintptr_t>(ptr2);
 
-  EXPECT_EQ(ptr2_start % alignment, static_cast<size_t>(0));
+  EXPECT_EQ(ptr2_start % alignof(max_align_t), static_cast<size_t>(0));
 }
 
 TEST_FOR_EACH_ALLOCATOR(CanRealloc, 2048) {
-  constexpr size_t ALLOC_SIZE = 512;
-  constexpr size_t kNewAllocSize = 768;
-
-  void *ptr1 = allocator.allocate(ALLOC_SIZE);
-  void *ptr2 = allocator.realloc(ptr1, kNewAllocSize);
+  void *ptr1 = allocator.allocate(512);
+  void *ptr2 = allocator.realloc(ptr1, 768);
 
   ASSERT_NE(ptr1, static_cast<void *>(nullptr));
   ASSERT_NE(ptr2, static_cast<void *>(nullptr));
@@ -134,7 +125,6 @@ TEST_FOR_EACH_ALLOCATOR(CanRealloc, 2048) {
 
 TEST_FOR_EACH_ALLOCATOR(ReallocHasSameContent, 2048) {
   constexpr size_t ALLOC_SIZE = sizeof(int);
-  constexpr size_t kNewAllocSize = sizeof(int) * 2;
   // Data inside the allocated block.
   byte data1[ALLOC_SIZE];
   // Data inside the reallocated block.
@@ -143,7 +133,7 @@ TEST_FOR_EACH_ALLOCATOR(ReallocHasSameContent, 2048) {
   int *ptr1 = reinterpret_cast<int *>(allocator.allocate(ALLOC_SIZE));
   *ptr1 = 42;
   LIBC_NAMESPACE::memcpy(data1, ptr1, ALLOC_SIZE);
-  int *ptr2 = reinterpret_cast<int *>(allocator.realloc(ptr1, kNewAllocSize));
+  int *ptr2 = reinterpret_cast<int *>(allocator.realloc(ptr1, ALLOC_SIZE * 2));
   LIBC_NAMESPACE::memcpy(data2, ptr2, ALLOC_SIZE);
 
   ASSERT_NE(ptr1, static_cast<int *>(nullptr));
@@ -153,33 +143,24 @@ TEST_FOR_EACH_ALLOCATOR(ReallocHasSameContent, 2048) {
 }
 
 TEST_FOR_EACH_ALLOCATOR(ReturnsNullReallocFreedPointer, 2048) {
-  constexpr size_t ALLOC_SIZE = 512;
-  constexpr size_t kNewAllocSize = 256;
-
-  void *ptr1 = allocator.allocate(ALLOC_SIZE);
+  void *ptr1 = allocator.allocate(512);
   allocator.free(ptr1);
-  void *ptr2 = allocator.realloc(ptr1, kNewAllocSize);
+  void *ptr2 = allocator.realloc(ptr1, 256);
 
   EXPECT_EQ(static_cast<void *>(nullptr), ptr2);
 }
 
 TEST_FOR_EACH_ALLOCATOR(ReallocSmallerSize, 2048) {
-  constexpr size_t ALLOC_SIZE = 512;
-  constexpr size_t kNewAllocSize = 256;
-
-  void *ptr1 = allocator.allocate(ALLOC_SIZE);
-  void *ptr2 = allocator.realloc(ptr1, kNewAllocSize);
+  void *ptr1 = allocator.allocate(512);
+  void *ptr2 = allocator.realloc(ptr1, 256);
 
   // For smaller sizes, realloc will not shrink the block.
   EXPECT_EQ(ptr1, ptr2);
 }
 
 TEST_FOR_EACH_ALLOCATOR(ReallocTooLarge, 2048) {
-  constexpr size_t ALLOC_SIZE = 512;
-  size_t kNewAllocSize = N * 2; // Large enough to fail.
-
-  void *ptr1 = allocator.allocate(ALLOC_SIZE);
-  void *ptr2 = allocator.realloc(ptr1, kNewAllocSize);
+  void *ptr1 = allocator.allocate(512);
+  void *ptr2 = allocator.realloc(ptr1, N * 2); // Large enough to fail
 
   // realloc() will not invalidate the original pointer if realloc() fails
   EXPECT_NE(static_cast<void *>(nullptr), ptr1);
@@ -187,12 +168,10 @@ TEST_FOR_EACH_ALLOCATOR(ReallocTooLarge, 2048) {
 }
 
 TEST_FOR_EACH_ALLOCATOR(CanCalloc, 2048) {
-  constexpr size_t ALLOC_SIZE = 128;
-  constexpr size_t NUM = 4;
-  constexpr int size = NUM * ALLOC_SIZE;
+  constexpr int size = 4 * 128;
   constexpr byte zero{0};
 
-  byte *ptr1 = reinterpret_cast<byte *>(allocator.calloc(NUM, ALLOC_SIZE));
+  byte *ptr1 = reinterpret_cast<byte *>(allocator.calloc(4, 128));
 
   // calloc'd content is zero.
   for (int i = 0; i < size; i++) {
@@ -201,12 +180,10 @@ TEST_FOR_EACH_ALLOCATOR(CanCalloc, 2048) {
 }
 
 TEST_FOR_EACH_ALLOCATOR(CanCallocWeirdSize, 2048) {
-  constexpr size_t ALLOC_SIZE = 143;
-  constexpr size_t NUM = 3;
-  constexpr int size = NUM * ALLOC_SIZE;
+  constexpr int size = 3 * 143;
   constexpr byte zero{0};
 
-  byte *ptr1 = reinterpret_cast<byte *>(allocator.calloc(NUM, ALLOC_SIZE));
+  byte *ptr1 = reinterpret_cast<byte *>(allocator.calloc(3, 143));
 
   // calloc'd content is zero.
   for (int i = 0; i < size; i++) {
@@ -215,8 +192,7 @@ TEST_FOR_EACH_ALLOCATOR(CanCallocWeirdSize, 2048) {
 }
 
 TEST_FOR_EACH_ALLOCATOR(CallocTooLarge, 2048) {
-  size_t ALLOC_SIZE = N + 1;
-  EXPECT_EQ(allocator.calloc(1, ALLOC_SIZE), static_cast<void *>(nullptr));
+  EXPECT_EQ(allocator.calloc(1, N + 1), static_cast<void *>(nullptr));
 }
 
 TEST_FOR_EACH_ALLOCATOR(AllocateZero, 2048) {
@@ -241,16 +217,14 @@ TEST_FOR_EACH_ALLOCATOR(AlignedAlloc, 2048) {
 
 // This test is not part of the TEST_FOR_EACH_ALLOCATOR since we want to
 // explicitly ensure that the buffer can still return aligned allocations even
-// if the underlying buffer is at most aligned to the Block alignment. This
-// is so we can check that we can still get aligned allocations even if the
-// underlying buffer is not aligned to the alignments we request.
-TEST(LlvmLibcFreeListHeap, AlignedAllocOnlyBlockAligned) {
-  constexpr size_t BUFFER_SIZE = 4096;
-  constexpr size_t BUFFER_ALIGNMENT = alignof(Block) * 2;
-  alignas(BUFFER_ALIGNMENT) byte buf[BUFFER_SIZE] = {byte(0)};
+// if the underlying buffer is unaligned. This is so we can check that we can
+// still get aligned allocations even if the underlying buffer is not aligned to
+// the alignments we request.
+TEST(LlvmLibcFreeListHeap, AlignedAllocUnalignedBuffer) {
+  byte buf[4096] = {byte(0)};
 
-  // Ensure the underlying buffer is at most aligned to the block type.
-  FreeListHeap allocator(span<byte>(buf).subspan(alignof(Block)));
+  // Ensure the underlying buffer is poorly aligned.
+  FreeListHeap allocator(span<byte>(buf).subspan(1));
 
   constexpr size_t ALIGNMENTS[] = {1, 2, 4, 8, 16, 32, 64, 128, 256};
   constexpr size_t SIZE_SCALES[] = {1, 2, 3, 4, 5};
