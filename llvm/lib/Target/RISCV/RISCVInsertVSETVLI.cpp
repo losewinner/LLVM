@@ -922,6 +922,7 @@ private:
   VSETVLIInfo getInfoForVSETVLI(const MachineInstr &MI) const;
   VSETVLIInfo computeInfoForInstr(const MachineInstr &MI) const;
   void forwardVSETVLIAVL(VSETVLIInfo &Info) const;
+  void insertVSETIVLIBeforeCopy(MachineBasicBlock &MBB);
 };
 
 } // end anonymous namespace
@@ -1769,6 +1770,55 @@ void RISCVInsertVSETVLI::insertReadVL(MachineBasicBlock &MBB) {
   }
 }
 
+static bool isRVVCopy(const MachineInstr &MI) {
+  static const TargetRegisterClass *RVVRegClasses[] = {
+      &RISCV::VRRegClass,     &RISCV::VRM2RegClass,   &RISCV::VRM4RegClass,
+      &RISCV::VRM8RegClass,   &RISCV::VRN2M1RegClass, &RISCV::VRN2M2RegClass,
+      &RISCV::VRN2M4RegClass, &RISCV::VRN3M1RegClass, &RISCV::VRN3M2RegClass,
+      &RISCV::VRN4M1RegClass, &RISCV::VRN4M2RegClass, &RISCV::VRN5M1RegClass,
+      &RISCV::VRN6M1RegClass, &RISCV::VRN7M1RegClass, &RISCV::VRN8M1RegClass};
+
+  if (MI.getOpcode() != TargetOpcode::COPY)
+    return false;
+
+  Register DstReg = MI.getOperand(0).getReg();
+  Register SrcReg = MI.getOperand(1).getReg();
+  for (const auto &RegClass : RVVRegClasses) {
+    if (RegClass->contains(DstReg, SrcReg)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void RISCVInsertVSETVLI::insertVSETIVLIBeforeCopy(MachineBasicBlock &MBB) {
+  bool NeedVSETVL = true;
+
+  if (!BlockInfo[MBB.getNumber()].Pred.isUnknown() &&
+      BlockInfo[MBB.getNumber()].Pred.isValid())
+    NeedVSETVL = false;
+
+  for (auto &MI : MBB) {
+    if (isVectorConfigInstr(MI) || RISCVII::hasSEWOp(MI.getDesc().TSFlags))
+      NeedVSETVL = false;
+
+    if (MI.isCall() || MI.isInlineAsm())
+      NeedVSETVL = true;
+
+    if (NeedVSETVL && isRVVCopy(MI)) {
+      auto VSETVL0MI =
+          BuildMI(MBB, &MI, MI.getDebugLoc(), TII->get(RISCV::PseudoVSETIVLI))
+              .addReg(RISCV::X0, RegState::Define | RegState::Dead)
+              .addImm(0)
+              .addImm(RISCVVType::encodeVTYPE(RISCVII::VLMUL::LMUL_1, 8, false,
+                                              false));
+      if (LIS)
+        LIS->InsertMachineInstrInMaps(*VSETVL0MI);
+      NeedVSETVL = false;
+    }
+  }
+}
+
 bool RISCVInsertVSETVLI::runOnMachineFunction(MachineFunction &MF) {
   // Skip if the vector extension is not enabled.
   ST = &MF.getSubtarget<RISCVSubtarget>();
@@ -1797,12 +1847,6 @@ bool RISCVInsertVSETVLI::runOnMachineFunction(MachineFunction &MF) {
     LLVM_DEBUG(dbgs() << "Initial exit state of " << printMBBReference(MBB)
                       << " is " << BBInfo.Exit << "\n");
 
-  }
-
-  // If we didn't find any instructions that need VSETVLI, we're done.
-  if (!HaveVectorOp) {
-    BlockInfo.clear();
-    return false;
   }
 
   // Phase 2 - determine the exit VL/VTYPE from each block. We add all
@@ -1842,6 +1886,9 @@ bool RISCVInsertVSETVLI::runOnMachineFunction(MachineFunction &MF) {
   // of VLEFF/VLSEGFF.
   for (MachineBasicBlock &MBB : MF)
     insertReadVL(MBB);
+
+  for (MachineBasicBlock &MBB : MF)
+    insertVSETIVLIBeforeCopy(MBB);
 
   BlockInfo.clear();
   return HaveVectorOp;
