@@ -3555,6 +3555,7 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_PreserveNone: return "preserve_none";
     // clang-format off
   case CC_RISCVVectorCall: return "riscv_vector_cc";
+  case CC_RISCVVLSCall: return "riscv_vls_cc";
     // clang-format on
   }
 
@@ -4222,6 +4223,7 @@ bool AttributedType::isCallingConv() const {
   case attr::M68kRTD:
   case attr::PreserveNone:
   case attr::RISCVVectorCC:
+  case attr::RISCVVLSCC:
     return true;
   }
   llvm_unreachable("invalid attr kind");

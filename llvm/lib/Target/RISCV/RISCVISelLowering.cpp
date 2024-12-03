@@ -19547,6 +19547,7 @@ SDValue RISCVTargetLowering::LowerFormalArguments(
   case CallingConv::SPIR_KERNEL:
   case CallingConv::GRAAL:
   case CallingConv::RISCV_VectorCall:
+  case CallingConv::RISCV_VLSCall:
     break;
   case CallingConv::GHC:
     if (Subtarget.hasStdExtE())
