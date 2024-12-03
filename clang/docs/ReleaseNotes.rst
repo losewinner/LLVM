@@ -979,6 +979,8 @@ clang-format
   ``Never``, and ``true`` to ``Always``.
 - Adds ``RemoveEmptyLinesInUnwrappedLines`` option.
 - Adds ``KeepFormFeed`` option and set it to ``true`` for ``GNU`` style.
+- Adds ``BinPackLongBracedLists`` option to override bin packing options in
+  long (20 item or more) braced list initializer lists.
 
 libclang
 --------
