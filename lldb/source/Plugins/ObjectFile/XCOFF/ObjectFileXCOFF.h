@@ -70,6 +70,8 @@ public:
 
   uint32_t GetAddressByteSize() const override;
 
+  lldb_private::AddressClass GetAddressClass(lldb::addr_t file_addr) override;
+
   void ParseSymtab(lldb_private::Symtab &symtab) override;
 
   bool IsStripped() override;
@@ -98,9 +100,26 @@ public:
                   const lldb::ProcessSP &process_sp, lldb::addr_t header_addr);
 
 protected:
+  typedef struct llvm::object::XCOFFFileHeader64 xcoff_header_t;
+
+  typedef struct llvm::object::XCOFFAuxiliaryHeader64 xcoff_aux_header_t;
+
+  static bool ParseXCOFFHeader(lldb_private::DataExtractor &data,
+                               lldb::offset_t *offset_ptr,
+                               xcoff_header_t &xcoff_header);
+  bool ParseXCOFFOptionalHeader(lldb_private::DataExtractor &data,
+                                lldb::offset_t *offset_ptr);
+
   static lldb::WritableDataBufferSP
   MapFileDataWritable(const lldb_private::FileSpec &file, uint64_t Size,
                       uint64_t Offset);
+
+private:
+  bool CreateBinary();
+
+  xcoff_header_t m_xcoff_header = {};
+  xcoff_aux_header_t m_xcoff_aux_header = {};
+  std::unique_ptr<llvm::object::XCOFFObjectFile> m_binary;
 };
 
 #endif // LLDB_SOURCE_PLUGINS_OBJECTFILE_XCOFF_OBJECTFILE_H
