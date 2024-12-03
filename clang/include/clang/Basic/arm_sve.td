@@ -2447,3 +2447,39 @@ let SVETargetGuard = "sve2,faminmax", SMETargetGuard = "sme2,faminmax" in {
   defm SVAMIN : SInstZPZZ<"svamin", "hfd", "aarch64_sve_famin", "aarch64_sve_famin_u">;
   defm SVAMAX : SInstZPZZ<"svamax", "hfd", "aarch64_sve_famax", "aarch64_sve_famax_u">;
 }
+
+let SVETargetGuard = "sve2,fp8", SMETargetGuard = "sme2,fp8" in {
+  // 8-bit floating-point convert to BFloat16/Float16
+  def SVF1CVT : SInst<"svcvt1_{d}[_mf8]_fpm", "d~>", "bh", MergeNone, "aarch64_sve_fp8_cvt1", [VerifyRuntimeMode, SetsFPMR]>;
+  def SVF2CVT : SInst<"svcvt2_{d}[_mf8]_fpm", "d~>", "bh", MergeNone, "aarch64_sve_fp8_cvt2", [VerifyRuntimeMode, SetsFPMR]>;
+
+  // 8-bit floating-point convert to BFloat16/Float16 (top)
+  def SVF1CVTLT : SInst<"svcvtlt1_{d}[_mf8]_fpm", "d~>", "bh", MergeNone, "aarch64_sve_fp8_cvtlt1", [VerifyRuntimeMode, SetsFPMR]>;
+  def SVF2CVTLT : SInst<"svcvtlt2_{d}[_mf8]_fpm", "d~>", "bh", MergeNone, "aarch64_sve_fp8_cvtlt2", [VerifyRuntimeMode, SetsFPMR]>;
+
+  // BFloat16/Float16 convert, narrow and interleave to 8-bit floating-point
+  def SVFCVTN : SInst<"svcvtn_mf8[_{d}_x2]_fpm", "~2>", "bh", MergeNone, "aarch64_sve_fp8_cvtn", [VerifyRuntimeMode, SetsFPMR]>;
+
+  // Single-precision convert, narrow and interleave to 8-bit floating-point (top and bottom)
+  def SVFCVTNB : SInst<"svcvtnb_mf8[_f32_x2]_fpm", "~2>",  "f", MergeNone, "aarch64_sve_fp8_cvtnb", [VerifyRuntimeMode, SetsFPMR]>;
+  def SVFCVTNT : SInst<"svcvtnt_mf8[_f32_x2]_fpm", "~~2>", "f", MergeNone, "aarch64_sve_fp8_cvtnt", [VerifyRuntimeMode, SetsFPMR]>;
+}
+
+let SVETargetGuard = "sve2,fp8dot2", SMETargetGuard ="sme,ssve-fp8dot2" in {
+  // 8-bit floating-point dot product to half-precision (vectors)
+  def SVFDOT_2WAY   :  SInst<"svdot[_f16_mf8]_fpm",   "dd~~>", "h", MergeNone, "aarch64_sve_fp8_fdot", [VerifyRuntimeMode, SetsFPMR]>;
+  def SVFDOT_N_2WAY :  SInst<"svdot[_n_f16_mf8]_fpm", "dd~!>", "h", MergeNone, "aarch64_sve_fp8_fdot", [VerifyRuntimeMode, SetsFPMR]>;
+
+  // 8-bit floating-point dot product to half-precision (indexed)
+  def SVFDOT_LANE_2WAY :  SInst<"svdot_lane[_f16_mf8]_fpm", "dd~~i>", "h", MergeNone, "aarch64_sve_fp8_fdot_lane", [VerifyRuntimeMode, SetsFPMR], [ImmCheck<3, ImmCheck0_7>]>;
+}
+
+let SVETargetGuard = "sve2,fp8dot4", SMETargetGuard ="sme,ssve-fp8dot4" in {
+  // 8-bit floating-point dot product to single-precision (vectors)
+  def SVFDOT_4WAY   : SInst<"svdot[_f32_mf8]_fpm",   "dd~~>", "f", MergeNone, "aarch64_sve_fp8_fdot", [VerifyRuntimeMode, SetsFPMR]>;
+  def SVFDOT_N_4WAY : SInst<"svdot[_n_f32_mf8]_fpm", "dd~!>", "f", MergeNone, "aarch64_sve_fp8_fdot", [VerifyRuntimeMode, SetsFPMR]>;
+
+  // 8-bit floating-point dot product to single-precision (indexed)
+  def SVFDOT_LANE_4WAY :  SInst<"svdot_lane[_f32_mf8]_fpm", "dd~~i>", "f", MergeNone, "aarch64_sve_fp8_fdot_lane", [VerifyRuntimeMode, SetsFPMR], [ImmCheck<3, ImmCheck0_3>]>;
+}
+
