@@ -1431,7 +1431,7 @@ RISCVTTIImpl::getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty,
     return ExtraCost + getRISCVInstructionCost(Opcodes, LT.second, CostKind);
   }
 
-  // IR Reduction is composed by two vmv and one rvv reduction instruction.
+  // IR Reduction is composed by one rvv reduction instruction and vmv
   unsigned SplitOp;
   SmallVector<unsigned, 3> Opcodes;
   switch (IID) {
@@ -1439,27 +1439,27 @@ RISCVTTIImpl::getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty,
     llvm_unreachable("Unsupported intrinsic");
   case Intrinsic::smax:
     SplitOp = RISCV::VMAX_VV;
-    Opcodes = {RISCV::VMV_S_X, RISCV::VREDMAX_VS, RISCV::VMV_X_S};
+    Opcodes = {RISCV::VREDMAX_VS, RISCV::VMV_X_S};
     break;
   case Intrinsic::smin:
     SplitOp = RISCV::VMIN_VV;
-    Opcodes = {RISCV::VMV_S_X, RISCV::VREDMIN_VS, RISCV::VMV_X_S};
+    Opcodes = {RISCV::VREDMIN_VS, RISCV::VMV_X_S};
     break;
   case Intrinsic::umax:
     SplitOp = RISCV::VMAXU_VV;
-    Opcodes = {RISCV::VMV_S_X, RISCV::VREDMAXU_VS, RISCV::VMV_X_S};
+    Opcodes = {RISCV::VREDMAXU_VS, RISCV::VMV_X_S};
     break;
   case Intrinsic::umin:
     SplitOp = RISCV::VMINU_VV;
-    Opcodes = {RISCV::VMV_S_X, RISCV::VREDMINU_VS, RISCV::VMV_X_S};
+    Opcodes = {RISCV::VREDMINU_VS, RISCV::VMV_X_S};
     break;
   case Intrinsic::maxnum:
     SplitOp = RISCV::VFMAX_VV;
-    Opcodes = {RISCV::VFMV_S_F, RISCV::VFREDMAX_VS, RISCV::VFMV_F_S};
+    Opcodes = {RISCV::VFREDMAX_VS, RISCV::VFMV_F_S};
     break;
   case Intrinsic::minnum:
     SplitOp = RISCV::VFMIN_VV;
-    Opcodes = {RISCV::VFMV_S_F, RISCV::VFREDMIN_VS, RISCV::VFMV_F_S};
+    Opcodes = {RISCV::VFREDMIN_VS, RISCV::VFMV_F_S};
     break;
   }
   // Add a cost for data larger than LMUL8
@@ -1517,7 +1517,9 @@ RISCVTTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
     }
   }
 
-  // IR Reduction is composed by two vmv and one rvv reduction instruction.
+  // IR Reduction of or/and is composed by one vmv and one rvv reduction
+  // instruction, and others is composed by two vmv and one rvv reduction
+  // instruction
   unsigned SplitOp;
   SmallVector<unsigned, 3> Opcodes;
   switch (ISD) {
@@ -1527,7 +1529,7 @@ RISCVTTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
     break;
   case ISD::OR:
     SplitOp = RISCV::VOR_VV;
-    Opcodes = {RISCV::VMV_S_X, RISCV::VREDOR_VS, RISCV::VMV_X_S};
+    Opcodes = {RISCV::VREDOR_VS, RISCV::VMV_X_S};
     break;
   case ISD::XOR:
     SplitOp = RISCV::VXOR_VV;
@@ -1535,7 +1537,7 @@ RISCVTTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
     break;
   case ISD::AND:
     SplitOp = RISCV::VAND_VV;
-    Opcodes = {RISCV::VMV_S_X, RISCV::VREDAND_VS, RISCV::VMV_X_S};
+    Opcodes = {RISCV::VREDAND_VS, RISCV::VMV_X_S};
     break;
   case ISD::FADD:
     // We can't promote f16/bf16 fadd reductions.
