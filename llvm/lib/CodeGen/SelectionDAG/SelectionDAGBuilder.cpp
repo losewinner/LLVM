@@ -6417,6 +6417,13 @@ void SelectionDAGBuilder::visitVectorHistogram(const CallInst &I,
 
 void SelectionDAGBuilder::visitVectorExtractLastActive(const CallInst &I,
                                                        unsigned Intrinsic) {
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+
+  if (!TLI.shouldExpandVectorExtractLastActive(cast<IntrinsicInst>(&I))) {
+    visitTargetIntrinsic(I, Intrinsic);
+    return;
+  }
+
   assert(Intrinsic == Intrinsic::experimental_vector_extract_last_active &&
          "Tried lowering invalid vector extract last");
   SDLoc sdl = getCurSDLoc();
@@ -6432,7 +6439,6 @@ void SelectionDAGBuilder::visitVectorExtractLastActive(const CallInst &I,
   ConstantRange VScaleRange(1, /*isFullSet=*/true); // Dummy value.
   if (DataVT.isScalableVector())
     VScaleRange = getVScaleRange(I.getCaller(), 64);
-  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   unsigned EltWidth = TLI.getBitWidthForCttzElements(
       I.getType(), DataVT.getVectorElementCount(), /*ZeroIsPoison=*/true,
       &VScaleRange);
