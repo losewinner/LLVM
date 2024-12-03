@@ -567,6 +567,11 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::EXPERIMENTAL_VECTOR_HISTOGRAM:
     return "histogram";
 
+  case ISD::PARTIAL_REDUCE_UADD:
+    return "partial_reduce_uadd";
+  case ISD::PARTIAL_REDUCE_SADD:
+    return "partial_reduce_sadd";
+
     // Vector Predication
 #define BEGIN_REGISTER_VP_SDNODE(SDID, LEGALARG, NAME, ...)                    \
   case ISD::SDID:                                                              \

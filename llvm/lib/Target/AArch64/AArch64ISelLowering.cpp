@@ -1124,6 +1124,8 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(
       {ISD::MGATHER, ISD::MSCATTER, ISD::EXPERIMENTAL_VECTOR_HISTOGRAM});
 
+  setTargetDAGCombine({ISD::PARTIAL_REDUCE_SADD, ISD::PARTIAL_REDUCE_UADD});
+
   setTargetDAGCombine(ISD::FP_EXTEND);
 
   setTargetDAGCombine(ISD::GlobalAddress);
@@ -2041,11 +2043,28 @@ bool AArch64TargetLowering::shouldExpandPartialReductionIntrinsic(
   EVT VT = EVT::getEVT(I->getType());
   auto Op1 = I->getOperand(1);
   EVT Op1VT = EVT::getEVT(Op1->getType());
-  if (Op1VT.getVectorElementType() == VT.getVectorElementType() &&
-      (VT.getVectorElementCount() * 4 == Op1VT.getVectorElementCount() ||
-       VT.getVectorElementCount() * 2 == Op1VT.getVectorElementCount()))
+  if ((Op1VT == MVT::nxv4i64 && VT == MVT::nxv2i64) ||
+      (Op1VT == MVT::nxv8i32 && VT == MVT::nxv4i32) ||
+      (Op1VT == MVT::nxv16i16 && VT == MVT::nxv8i16) ||
+      (Op1VT == MVT::nxv16i64 && VT == MVT::nxv4i64) ||
+      (Op1VT == MVT::nxv16i32 && VT == MVT::nxv4i32) ||
+      (Op1VT == MVT::nxv8i64 && VT == MVT::nxv2i64) ||
+      (Op1VT == MVT::v16i64 && VT == MVT::v4i64) ||
+      (Op1VT == MVT::v16i32 && VT == MVT::v4i32) ||
+      (Op1VT == MVT::v8i32 && VT == MVT::v2i32))
     return false;
   return true;
+}
+
+bool AArch64TargetLowering::isPartialReductionInputSigned(
+    SDValue &Input) const {
+  unsigned InputOpcode = Input.getOpcode();
+  if (ISD::isExtOpcode(InputOpcode)) {
+    Input = Input.getOperand(0);
+    if (InputOpcode == ISD::SIGN_EXTEND)
+      return true;
+  }
+  return false;
 }
 
 bool AArch64TargetLowering::shouldExpandCttzElements(EVT VT) const {
@@ -21725,11 +21744,6 @@ SDValue tryLowerPartialReductionToDot(SDNode *N,
                                       const AArch64Subtarget *Subtarget,
                                       SelectionDAG &DAG) {
 
-  assert(N->getOpcode() == ISD::INTRINSIC_WO_CHAIN &&
-         getIntrinsicID(N) ==
-             Intrinsic::experimental_vector_partial_reduce_add &&
-         "Expected a partial reduction node");
-
   bool Scalable = N->getValueType(0).isScalableVector();
   if (Scalable && !Subtarget->isSVEorStreamingSVEAvailable())
     return SDValue();
@@ -21739,8 +21753,8 @@ SDValue tryLowerPartialReductionToDot(SDNode *N,
   SDLoc DL(N);
 
   // The narrower of the two operands. Used as the accumulator
-  auto NarrowOp = N->getOperand(1);
-  auto MulOp = N->getOperand(2);
+  auto NarrowOp = N->getOperand(0);
+  auto MulOp = N->getOperand(1);
   if (MulOp->getOpcode() != ISD::MUL)
     return SDValue();
 
@@ -21811,31 +21825,15 @@ SDValue tryLowerPartialReductionToDot(SDNode *N,
 SDValue tryLowerPartialReductionToWideAdd(SDNode *N,
                                           const AArch64Subtarget *Subtarget,
                                           SelectionDAG &DAG) {
-
-  assert(N->getOpcode() == ISD::INTRINSIC_WO_CHAIN &&
-         getIntrinsicID(N) ==
-             Intrinsic::experimental_vector_partial_reduce_add &&
-         "Expected a partial reduction node");
-
   if (!Subtarget->isSVEorStreamingSVEAvailable())
     return SDValue();
 
   SDLoc DL(N);
 
-  auto Acc = N->getOperand(1);
-  auto ExtInput = N->getOperand(2);
+  auto Acc = N->getOperand(0);
+  auto Input = N->getOperand(1);
 
   EVT AccVT = Acc.getValueType();
-  EVT AccElemVT = AccVT.getVectorElementType();
-
-  if (ExtInput.getValueType().getVectorElementType() != AccElemVT)
-    return SDValue();
-
-  unsigned ExtInputOpcode = ExtInput->getOpcode();
-  if (!ISD::isExtOpcode(ExtInputOpcode))
-    return SDValue();
-
-  auto Input = ExtInput->getOperand(0);
   EVT InputVT = Input.getValueType();
 
   if (!(InputVT == MVT::nxv4i32 && AccVT == MVT::nxv2i64) &&
@@ -21843,11 +21841,22 @@ SDValue tryLowerPartialReductionToWideAdd(SDNode *N,
       !(InputVT == MVT::nxv16i8 && AccVT == MVT::nxv8i16))
     return SDValue();
 
-  bool InputIsSigned = ExtInputOpcode == ISD::SIGN_EXTEND;
+  bool InputIsSigned = N->getOpcode() == ISD::PARTIAL_REDUCE_SADD;
   auto BottomOpcode = InputIsSigned ? AArch64ISD::SADDWB : AArch64ISD::UADDWB;
   auto TopOpcode = InputIsSigned ? AArch64ISD::SADDWT : AArch64ISD::UADDWT;
   auto BottomNode = DAG.getNode(BottomOpcode, DL, AccVT, Acc, Input);
   return DAG.getNode(TopOpcode, DL, AccVT, BottomNode, Input);
+}
+
+static SDValue
+performPartialReduceAddCombine(SDNode *N, SelectionDAG &DAG,
+                               const AArch64Subtarget *Subtarget) {
+  if (auto Dot = tryLowerPartialReductionToDot(N, Subtarget, DAG))
+    return Dot;
+  if (auto WideAdd = tryLowerPartialReductionToWideAdd(N, Subtarget, DAG))
+    return WideAdd;
+  return DAG.expandPartialReduceAdd(SDLoc(N), N->getOperand(0),
+                                    N->getOperand(1));
 }
 
 static SDValue performIntrinsicCombine(SDNode *N,
@@ -21858,14 +21867,6 @@ static SDValue performIntrinsicCombine(SDNode *N,
   switch (IID) {
   default:
     break;
-  case Intrinsic::experimental_vector_partial_reduce_add: {
-    if (auto Dot = tryLowerPartialReductionToDot(N, Subtarget, DAG))
-      return Dot;
-    if (auto WideAdd = tryLowerPartialReductionToWideAdd(N, Subtarget, DAG))
-      return WideAdd;
-    return DAG.getPartialReduceAdd(SDLoc(N), N->getValueType(0),
-                                   N->getOperand(1), N->getOperand(2));
-  }
   case Intrinsic::aarch64_neon_vcvtfxs2fp:
   case Intrinsic::aarch64_neon_vcvtfxu2fp:
     return tryCombineFixedPointConvert(N, DCI, DAG);
@@ -26151,6 +26152,9 @@ SDValue AArch64TargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::MSCATTER:
   case ISD::EXPERIMENTAL_VECTOR_HISTOGRAM:
     return performMaskedGatherScatterCombine(N, DCI, DAG);
+  case ISD::PARTIAL_REDUCE_UADD:
+  case ISD::PARTIAL_REDUCE_SADD:
+    return performPartialReduceAddCombine(N, DAG, Subtarget);
   case ISD::FP_EXTEND:
     return performFPExtendCombine(N, DAG, DCI, Subtarget);
   case AArch64ISD::BRCOND:

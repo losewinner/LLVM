@@ -8128,15 +8128,21 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     return;
   }
   case Intrinsic::experimental_vector_partial_reduce_add: {
+    SDLoc dl = getCurSDLoc();
+    SDValue Acc = getValue(I.getOperand(0));
+    EVT AccVT = Acc.getValueType();
+    SDValue Input = getValue(I.getOperand(1));
 
     if (!TLI.shouldExpandPartialReductionIntrinsic(cast<IntrinsicInst>(&I))) {
-      visitTargetIntrinsic(I, Intrinsic);
+      if (TLI.isPartialReductionInputSigned(Input))
+        setValue(&I,
+                 DAG.getNode(ISD::PARTIAL_REDUCE_SADD, dl, AccVT, Acc, Input));
+      else
+        setValue(&I,
+                 DAG.getNode(ISD::PARTIAL_REDUCE_UADD, dl, AccVT, Acc, Input));
       return;
     }
-
-    setValue(&I, DAG.getPartialReduceAdd(sdl, EVT::getEVT(I.getType()),
-                                         getValue(I.getOperand(0)),
-                                         getValue(I.getOperand(1))));
+    setValue(&I, DAG.expandPartialReduceAdd(dl, Acc, Input));
     return;
   }
   case Intrinsic::experimental_cttz_elts: {
