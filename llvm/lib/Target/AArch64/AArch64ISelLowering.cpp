@@ -2033,6 +2033,25 @@ bool AArch64TargetLowering::shouldExpandGetActiveLaneMask(EVT ResVT,
   return false;
 }
 
+bool AArch64TargetLowering::shouldExpandGetAliasLaneMask(
+    EVT VT, EVT PtrVT, unsigned EltSize) const {
+  if (!Subtarget->hasSVE2())
+    return true;
+
+  if (PtrVT != MVT::i64)
+    return true;
+
+  if (VT == MVT::v2i1 || VT == MVT::nxv2i1)
+    return EltSize != 8;
+  if (VT == MVT::v4i1 || VT == MVT::nxv4i1)
+    return EltSize != 4;
+  if (VT == MVT::v8i1 || VT == MVT::nxv8i1)
+    return EltSize != 2;
+  if (VT == MVT::v16i1 || VT == MVT::nxv16i1)
+    return EltSize != 1;
+  return true;
+}
+
 bool AArch64TargetLowering::shouldExpandPartialReductionIntrinsic(
     const IntrinsicInst *I) const {
   if (I->getIntrinsicID() != Intrinsic::experimental_vector_partial_reduce_add)
@@ -2796,6 +2815,8 @@ const char *AArch64TargetLowering::getTargetNodeName(unsigned Opcode) const {
     MAKE_CASE(AArch64ISD::LS64_BUILD)
     MAKE_CASE(AArch64ISD::LS64_EXTRACT)
     MAKE_CASE(AArch64ISD::TBL)
+    MAKE_CASE(AArch64ISD::WHILEWR)
+    MAKE_CASE(AArch64ISD::WHILERW)
     MAKE_CASE(AArch64ISD::FADD_PRED)
     MAKE_CASE(AArch64ISD::FADDA_PRED)
     MAKE_CASE(AArch64ISD::FADDV_PRED)
@@ -5884,6 +5905,18 @@ SDValue AArch64TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
     EVT PtrVT = getPointerTy(DAG.getDataLayout());
     return DAG.getNode(AArch64ISD::THREAD_POINTER, dl, PtrVT);
   }
+  case Intrinsic::aarch64_sve_whilewr_b:
+  case Intrinsic::aarch64_sve_whilewr_h:
+  case Intrinsic::aarch64_sve_whilewr_s:
+  case Intrinsic::aarch64_sve_whilewr_d:
+    return DAG.getNode(AArch64ISD::WHILEWR, dl, Op.getValueType(),
+                       Op.getOperand(1), Op.getOperand(2));
+  case Intrinsic::aarch64_sve_whilerw_b:
+  case Intrinsic::aarch64_sve_whilerw_h:
+  case Intrinsic::aarch64_sve_whilerw_s:
+  case Intrinsic::aarch64_sve_whilerw_d:
+    return DAG.getNode(AArch64ISD::WHILERW, dl, Op.getValueType(),
+                       Op.getOperand(1), Op.getOperand(2));
   case Intrinsic::aarch64_neon_abs: {
     EVT Ty = Op.getValueType();
     if (Ty == MVT::i64) {
@@ -6343,18 +6376,45 @@ SDValue AArch64TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
     return DAG.getNode(AArch64ISD::USDOT, dl, Op.getValueType(),
                        Op.getOperand(1), Op.getOperand(2), Op.getOperand(3));
   }
+  case Intrinsic::experimental_get_alias_lane_mask:
   case Intrinsic::get_active_lane_mask: {
-    SDValue ID =
-        DAG.getTargetConstant(Intrinsic::aarch64_sve_whilelo, dl, MVT::i64);
+    unsigned IntrinsicID = Intrinsic::aarch64_sve_whilelo;
+    if (IntNo == Intrinsic::experimental_get_alias_lane_mask) {
+      uint64_t EltSize = Op.getOperand(3)->getAsZExtVal();
+      bool IsWriteAfterRead = Op.getOperand(4)->getAsZExtVal() == 1;
+      switch (EltSize) {
+      case 1:
+        IntrinsicID = IsWriteAfterRead ? Intrinsic::aarch64_sve_whilewr_b
+                                       : Intrinsic::aarch64_sve_whilerw_b;
+        break;
+      case 2:
+        IntrinsicID = IsWriteAfterRead ? Intrinsic::aarch64_sve_whilewr_h
+                                       : Intrinsic::aarch64_sve_whilerw_h;
+        break;
+      case 4:
+        IntrinsicID = IsWriteAfterRead ? Intrinsic::aarch64_sve_whilewr_s
+                                       : Intrinsic::aarch64_sve_whilerw_s;
+        break;
+      case 8:
+        IntrinsicID = IsWriteAfterRead ? Intrinsic::aarch64_sve_whilewr_d
+                                       : Intrinsic::aarch64_sve_whilerw_d;
+        break;
+      default:
+        llvm_unreachable("Unexpected element size for get.alias.lane.mask");
+        break;
+      }
+    }
+    SDValue ID = DAG.getTargetConstant(IntrinsicID, dl, MVT::i64);
 
     EVT VT = Op.getValueType();
     if (VT.isScalableVector())
       return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, dl, VT, ID, Op.getOperand(1),
                          Op.getOperand(2));
 
-    // We can use the SVE whilelo instruction to lower this intrinsic by
-    // creating the appropriate sequence of scalable vector operations and
-    // then extracting a fixed-width subvector from the scalable vector.
+    // We can use the SVE whilelo/whilewr/whilerw instruction to lower this
+    // intrinsic by creating the appropriate sequence of scalable vector
+    // operations and then extracting a fixed-width subvector from the scalable
+    // vector.
 
     EVT ContainerVT = getContainerForFixedLengthVector(DAG, VT);
     EVT WhileVT = ContainerVT.changeElementType(MVT::i1);
@@ -14244,128 +14304,8 @@ static SDValue tryLowerToSLI(SDNode *N, SelectionDAG &DAG) {
   return ResultSLI;
 }
 
-/// Try to lower the construction of a pointer alias mask to a WHILEWR.
-/// The mask's enabled lanes represent the elements that will not overlap across
-/// one loop iteration. This tries to match:
-/// or (splat (setcc_lt (sub ptrA, ptrB), -(element_size - 1))),
-///    (get_active_lane_mask 0, (div (sub ptrA, ptrB), element_size))
-SDValue tryWhileWRFromOR(SDValue Op, SelectionDAG &DAG,
-                         const AArch64Subtarget &Subtarget) {
-  if (!Subtarget.hasSVE2())
-    return SDValue();
-  SDValue LaneMask = Op.getOperand(0);
-  SDValue Splat = Op.getOperand(1);
-
-  if (Splat.getOpcode() != ISD::SPLAT_VECTOR)
-    std::swap(LaneMask, Splat);
-
-  if (LaneMask.getOpcode() != ISD::INTRINSIC_WO_CHAIN ||
-      LaneMask.getConstantOperandVal(0) != Intrinsic::get_active_lane_mask ||
-      Splat.getOpcode() != ISD::SPLAT_VECTOR)
-    return SDValue();
-
-  SDValue Cmp = Splat.getOperand(0);
-  if (Cmp.getOpcode() != ISD::SETCC)
-    return SDValue();
-
-  CondCodeSDNode *Cond = cast<CondCodeSDNode>(Cmp.getOperand(2));
-
-  auto ComparatorConst = dyn_cast<ConstantSDNode>(Cmp.getOperand(1));
-  if (!ComparatorConst || ComparatorConst->getSExtValue() > 0 ||
-      Cond->get() != ISD::CondCode::SETLT)
-    return SDValue();
-  unsigned CompValue = std::abs(ComparatorConst->getSExtValue());
-  unsigned EltSize = CompValue + 1;
-  if (!isPowerOf2_64(EltSize) || EltSize > 8)
-    return SDValue();
-
-  SDValue Diff = Cmp.getOperand(0);
-  if (Diff.getOpcode() != ISD::SUB || Diff.getValueType() != MVT::i64)
-    return SDValue();
-
-  if (!isNullConstant(LaneMask.getOperand(1)) ||
-      (EltSize != 1 && LaneMask.getOperand(2).getOpcode() != ISD::SRA))
-    return SDValue();
-
-  // The number of elements that alias is calculated by dividing the positive
-  // difference between the pointers by the element size. An alias mask for i8
-  // elements omits the division because it would just divide by 1
-  if (EltSize > 1) {
-    SDValue DiffDiv = LaneMask.getOperand(2);
-    auto DiffDivConst = dyn_cast<ConstantSDNode>(DiffDiv.getOperand(1));
-    if (!DiffDivConst || DiffDivConst->getZExtValue() != Log2_64(EltSize))
-      return SDValue();
-    if (EltSize > 2) {
-      // When masking i32 or i64 elements, the positive value of the
-      // possibly-negative difference comes from a select of the difference if
-      // it's positive, otherwise the difference plus the element size if it's
-      // negative: pos_diff = diff < 0 ? (diff + 7) : diff
-      SDValue Select = DiffDiv.getOperand(0);
-      // Make sure the difference is being compared by the select
-      if (Select.getOpcode() != ISD::SELECT_CC || Select.getOperand(3) != Diff)
-        return SDValue();
-      // Make sure it's checking if the difference is less than 0
-      if (!isNullConstant(Select.getOperand(1)) ||
-          cast<CondCodeSDNode>(Select.getOperand(4))->get() !=
-              ISD::CondCode::SETLT)
-        return SDValue();
-      // An add creates a positive value from the negative difference
-      SDValue Add = Select.getOperand(2);
-      if (Add.getOpcode() != ISD::ADD || Add.getOperand(0) != Diff)
-        return SDValue();
-      if (auto *AddConst = dyn_cast<ConstantSDNode>(Add.getOperand(1));
-          !AddConst || AddConst->getZExtValue() != EltSize - 1)
-        return SDValue();
-    } else {
-      // When masking i16 elements, this positive value comes from adding the
-      // difference's sign bit to the difference itself. This is equivalent to
-      // the 32 bit and 64 bit case: pos_diff = diff + sign_bit (diff)
-      SDValue Add = DiffDiv.getOperand(0);
-      if (Add.getOpcode() != ISD::ADD || Add.getOperand(0) != Diff)
-        return SDValue();
-      // A logical right shift by 63 extracts the sign bit from the difference
-      SDValue Shift = Add.getOperand(1);
-      if (Shift.getOpcode() != ISD::SRL || Shift.getOperand(0) != Diff)
-        return SDValue();
-      if (auto *ShiftConst = dyn_cast<ConstantSDNode>(Shift.getOperand(1));
-          !ShiftConst || ShiftConst->getZExtValue() != 63)
-        return SDValue();
-    }
-  } else if (LaneMask.getOperand(2) != Diff)
-    return SDValue();
-
-  SDValue StorePtr = Diff.getOperand(0);
-  SDValue ReadPtr = Diff.getOperand(1);
-
-  unsigned IntrinsicID = 0;
-  switch (EltSize) {
-  case 1:
-    IntrinsicID = Intrinsic::aarch64_sve_whilewr_b;
-    break;
-  case 2:
-    IntrinsicID = Intrinsic::aarch64_sve_whilewr_h;
-    break;
-  case 4:
-    IntrinsicID = Intrinsic::aarch64_sve_whilewr_s;
-    break;
-  case 8:
-    IntrinsicID = Intrinsic::aarch64_sve_whilewr_d;
-    break;
-  default:
-    return SDValue();
-  }
-  SDLoc DL(Op);
-  SDValue ID = DAG.getConstant(IntrinsicID, DL, MVT::i32);
-  return DAG.getNode(ISD::INTRINSIC_WO_CHAIN, DL, Op.getValueType(), ID,
-                     StorePtr, ReadPtr);
-}
-
 SDValue AArch64TargetLowering::LowerVectorOR(SDValue Op,
                                              SelectionDAG &DAG) const {
-  if (SDValue SV =
-          tryWhileWRFromOR(Op, DAG, DAG.getSubtarget<AArch64Subtarget>()))
-    return SV;
-
   if (useSVEForFixedLengthVectorVT(Op.getValueType(),
                                    !Subtarget->isNeonAvailable()))
     return LowerToScalableOp(Op, DAG);
@@ -19612,7 +19552,10 @@ static bool isPredicateCCSettingOp(SDValue N) {
         N.getConstantOperandVal(0) == Intrinsic::aarch64_sve_whilels ||
         N.getConstantOperandVal(0) == Intrinsic::aarch64_sve_whilelt ||
         // get_active_lane_mask is lowered to a whilelo instruction.
-        N.getConstantOperandVal(0) == Intrinsic::get_active_lane_mask)))
+        N.getConstantOperandVal(0) == Intrinsic::get_active_lane_mask ||
+        // get_alias_lane_mask is lowered to a whilewr/rw instruction.
+        N.getConstantOperandVal(0) ==
+            Intrinsic::experimental_get_alias_lane_mask)))
     return true;
 
   return false;
@@ -27178,6 +27121,7 @@ void AArch64TargetLowering::ReplaceNodeResults(
       return;
     }
     case Intrinsic::experimental_vector_match:
+    case Intrinsic::experimental_get_alias_lane_mask:
     case Intrinsic::get_active_lane_mask: {
       if (!VT.isFixedLengthVector() || VT.getVectorElementType() != MVT::i1)
         return;
