@@ -1498,6 +1498,8 @@ void CFGBuilder::findConstructionContexts(
     // Should we support other implicit cast kinds?
     switch (Cast->getCastKind()) {
     case CK_NoOp:
+    case CK_FunctionPointerConversion:
+    case CK_MemberFunctionPointerConversion:
     case CK_ConstructorConversion:
       findConstructionContexts(Layer, Cast->getSubExpr());
       break;
