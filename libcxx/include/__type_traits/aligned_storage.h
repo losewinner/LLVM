@@ -70,7 +70,7 @@ struct __find_max_align<__type_list<_Hp, _Tp>, _Len>
     : public integral_constant<size_t, __select_align<_Len, _Hp::value, __find_max_align<_Tp, _Len>::value>::value> {};
 
 template <size_t _Len, size_t _Align = __find_max_align<__all_types, _Len>::value>
-struct _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_TEMPLATE_VIS aligned_storage {
+struct _LIBCPP_DEPRECATED_IN_CXX23 _LIBCPP_TEMPLATE_VIS _LIBCPP_NO_SPECIALIZATIONS aligned_storage {
   union _ALIGNAS(_Align) type {
     unsigned char __data[(_Len + _Align - 1) / _Align * _Align];
   };
