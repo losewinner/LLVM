@@ -198,6 +198,7 @@ struct FragmentCompiler {
     compile(std::move(F.InlayHints));
     compile(std::move(F.SemanticTokens));
     compile(std::move(F.Style));
+    compile(std::move(F.CallHierarchy));
   }
 
   void compile(Fragment::IfBlock &&F) {
@@ -482,6 +483,14 @@ struct FragmentCompiler {
             FullyQualifiedNamespaces.begin(), FullyQualifiedNamespaces.end());
       });
     }
+  }
+
+  void compile(Fragment::CallHierarchyBlock &&F) {
+    if (F.OutgoingCalls)
+      Out.Apply.push_back(
+          [Value(**F.OutgoingCalls)](const Params &, Config &C) {
+            C.CallHierarchy.OutgoingCalls = Value;
+          });
   }
 
   void appendTidyCheckSpec(std::string &CurSpec,

@@ -305,6 +305,20 @@ Style:
   EXPECT_THAT(Results[0].Style.FullyQualifiedNamespaces,
               ElementsAre(val("foo"), val("bar")));
 }
+
+TEST(ParseYAML, CallHierarchy) {
+  CapturedDiags Diags;
+  Annotations YAML(R"yaml(
+CallHierarchy:
+  OutgoingCalls: No
+)yaml");
+  auto Results =
+      Fragment::parseYAML(YAML.code(), "config.yaml", Diags.callback());
+  ASSERT_THAT(Diags.Diagnostics, IsEmpty());
+  ASSERT_EQ(Results.size(), 1u);
+  EXPECT_THAT(Results[0].CallHierarchy.OutgoingCalls,
+              llvm::ValueIs(val(false)));
+}
 } // namespace
 } // namespace config
 } // namespace clangd
