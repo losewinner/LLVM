@@ -23,6 +23,7 @@
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/ParsedAttr.h"
@@ -2090,24 +2091,6 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
       return true;
     break;
   }
-  case Builtin::BI__builtin_hlsl_length: {
-    if (CheckFloatOrHalfRepresentations(&SemaRef, TheCall))
-      return true;
-    if (SemaRef.checkArgCount(TheCall, 1))
-      return true;
-
-    ExprResult A = TheCall->getArg(0);
-    QualType ArgTyA = A.get()->getType();
-    QualType RetTy;
-
-    if (auto *VTy = ArgTyA->getAs<VectorType>())
-      RetTy = VTy->getElementType();
-    else
-      RetTy = TheCall->getArg(0)->getType();
-
-    TheCall->setType(RetTy);
-    break;
-  }
   case Builtin::BI__builtin_hlsl_mad: {
     if (SemaRef.checkArgCount(TheCall, 3))
       return true;
@@ -2129,6 +2112,21 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     QualType ArgTyA = A.get()->getType();
     // return type is the same as the input type
     TheCall->setType(ArgTyA);
+    break;
+  }
+  case Builtin::BI__builtin_hlsl_reduce_add: {
+    if (SemaRef.checkArgCount(TheCall, 1))
+      return true;
+    ExprResult A = TheCall->getArg(0);
+    QualType ArgTyA = A.get()->getType();
+    QualType RetTy;
+
+    if (auto *VTy = ArgTyA->getAs<VectorType>())
+      RetTy = VTy->getElementType();
+    else
+      RetTy = TheCall->getArg(0)->getType();
+
+    TheCall->setType(RetTy);
     break;
   }
   case Builtin::BI__builtin_hlsl_elementwise_sign: {
@@ -2210,6 +2208,8 @@ bool SemaHLSL::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
       return true;
     break;
   }
+  case SPIRV::BI__builtin_spirv_distance:
+  case SPIRV::BI__builtin_spirv_length:
   case Builtin::BI__builtin_elementwise_acos:
   case Builtin::BI__builtin_elementwise_asin:
   case Builtin::BI__builtin_elementwise_atan:

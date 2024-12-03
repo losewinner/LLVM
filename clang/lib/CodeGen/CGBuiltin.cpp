@@ -55,6 +55,7 @@
 #include "llvm/IR/IntrinsicsR600.h"
 #include "llvm/IR/IntrinsicsRISCV.h"
 #include "llvm/IR/IntrinsicsS390.h"
+#include "llvm/IR/IntrinsicsSPIRV.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/IR/MDBuilder.h"
@@ -67,6 +68,7 @@
 #include "llvm/TargetParser/AArch64TargetParser.h"
 #include "llvm/TargetParser/RISCVISAInfo.h"
 #include "llvm/TargetParser/RISCVTargetParser.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/TargetParser/X86TargetParser.h"
 #include <optional>
 #include <utility>
@@ -6731,6 +6733,8 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
   case llvm::Triple::riscv32:
   case llvm::Triple::riscv64:
     return CGF->EmitRISCVBuiltinExpr(BuiltinID, E, ReturnValue);
+  case llvm::Triple::spirv:
+    return CGF->EmitSPIRVBuiltinExpr(BuiltinID, E);
   case llvm::Triple::spirv64:
     if (CGF->getTarget().getTriple().getOS() != llvm::Triple::OSType::AMDHSA)
       return nullptr;
@@ -19200,20 +19204,6 @@ Value *CodeGenFunction::EmitHLSLBuiltinExpr(unsigned BuiltinID,
         /*ReturnType=*/X->getType(), CGM.getHLSLRuntime().getLerpIntrinsic(),
         ArrayRef<Value *>{X, Y, S}, nullptr, "hlsl.lerp");
   }
-  case Builtin::BI__builtin_hlsl_length: {
-    Value *X = EmitScalarExpr(E->getArg(0));
-
-    assert(E->getArg(0)->getType()->hasFloatingRepresentation() &&
-           "length operand must have a float representation");
-    // if the operand is a scalar, we can use the fabs llvm intrinsic directly
-    if (!E->getArg(0)->getType()->isVectorType())
-      return EmitFAbs(*this, X);
-
-    return Builder.CreateIntrinsic(
-        /*ReturnType=*/X->getType()->getScalarType(),
-        CGM.getHLSLRuntime().getLengthIntrinsic(), ArrayRef<Value *>{X},
-        nullptr, "hlsl.length");
-  }
   case Builtin::BI__builtin_hlsl_normalize: {
     Value *X = EmitScalarExpr(E->getArg(0));
 
@@ -19314,6 +19304,21 @@ case Builtin::BI__builtin_hlsl_elementwise_isinf: {
         /*ReturnType=*/Op0->getType(),
         CGM.getHLSLRuntime().getSaturateIntrinsic(), ArrayRef<Value *>{Op0},
         nullptr, "hlsl.saturate");
+  }
+  case Builtin::BI__builtin_hlsl_reduce_add: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    auto EltTy = X->getType()->getScalarType();
+    if (E->getArg(0)->getType()->hasFloatingRepresentation()) {
+      Value *Seed = ConstantFP::get(EltTy, 0);
+      return Builder.CreateIntrinsic(
+          /*ReturnType=*/EltTy, llvm::Intrinsic::vector_reduce_fadd,
+          ArrayRef<Value *>{Seed, X}, nullptr, "rdx.fadd");
+    } else {
+      assert(E->getArg(0)->getType()->hasIntegerRepresentation());
+      return Builder.CreateIntrinsic(
+          /*ReturnType=*/EltTy, llvm::Intrinsic::vector_reduce_add,
+          ArrayRef<Value *>{X}, nullptr, "rdx.add");
+    }
   }
   case Builtin::BI__builtin_hlsl_select: {
     Value *OpCond = EmitScalarExpr(E->getArg(0));
@@ -19481,6 +19486,36 @@ void CodeGenFunction::AddAMDGPUFenceAddressSpaceMMRA(llvm::Instruction *Inst,
   llvm::sort(MMRAs);
   MMRAs.erase(llvm::unique(MMRAs), MMRAs.end());
   Inst->setMetadata(LLVMContext::MD_mmra, MMRAMetadata::getMD(Ctx, MMRAs));
+}
+
+Value *CodeGenFunction::EmitSPIRVBuiltinExpr(unsigned BuiltinID,
+                                             const CallExpr *E) {
+  switch (BuiltinID) {
+  case SPIRV::BI__builtin_spirv_distance: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Value *Y = EmitScalarExpr(E->getArg(1));
+    assert(E->getArg(0)->getType()->hasFloatingRepresentation() &&
+           E->getArg(1)->getType()->hasFloatingRepresentation() &&
+           "Distance operands must have a float representation");
+    assert(E->getArg(0)->getType()->isVectorType() &&
+           E->getArg(1)->getType()->isVectorType() &&
+           "Distance operands must be a vector");
+    return Builder.CreateIntrinsic(
+        /*ReturnType=*/X->getType()->getScalarType(), Intrinsic::spv_distance,
+        ArrayRef<Value *>{X, Y}, nullptr, "hlsl.distance");
+  }
+  case SPIRV::BI__builtin_spirv_length: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    assert(E->getArg(0)->getType()->hasFloatingRepresentation() &&
+           "length operand must have a float representation");
+    assert(E->getArg(0)->getType()->isVectorType() &&
+           "length operand must be a vector");
+    return Builder.CreateIntrinsic(
+        /*ReturnType=*/X->getType()->getScalarType(), Intrinsic::spv_length,
+        ArrayRef<Value *>{X}, nullptr, "hlsl.length");
+  }
+  }
+  return nullptr;
 }
 
 Value *CodeGenFunction::EmitAMDGPUBuiltinExpr(unsigned BuiltinID,
