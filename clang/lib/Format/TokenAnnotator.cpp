@@ -4280,7 +4280,7 @@ unsigned TokenAnnotator::splitPenalty(const AnnotatedLine &Line,
     //   aaaaaaa
     //       .aaaaaaaaa.bbbbbbbb(cccccccc);
     return !Right.NextOperator || !Right.NextOperator->Previous->closesScope()
-               ? 150
+               ? Style.PenaltyBreakBeforeMemberAccess
                : 35;
   }
 
