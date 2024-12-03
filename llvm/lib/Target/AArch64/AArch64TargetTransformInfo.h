@@ -234,11 +234,14 @@ public:
                                                     bool IsZeroCmp) const;
   bool useNeonVector(const Type *Ty) const;
 
-  InstructionCost
-  getMemoryOpCost(unsigned Opcode, Type *Src, MaybeAlign Alignment,
-                  unsigned AddressSpace, TTI::TargetCostKind CostKind,
-                  TTI::OperandValueInfo OpInfo = {TTI::OK_AnyValue, TTI::OP_None},
-                  const Instruction *I = nullptr);
+  InstructionCost getConstantMaterializationCost(ArrayRef<Value *> VL);
+
+  InstructionCost getMemoryOpCost(
+      unsigned Opcode, Type *Src, MaybeAlign Alignment, unsigned AddressSpace,
+      TTI::TargetCostKind CostKind,
+      TTI::OperandValueInfo OpInfo = {TTI::OK_AnyValue, TTI::OP_None},
+      const Instruction *I = nullptr,
+      InstructionCost ConstVectScalarCost = InstructionCost::getInvalid());
 
   InstructionCost getCostOfKeepingLiveOverCall(ArrayRef<Type *> Tys);
 

@@ -1454,6 +1454,9 @@ public:
                                             const APInt &DemandedDstElts,
                                             TTI::TargetCostKind CostKind) const;
 
+  /// \return The cost of materializing a constant vector.
+  InstructionCost getConstantMaterializationCost(ArrayRef<Value *> VL) const;
+
   /// \return The cost of Load and Store instructions.
   InstructionCost
   getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
@@ -2152,6 +2155,8 @@ public:
                             const APInt &DemandedDstElts,
                             TTI::TargetCostKind CostKind) = 0;
 
+  virtual InstructionCost
+  getConstantMaterializationCost(ArrayRef<Value *> VL) = 0;
   virtual InstructionCost
   getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                   unsigned AddressSpace, TTI::TargetCostKind CostKind,
@@ -2855,6 +2860,10 @@ public:
                             TTI::TargetCostKind CostKind) override {
     return Impl.getReplicationShuffleCost(EltTy, ReplicationFactor, VF,
                                           DemandedDstElts, CostKind);
+  }
+  InstructionCost
+  getConstantMaterializationCost(ArrayRef<Value *> VL) override {
+    return Impl.getConstantMaterializationCost(VL);
   }
   InstructionCost getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                                   unsigned AddressSpace,
