@@ -9,11 +9,15 @@
 #ifndef LLVM_CODEGEN_REGALLOCEVICTIONADVISOR_H
 #define LLVM_CODEGEN_REGALLOCEVICTIONADVISOR_H
 
+#include "llvm/ADT/Any.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/MC/MCRegister.h"
 #include "llvm/Pass.h"
 
@@ -164,12 +168,12 @@ protected:
 ///
 /// Because we need to offer additional services in 'development' mode, the
 /// implementations of this analysis need to implement RTTI support.
-class RegAllocEvictionAdvisorAnalysis : public ImmutablePass {
+class RegAllocEvictionAdvisorAnalysisLegacy : public ImmutablePass {
 public:
   enum class AdvisorMode : int { Default, Release, Development };
 
-  RegAllocEvictionAdvisorAnalysis(AdvisorMode Mode)
-      : ImmutablePass(ID), Mode(Mode){};
+  RegAllocEvictionAdvisorAnalysisLegacy(AdvisorMode Mode)
+      : ImmutablePass(ID), Mode(Mode) {};
   static char ID;
 
   /// Get an advisor for the given context (i.e. machine function, etc)
@@ -177,7 +181,7 @@ public:
   getAdvisor(const MachineFunction &MF, const RAGreedy &RA) = 0;
   AdvisorMode getAdvisorMode() const { return Mode; }
   virtual void logRewardIfNeeded(const MachineFunction &MF,
-                                 llvm::function_ref<float()> GetReward){};
+                                 llvm::function_ref<float()> GetReward) {};
 
 protected:
   // This analysis preserves everything, and subclasses may have additional
@@ -191,13 +195,98 @@ private:
   const AdvisorMode Mode;
 };
 
+/// Common provider for legacy and new pass managers.
+/// This keeps the state for logging, and sets up and holds the provider.
+/// The legacy pass itself used to keep the logging state and provider,
+/// so this extraction helps the NPM analysis to reuse the logic.
+class RegAllocEvictionAdvisorProvider {
+public:
+  enum class AdvisorMode : int { Default, Release, Development };
+  RegAllocEvictionAdvisorProvider(AdvisorMode Mode, LLVMContext &Ctx)
+      : Ctx(Ctx), Mode(Mode) {}
+
+  virtual ~RegAllocEvictionAdvisorProvider() = default;
+
+  virtual void logRewardIfNeeded(const MachineFunction &MF,
+                                 llvm::function_ref<float()> GetReward) {}
+
+  virtual std::unique_ptr<RegAllocEvictionAdvisor>
+  getAdvisor(const MachineFunction &MF, const RAGreedy &RA) = 0;
+
+  /// We create this provider in doInitialization which doesn't have these
+  /// analyses. For NPM, we do have them in run(MachineFunction&)
+  virtual void setAnalyses(MachineBlockFrequencyInfo *MBFI,
+                           MachineLoopInfo *Loops) {
+    this->MBFI = MBFI;
+    this->Loops = Loops;
+  }
+
+  AdvisorMode getAdvisorMode() const { return Mode; }
+
+protected:
+  LLVMContext &Ctx;
+  MachineBlockFrequencyInfo *MBFI;
+  MachineLoopInfo *Loops;
+
+private:
+  const AdvisorMode Mode;
+};
+
+RegAllocEvictionAdvisorProvider *
+createReleaseModeAdvisorProvider(LLVMContext &Ctx);
+RegAllocEvictionAdvisorProvider *
+createDevelopmentModeAdvisorProvider(LLVMContext &Ctx);
+
+/// A MachineFunction analysis for fetching the Eviction Advisor.
+/// This sets up the Provider lazily and caches it.
+/// - in the ML implementation case, the evaluator is stateless but (especially
+/// in the development mode) expensive to set up. With a Module Analysis, we
+/// `require` it and set it up once.
+/// - in the 'development' mode ML case, we want to capture the training log
+/// during allocation (this is a log of features encountered and decisions
+/// made), and then measure a score, potentially a few steps after allocation
+/// completes. So we need a Module analysis to keep the logger state around
+/// until we can make that measurement.
+class RegAllocEvictionAdvisorAnalysis
+    : public AnalysisInfoMixin<RegAllocEvictionAdvisorAnalysis> {
+  static AnalysisKey Key;
+  friend AnalysisInfoMixin<RegAllocEvictionAdvisorAnalysis>;
+
+public:
+  struct Result {
+    // owned by this analysis
+    RegAllocEvictionAdvisorProvider *Provider;
+
+    bool invalidate(MachineFunction &MF, const PreservedAnalyses &PA,
+                    MachineFunctionAnalysisManager::Invalidator &Inv) {
+      auto PAC = PA.getChecker<RegAllocEvictionAdvisorAnalysis>();
+      // If we are in default mode, the provider is always valid.
+      if (Provider->getAdvisorMode() ==
+          RegAllocEvictionAdvisorProvider::AdvisorMode::Default)
+        return !PAC.preservedWhenStateless();
+      // MBFI and Loops are used in release and development modes, so check
+      // those.
+      return !PAC.preservedWhenStateless() ||
+             Inv.invalidate<MachineBlockFrequencyAnalysis>(MF, PA) ||
+             Inv.invalidate<MachineLoopAnalysis>(MF, PA);
+    }
+  };
+
+  Result run(MachineFunction &MF, MachineFunctionAnalysisManager &MAM);
+
+private:
+  void initializeProvider(LLVMContext &Ctx);
+  std::unique_ptr<RegAllocEvictionAdvisorProvider> Provider;
+};
+
 /// Specialization for the API used by the analysis infrastructure to create
 /// an instance of the eviction advisor.
-template <> Pass *callDefaultCtor<RegAllocEvictionAdvisorAnalysis>();
+template <> Pass *callDefaultCtor<RegAllocEvictionAdvisorAnalysisLegacy>();
 
-RegAllocEvictionAdvisorAnalysis *createReleaseModeAdvisor();
+RegAllocEvictionAdvisorAnalysisLegacy *createReleaseModeAdvisorAnalysisLegacy();
 
-RegAllocEvictionAdvisorAnalysis *createDevelopmentModeAdvisor();
+RegAllocEvictionAdvisorAnalysisLegacy *
+createDevelopmentModeAdvisorAnalysisLegacy();
 
 // TODO: move to RegAllocEvictionAdvisor.cpp when we move implementation
 // out of RegAllocGreedy.cpp
