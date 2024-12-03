@@ -1,24 +1,25 @@
-; RUN: llc < %s -march=avr -mattr=avr3 | FileCheck %s
-; RUN: llc < %s -march=avr -mattr=avr2 | FileCheck --check-prefix=AVR2 %s
+; RUN: llc < %s -march=avr -mcpu=avr25 -filetype=obj -o - | llvm-objdump --mcpu=avr25 -dr --no-show-raw-insn --no-leading-addr - | FileCheck --check-prefix=AVR25 %s
+; RUN: llc < %s -march=avr -mcpu=avr3 -filetype=obj -o - | llvm-objdump --mcpu=avr3 -dr --no-show-raw-insn --no-leading-addr - | FileCheck --check-prefix=AVR3 %s
 
-; CHECK-LABEL: relax_to_jmp:
-; CHECK: cpi     r{{[0-9]+}}, 0
-; CHECK: brne    [[BB1:.LBB[0-9]+_[0-9]+]]
-; CHECK: jmp     [[BB2:.LBB[0-9]+_[0-9]+]]
-; CHECK: [[BB1]]:
-; CHECK: nop
-; CHECK: [[BB2]]:
+; AVR25: <relax_to_jmp>:
+; AVR25-NEXT: andi r24, 0x1
+; AVR25-NEXT: cpi r24, 0x0
+; AVR25-NEXT: brne .+0
+; AVR25-NEXT: R_AVR_7_PCREL .text+0x8
+; AVR25-NEXT: rjmp .+0
+; AVR25-NEXT: R_AVR_13_PCREL .text+0x100c
+; AVR25: ldi r24, 0x3
+; AVR25-NEXT: ret
 
-;; A `RJMP` is generated instead of expected `JMP` for AVR2,
-;; and it is up to the linker to report 'out of range' or
-;; 'exceed flash maximum size'.
-; AVR2-LABEL: relax_to_jmp:
-; AVR2: cpi     r{{[0-9]+}}, 0
-; AVR2: brne    [[BB1:.LBB[0-9]+_[0-9]+]]
-; AVR2: rjmp    [[BB2:.LBB[0-9]+_[0-9]+]]
-; AVR2: [[BB1]]:
-; AVR2: nop
-; AVR2: [[BB2]]:
+; AVR3: <relax_to_jmp>:
+; AVR3-NEXT: andi r24, 0x1
+; AVR3-NEXT: cpi r24, 0x0
+; AVR3-NEXT: brne .+0
+; AVR3-NEXT: R_AVR_7_PCREL .text+0xa
+; AVR3-NEXT: jmp 0x0
+; AVR3-NEXT: R_AVR_CALL .text+0x100e
+; AVR3: ldi r24, 0x3
+; AVR3-NEXT: ret
 
 define i8 @relax_to_jmp(i1 %a) {
 entry-block:
@@ -2081,24 +2082,25 @@ finished:
   ret i8 3
 }
 
-; CHECK-LABEL: relax_to_jmp_backwards:
-; CHECK: [[BB1:.LBB[0-9]+_[0-9]+]]
-; CHECK: nop
-; CHECK: cpi     r{{[0-9]+}}, 0
-; CHECK: breq    [[BB2:.LBB[0-9]+_[0-9]+]]
-; CHECK: jmp     [[BB1]]
-; CHECK: [[BB2]]:
+; AVR25: <relax_to_jmp_backwards>:
+; AVR25-NEXT: andi r24, 0x1
+; AVR25: cpi r24, 0x0
+; AVR25-NEXT: breq .+0
+; AVR25-NEXT: R_AVR_7_PCREL .text+0x201c
+; AVR25-NEXT: rjmp .+0
+; AVR25-NEXT: R_AVR_13_PCREL .text+0x1012
+; AVR25: ldi r24, 0x3
+; AVR25-NEXT: ret
 
-;; A `RJMP` is generated instead of expected `JMP` for AVR2,
-;; and it is up to the linker to report 'out of range' or
-;; 'exceed flash maximum size'.
-; AVR2-LABEL: relax_to_jmp_backwards:
-; AVR2: [[BB1:.LBB[0-9]+_[0-9]+]]
-; AVR2: nop
-; AVR2: cpi     r{{[0-9]+}}, 0
-; AVR2: breq    [[BB2:.LBB[0-9]+_[0-9]+]]
-; AVR2: rjmp    [[BB1]]
-; AVR2: [[BB2]]:
+; AVR3: <relax_to_jmp_backwards>:
+; AVR3-NEXT: andi r24, 0x1
+; AVR3: cpi r24, 0x0
+; AVR3-NEXT: breq .+0
+; AVR3-NEXT: R_AVR_7_PCREL .text+0x2020
+; AVR3-NEXT: jmp 0x0
+; AVR3-NEXT: R_AVR_CALL .text+0x1014
+; AVR3: ldi r24, 0x3
+; AVR3-NEXT: ret
 
 define i8 @relax_to_jmp_backwards(i1 %a) {
 entry-block:
