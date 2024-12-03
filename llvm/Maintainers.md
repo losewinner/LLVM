@@ -422,7 +422,6 @@ gkistanova@gmail.com (email), [gkistanova](https://github.com/gkistanova) (GitHu
 ### Other subprojects
 
 Some subprojects maintain their own list of per-component maintainers.
-Others only have a lead maintainer listed here.
 
 [Bolt maintainers](https://github.com/llvm/llvm-project/blob/main/bolt/Maintainers.txt)
 
@@ -434,29 +433,17 @@ Others only have a lead maintainer listed here.
 
 [Flang maintainers](https://github.com/llvm/llvm-project/blob/main/flang/Maintainers.txt)
 
+[libc++ maintainers](https://github.com/llvm/llvm-project/blob/main/libcxx/Maintainers.md)
+
+[libclc maintainers](https://github.com/llvm/llvm-project/blob/main/libclc/Maintainers.md)
+
 [LLD maintainers](https://github.com/llvm/llvm-project/blob/main/lld/CODE_OWNERS.TXT)
 
 [LLDB maintainers](https://github.com/llvm/llvm-project/blob/main/lldb/Maintainers.rst)
 
-#### libc++
+[LLVM OpenMP Library maintainers](https://github.com/llvm/llvm-project/blob/main/openmp/Maintainers.md)
 
-Louis Dionne \
-ldionne.2@gmail.com (email), [ldionne](https://github.com/ldionne) (GitHub)
-
-#### libclc
-
-Tom Stellard \
-tstellar@redhat.com (email), [tstellar](https://github.com/tstellar) (GitHub)
-
-#### OpenMP (runtime library)
-
-Andrey Churbanov \
-andrey.churbanov@intel.com (email), [AndreyChurbanov](https://github.com/AndreyChurbanov) (GitHub)
-
-#### Polly
-
-Tobias Grosser \
-tobias@grosser.es (email), [tobiasgrosser](https://github.com/tobiasgrosser) (GitHub)
+[Polly maintainers](https://github.com/llvm/llvm-project/blob/main/polly/Maintainers.md)
 
 ## Inactive Maintainers
 
