@@ -663,6 +663,7 @@ set(files
   __ranges/data.h
   __ranges/drop_view.h
   __ranges/drop_while_view.h
+  __ranges/elements_of.h
   __ranges/elements_view.h
   __ranges/empty.h
   __ranges/empty_view.h
@@ -974,6 +975,7 @@ set(files
   fstream
   functional
   future
+  generator
   initializer_list
   inttypes.h
   iomanip
