@@ -1589,6 +1589,10 @@ public:
   /// split during legalization. Zero is returned when the answer is unknown.
   unsigned getNumberOfParts(Type *Tp) const;
 
+  /// \return true if \p Tp represent a type, fully occupying whole register,
+  /// false otherwise.
+  bool isFullSingleRegisterType(Type *Tp) const;
+
   /// \returns The cost of the address computation. For most targets this can be
   /// merged into the instruction indexing mode. Some targets might want to
   /// distinguish between address computation for memory operations on vector
@@ -2201,6 +2205,7 @@ public:
                                            ArrayRef<Type *> Tys,
                                            TTI::TargetCostKind CostKind) = 0;
   virtual unsigned getNumberOfParts(Type *Tp) = 0;
+  virtual bool isFullSingleRegisterType(Type *Tp) const = 0;
   virtual InstructionCost
   getAddressComputationCost(Type *Ty, ScalarEvolution *SE, const SCEV *Ptr) = 0;
   virtual InstructionCost
@@ -2935,6 +2940,9 @@ public:
   }
   unsigned getNumberOfParts(Type *Tp) override {
     return Impl.getNumberOfParts(Tp);
+  }
+  bool isFullSingleRegisterType(Type *Tp) const override {
+    return Impl.isFullSingleRegisterType(Tp);
   }
   InstructionCost getAddressComputationCost(Type *Ty, ScalarEvolution *SE,
                                             const SCEV *Ptr) override {
