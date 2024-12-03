@@ -24,6 +24,7 @@ set_source_files_properties("${version_inc}"
 
 add_lld_library(lldCommon
   Args.cpp
+  BPSectionOrdererBase.cpp
   CommonLinkerContext.cpp
   DriverDispatcher.cpp
   DWARF.cpp
