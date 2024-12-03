@@ -15,6 +15,7 @@
 #include "DirectX.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
@@ -47,10 +48,14 @@ static void updateFunctionFlags(ComputedShaderFlags &CSF,
 }
 
 void ModuleShaderFlags::initialize(const Module &M) {
+  SmallVector<const Function *> WorkList;
   // Collect shader flags for each of the functions
   for (const auto &F : M.getFunctionList()) {
     if (F.isDeclaration())
       continue;
+    if (!F.user_empty()) {
+      WorkList.push_back(&F);
+    }
     ComputedShaderFlags CSF;
     for (const auto &BB : F)
       for (const auto &I : BB)
@@ -61,6 +66,21 @@ void ModuleShaderFlags::initialize(const Module &M) {
     CombinedSFMask.merge(CSF);
   }
   llvm::sort(FunctionFlags);
+  // Propagate shader flag mask of functions to their callers.
+  while (!WorkList.empty()) {
+    const Function *Func = WorkList.pop_back_val();
+    if (!Func->user_empty()) {
+      ComputedShaderFlags FuncSF = getFunctionFlags(Func);
+      // Update mask of callers with that of Func
+      for (const auto User : Func->users()) {
+        if (const CallInst *CI = dyn_cast<CallInst>(User)) {
+          const Function *Caller = CI->getParent()->getParent();
+          if (mergeFunctionShaderFlags(Caller, FuncSF))
+            WorkList.push_back(Caller);
+        }
+      }
+    }
+  }
 }
 
 void ComputedShaderFlags::print(raw_ostream &OS) const {
@@ -81,16 +101,31 @@ void ComputedShaderFlags::print(raw_ostream &OS) const {
   OS << ";\n";
 }
 
-/// Return the shader flags mask of the specified function Func.
-const ComputedShaderFlags &
-ModuleShaderFlags::getFunctionFlags(const Function *Func) const {
+auto ModuleShaderFlags::getFunctionShaderFlagInfo(const Function *Func) const {
   const auto Iter = llvm::lower_bound(
       FunctionFlags, Func,
       [](const std::pair<const Function *, ComputedShaderFlags> FSM,
          const Function *FindFunc) { return (FSM.first < FindFunc); });
   assert((Iter != FunctionFlags.end() && Iter->first == Func) &&
          "No Shader Flags Mask exists for function");
-  return Iter->second;
+  return Iter;
+}
+
+/// Merge mask NewSF to that of Func, if different.
+/// Return true if mask of Func is changed, else false.
+bool ModuleShaderFlags::mergeFunctionShaderFlags(
+    const Function *Func, const ComputedShaderFlags NewSF) {
+  const auto FuncSFInfo = getFunctionShaderFlagInfo(Func);
+  if ((FuncSFInfo->second & NewSF) != NewSF) {
+    const_cast<ComputedShaderFlags &>(FuncSFInfo->second).merge(NewSF);
+    return true;
+  }
+  return false;
+}
+/// Return the shader flags mask of the specified function Func.
+const ComputedShaderFlags &
+ModuleShaderFlags::getFunctionFlags(const Function *Func) const {
+  return getFunctionShaderFlagInfo(Func)->second;
 }
 
 //===----------------------------------------------------------------------===//
