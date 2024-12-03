@@ -644,8 +644,7 @@ class SPIRVStructurizer : public FunctionPass {
       Builder.SetInsertPoint(Header->getTerminator());
 
       auto MergeAddress = BlockAddress::get(BB.getParent(), &BB);
-      SmallVector<Value *, 1> Args = {MergeAddress};
-      Builder.CreateIntrinsic(Intrinsic::spv_selection_merge, {}, {Args});
+      createOpSelectMerge(&Builder, MergeAddress);
 
       Modified = true;
     }
@@ -767,10 +766,9 @@ class SPIRVStructurizer : public FunctionPass {
       BasicBlock *Merge = Candidates[0];
 
       auto MergeAddress = BlockAddress::get(Merge->getParent(), Merge);
-      SmallVector<Value *, 1> Args = {MergeAddress};
       IRBuilder<> Builder(&BB);
       Builder.SetInsertPoint(BB.getTerminator());
-      Builder.CreateIntrinsic(Intrinsic::spv_selection_merge, {}, {Args});
+      createOpSelectMerge(&Builder, MergeAddress);
     }
 
     return Modified;
@@ -1103,8 +1101,7 @@ class SPIRVStructurizer : public FunctionPass {
         Builder.SetInsertPoint(Header->getTerminator());
 
         auto MergeAddress = BlockAddress::get(Merge->getParent(), Merge);
-        SmallVector<Value *, 1> Args = {MergeAddress};
-        Builder.CreateIntrinsic(Intrinsic::spv_selection_merge, {}, {Args});
+        createOpSelectMerge(&Builder, MergeAddress);
         continue;
       }
 
@@ -1118,8 +1115,7 @@ class SPIRVStructurizer : public FunctionPass {
       Builder.SetInsertPoint(Header->getTerminator());
 
       auto MergeAddress = BlockAddress::get(NewMerge->getParent(), NewMerge);
-      SmallVector<Value *, 1> Args = {MergeAddress};
-      Builder.CreateIntrinsic(Intrinsic::spv_selection_merge, {}, {Args});
+      createOpSelectMerge(&Builder, MergeAddress);
     }
 
     return Modified;
@@ -1205,6 +1201,21 @@ public:
 
     AU.addPreserved<SPIRVConvergenceRegionAnalysisWrapperPass>();
     FunctionPass::getAnalysisUsage(AU);
+  }
+
+  void createOpSelectMerge(IRBuilder<> *Builder, BlockAddress *MergeAddress) {
+    Instruction *BBTerminatorInst = Builder->GetInsertBlock()->getTerminator();
+
+    MDNode *MDNode = BBTerminatorInst->getMetadata("hlsl.controlflow.hint");
+    if (MDNode)
+      assert(MDNode->getNumOperands() == 2 &&
+             "invalid metadata hlsl.controlflow.hint");
+
+    Value *MDNodeValue = MetadataAsValue::get(Builder->getContext(), MDNode);
+
+    llvm::SmallVector<llvm::Value *, 2> Args = {MergeAddress, MDNodeValue};
+
+    Builder->CreateIntrinsic(Intrinsic::spv_selection_merge, {}, {Args});
   }
 };
 } // namespace llvm
