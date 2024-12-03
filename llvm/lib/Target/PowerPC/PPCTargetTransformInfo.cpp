@@ -582,8 +582,8 @@ InstructionCost PPCTTIImpl::vectorCostAdjustmentFactor(unsigned Opcode,
 InstructionCost PPCTTIImpl::getArithmeticInstrCost(
     unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
     TTI::OperandValueInfo Op1Info, TTI::OperandValueInfo Op2Info,
-    ArrayRef<const Value *> Args,
-    const Instruction *CxtI) {
+    ArrayRef<const Value *> Args, const Instruction *CxtI,
+    ArrayRef<Value *> Scalars) {
   assert(TLI->InstructionOpcodeToISD(Opcode) && "Invalid opcode");
 
   InstructionCost CostFactor = vectorCostAdjustmentFactor(Opcode, Ty, nullptr);
