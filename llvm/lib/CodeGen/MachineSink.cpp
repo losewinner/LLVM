@@ -100,6 +100,12 @@ static cl::opt<bool>
                                 "register spills"),
                        cl::init(false), cl::Hidden);
 
+static cl::opt<bool> AggressivelySinkInstsIntoCycle(
+    "aggressive-sink-insts-into-cycles",
+    cl::desc("Aggressively sink instructions into cycles to avoid "
+             "register spills"),
+    cl::init(false), cl::Hidden);
+
 static cl::opt<unsigned> SinkIntoCycleLimit(
     "machine-sink-cycle-limit",
     cl::desc(
@@ -111,6 +117,8 @@ STATISTIC(NumCycleSunk, "Number of machine instructions sunk into a cycle");
 STATISTIC(NumSplit, "Number of critical edges split");
 STATISTIC(NumCoalesces, "Number of copies coalesced");
 STATISTIC(NumPostRACopySink, "Number of copies sunk after RA");
+
+using RegSubRegPair = TargetInstrInfo::RegSubRegPair;
 
 namespace {
 
@@ -255,6 +263,12 @@ private:
   void FindCycleSinkCandidates(MachineCycle *Cycle, MachineBasicBlock *BB,
                                SmallVectorImpl<MachineInstr *> &Candidates);
   bool SinkIntoCycle(MachineCycle *Cycle, MachineInstr &I);
+
+  bool isDead(const MachineInstr *MI) const;
+  bool aggressivelySinkIntoCycle(
+      MachineCycle *Cycle, MachineInstr &I,
+      DenseMap<std::pair<MachineInstr *, MachineBasicBlock *>, MachineInstr *>
+          &SunkInstrs);
 
   bool isProfitableToSinkTo(Register Reg, MachineInstr &MI,
                             MachineBasicBlock *MBB,
@@ -679,6 +693,10 @@ void MachineSinking::FindCycleSinkCandidates(
     SmallVectorImpl<MachineInstr *> &Candidates) {
   for (auto &MI : *BB) {
     LLVM_DEBUG(dbgs() << "CycleSink: Analysing candidate: " << MI);
+    if (MI.isMetaInstruction()) {
+      LLVM_DEBUG(dbgs() << "CycleSink: Dont sink meta instructions\n");
+      continue;
+    }
     if (!TII->shouldSink(MI)) {
       LLVM_DEBUG(dbgs() << "CycleSink: Instruction not a candidate for this "
                            "target\n");
@@ -769,8 +787,11 @@ bool MachineSinking::runOnMachineFunction(MachineFunction &MF) {
     EverMadeChange = true;
   }
 
-  if (SinkInstsIntoCycle) {
+  if (SinkInstsIntoCycle || AggressivelySinkInstsIntoCycle) {
     SmallVector<MachineCycle *, 8> Cycles(CI->toplevel_cycles());
+
+    DenseMap<std::pair<MachineInstr *, MachineBasicBlock *>, MachineInstr *>
+        SunkInstrs;
     for (auto *Cycle : Cycles) {
       MachineBasicBlock *Preheader = Cycle->getCyclePreheader();
       if (!Preheader) {
@@ -784,7 +805,18 @@ bool MachineSinking::runOnMachineFunction(MachineFunction &MF) {
       // of a def-use chain, if there is any.
       // TODO: Sort the candidates using a cost-model.
       unsigned i = 0;
+
       for (MachineInstr *I : llvm::reverse(Candidates)) {
+        // AggressivelySinkInstsIntoCycle sinks a superset of instructions
+        // relative to regular cycle sinking. Thus, this option supercedes
+        // captures all sinking opportunites done
+        if (AggressivelySinkInstsIntoCycle) {
+          aggressivelySinkIntoCycle(Cycle, *I, SunkInstrs);
+          EverMadeChange = true;
+          ++NumCycleSunk;
+          continue;
+        }
+
         if (i++ == SinkIntoCycleLimit) {
           LLVM_DEBUG(dbgs() << "CycleSink:   Limit reached of instructions to "
                                "be analysed.");
@@ -1575,6 +1607,136 @@ bool MachineSinking::hasStoreBetween(MachineBasicBlock *From,
   if (!SawStore)
     HasStoreCache[BlockPair] = false;
   return HasAliasedStore;
+}
+
+bool MachineSinking::isDead(const MachineInstr *MI) const {
+  // Instructions without side-effects are dead iff they only define dead regs.
+  // This function is hot and this loop returns early in the common case,
+  // so only perform additional checks before this if absolutely necessary.
+
+  for (const MachineOperand &MO : MI->all_defs()) {
+    Register Reg = MO.getReg();
+    if (Reg.isPhysical())
+      return false;
+
+    if (MO.isDead()) {
+#ifndef NDEBUG
+      // Basic check on the register. All of them should be 'undef'.
+      for (auto &U : MRI->use_nodbg_operands(Reg))
+        assert(U.isUndef() && "'Undef' use on a 'dead' register is found!");
+#endif
+      continue;
+    }
+
+    if (!(MRI->hasAtMostUserInstrs(Reg, 0)))
+      return false;
+  }
+
+  // Technically speaking inline asm without side effects and no defs can still
+  // be deleted. But there is so much bad inline asm code out there, we should
+  // let them be.
+  if (MI->isInlineAsm())
+    return false;
+
+  // FIXME: See issue #105950 for why LIFETIME markers are considered dead here.
+  if (MI->isLifetimeMarker())
+    return true;
+
+  // If there are no defs with uses, the instruction might be dead.
+  return MI->wouldBeTriviallyDead();
+}
+
+/// Aggressively sink instructions into cycles. This will aggressively try to
+/// sink all instructions in the top-most preheaders in an attempt to reduce RP.
+/// In particular, it will sink into multiple successor blocks without limits
+/// based on the amount of sinking, or the type of ops being sunk (so long as
+/// they are safe to sink).
+bool MachineSinking::aggressivelySinkIntoCycle(
+    MachineCycle *Cycle, MachineInstr &I,
+    DenseMap<std::pair<MachineInstr *, MachineBasicBlock *>, MachineInstr *>
+        &SunkInstrs) {
+  LLVM_DEBUG(dbgs() << "AggressiveCycleSink: Finding sink block for: " << I);
+  MachineBasicBlock *Preheader = Cycle->getCyclePreheader();
+  assert(Preheader && "Cycle sink needs a preheader block");
+  SmallVector<std::pair<RegSubRegPair, MachineInstr *>> Uses;
+  // TODO: support instructions with multiple defs
+  if (I.getNumDefs() > 1)
+    return false;
+
+  MachineOperand &DefMO = I.getOperand(0);
+  for (MachineInstr &MI : MRI->use_instructions(DefMO.getReg())) {
+    Uses.push_back({{DefMO.getReg(), DefMO.getSubReg()}, &MI});
+  }
+
+  for (std::pair<RegSubRegPair, MachineInstr *> Entry : Uses) {
+    MachineInstr *MI = Entry.second;
+    LLVM_DEBUG(dbgs() << "AggressiveCycleSink:   Analysing use: " << MI);
+    if (MI->isPHI()) {
+      LLVM_DEBUG(
+          dbgs() << "AggressiveCycleSink:   Not attempting to sink for PHI.\n");
+      continue;
+    }
+    // We cannot sink before the prologue
+    if (TII->isBasicBlockPrologue(*MI) || MI->isPosition()) {
+      LLVM_DEBUG(dbgs() << "AggressiveCycleSink:   Use is BasicBlock prologue, "
+                           "can't sink.\n");
+      continue;
+    }
+    if (!Cycle->contains(MI->getParent())) {
+      LLVM_DEBUG(
+          dbgs() << "AggressiveCycleSink:   Use not in cycle, can't sink.\n");
+      continue;
+    }
+
+    MachineBasicBlock *SinkBlock = MI->getParent();
+    MachineInstr *NewMI = nullptr;
+    std::pair<MachineInstr *, MachineBasicBlock *> MapEntry(&I, SinkBlock);
+
+    // Check for the case in which we have already sunk a copy of this
+    // instruction into the user block.
+    if (SunkInstrs.contains(MapEntry)) {
+      LLVM_DEBUG(dbgs() << "AggressiveCycleSink:   Already sunk to block: "
+                        << printMBBReference(*SinkBlock) << "\n");
+      NewMI = SunkInstrs[MapEntry];
+    }
+
+    // Create a copy of the instruction in the use block.
+    if (!NewMI) {
+      LLVM_DEBUG(dbgs() << "AggressiveCycleSink: Sinking instruction to block: "
+                        << printMBBReference(*SinkBlock) << "\n");
+
+      NewMI = I.getMF()->CloneMachineInstr(&I);
+      if (DefMO.getReg().isVirtual()) {
+        const TargetRegisterClass *TRC = MRI->getRegClass(DefMO.getReg());
+        Register DestReg = MRI->createVirtualRegister(TRC);
+        NewMI->substituteRegister(DefMO.getReg(), DestReg, DefMO.getSubReg(),
+                                  *TRI);
+      }
+      SinkBlock->insert(SinkBlock->SkipPHIsAndLabels(SinkBlock->begin()),
+                        NewMI);
+      SunkInstrs[MapEntry] = NewMI;
+    }
+
+    // Conservatively clear any kill flags on uses of sunk instruction
+    for (MachineOperand &MO : NewMI->operands()) {
+      if (MO.isReg() && MO.readsReg())
+        RegsToClearKillFlags.insert(MO.getReg());
+    }
+
+    // The instruction is moved from its basic block, so do not retain the
+    // debug information.
+    assert(!NewMI->isDebugInstr() && "Should not sink debug inst");
+    NewMI->setDebugLoc(DebugLoc());
+
+    // Replace the use with the newly created virtual register.
+    RegSubRegPair &UseReg = Entry.first;
+    MI->substituteRegister(UseReg.Reg, NewMI->getOperand(0).getReg(),
+                           UseReg.SubReg, *TRI);
+  }
+  // If we have replaced all uses, then delete the dead instruction
+  if (isDead(&I))
+    I.eraseFromParent();
+  return true;
 }
 
 /// Sink instructions into cycles if profitable. This especially tries to
