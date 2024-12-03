@@ -5,7 +5,7 @@
 #define N 256
 
 int main() {
-  // CHECK: Launching kernel [[KERNEL:.+_main_.+]] with 1 blocks and 1 threads
+  // CHECK: Launching kernel [[KERNEL:.+_main_.+]] with [1,1,1] blocks and [1,1,1] threads
 #pragma omp target teams
 #pragma omp parallel
   {}
