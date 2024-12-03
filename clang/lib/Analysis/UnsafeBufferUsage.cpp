@@ -439,37 +439,35 @@ AST_MATCHER(ArraySubscriptExpr, isSafeArraySubscript) {
   //    already duplicated
   //  - call both from Sema and from here
 
-  const auto *BaseDRE =
-      dyn_cast<DeclRefExpr>(Node.getBase()->IgnoreParenImpCasts());
-  const auto *SLiteral =
-      dyn_cast<StringLiteral>(Node.getBase()->IgnoreParenImpCasts());
-  uint64_t size;
-
-  if (!BaseDRE && !SLiteral)
-    return false;
-
-  if (BaseDRE) {
-    if (!BaseDRE->getDecl())
+  std::function<bool(const ArraySubscriptExpr *)> CheckBounds =
+      [&CheckBounds](const ArraySubscriptExpr *ASE) -> bool {
+    uint64_t limit;
+    if (const auto *CATy =
+            dyn_cast<ConstantArrayType>(ASE->getBase()
+                                            ->IgnoreParenImpCasts()
+                                            ->getType()
+                                            ->getUnqualifiedDesugaredType())) {
+      limit = CATy->getLimitedSize();
+    } else if (const auto *SLiteral = dyn_cast<StringLiteral>(
+                   ASE->getBase()->IgnoreParenImpCasts())) {
+      limit = SLiteral->getLength() + 1;
+    } else
       return false;
-    const auto *CATy = Finder->getASTContext().getAsConstantArrayType(
-        BaseDRE->getDecl()->getType());
-    if (!CATy) {
-      return false;
-    }
-    size = CATy->getLimitedSize();
-  } else if (SLiteral) {
-    size = SLiteral->getLength() + 1;
-  }
 
-  if (const auto *IdxLit = dyn_cast<IntegerLiteral>(Node.getIdx())) {
-    const APInt ArrIdx = IdxLit->getValue();
-    // FIXME: ArrIdx.isNegative() we could immediately emit an error as that's a
-    // bug
-    if (ArrIdx.isNonNegative() && ArrIdx.getLimitedValue() < size)
+    if (const auto *IdxLit = dyn_cast<IntegerLiteral>(ASE->getIdx())) {
+      const APInt ArrIdx = IdxLit->getValue();
+      if (!ArrIdx.isNonNegative() || ArrIdx.getLimitedValue() >= limit)
+        return false;
+      if (const auto *BaseASE = dyn_cast<ArraySubscriptExpr>(
+              ASE->getBase()->IgnoreParenImpCasts())) {
+        return CheckBounds(BaseASE);
+      }
       return true;
-  }
+    }
+    return false;
+  };
 
-  return false;
+  return CheckBounds(&Node);
 }
 
 AST_MATCHER_P(CallExpr, hasNumArgs, unsigned, Num) {
@@ -1178,6 +1176,12 @@ public:
     if (const auto *DRE =
             dyn_cast<DeclRefExpr>(ASE->getBase()->IgnoreParenImpCasts())) {
       return {DRE};
+    } else if (const auto *BaseASE = dyn_cast<ArraySubscriptExpr>(
+                   ASE->getBase()->IgnoreParenImpCasts())) {
+      if (const auto *DRE = dyn_cast<DeclRefExpr>(
+              BaseASE->getBase()->IgnoreParenImpCasts())) {
+        return {DRE};
+      }
     }
 
     return {};

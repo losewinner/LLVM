@@ -8,6 +8,5 @@
 // main function
 int main(int argc, char *argv[]) { // expected-warning{{'argv' is an unsafe pointer used for buffer access}}
   char tmp;
-  tmp = argv[5][5];                // expected-note{{used in buffer access here}} \
-				      expected-warning{{unsafe buffer access}}
+  tmp = argv[5][5];                // expected-note2{{used in buffer access here}}
 }
